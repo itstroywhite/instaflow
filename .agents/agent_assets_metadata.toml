@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "C3cbHcDSVizqSBCW6rWWg"
+uri = "file://HANDOVER.md"
+type = "text"
+title = "InstaFlow — Handover Documentation"

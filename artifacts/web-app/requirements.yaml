@@ -1,0 +1,15 @@
+packages:
+  "framer-motion": "Smooth entry animations and page transitions"
+  "react-hook-form": "Form state management"
+  "@hookform/resolvers": "Zod integration for forms"
+  "zod": "Schema validation for mock API responses and forms"
+  "date-fns": "Formatting dates in the dashboard"
+
+images:
+  - path: "artifacts/web-app/public/images/hero-abstract.png"
+    description: "Clean minimal abstract geometric background, soft subtle light waves, white and pale slate blue, premium corporate modern aesthetic"
+    aspect_ratio: "16:9"
+
+notes:
+  - Assuming REST API at /api/projects and /api/tasks exists or will be created
+  - Using framer-motion for premium interaction feel
