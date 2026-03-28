@@ -170,28 +170,32 @@ function postStatusClasses(post: ApprovedPost) {
 }
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
+// VITE_API_URL must be set to the backend base URL in production (e.g. https://your-app.onrender.com).
+// In development (Replit) it defaults to "" so relative /api/... paths are used via the Vite proxy.
+const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
+
 async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`/api${path}`);
+  const res = await fetch(`${API_BASE}/api${path}`);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPost(path: string, body: object) {
-  const res = await fetch(`/api${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPatch(path: string, body: object) {
-  const res = await fetch(`/api${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPut(path: string, body: object) {
-  const res = await fetch(`/api${path}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiDelete(path: string) {
-  const res = await fetch(`/api${path}`, { method: "DELETE" });
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "DELETE" });
   if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
   return res.json();
 }

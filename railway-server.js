@@ -12,7 +12,15 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+// CORS — allow all origins so the Vercel frontend can talk to this Render backend.
+// To lock it down to a specific origin, set ALLOWED_ORIGIN env var.
+app.use(cors({
+  origin: process.env.ALLOWED_ORIGIN || true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+}));
+app.options("*", cors()); // Handle pre-flight for all routes
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
@@ -23,7 +31,13 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+// Use SSL in production (required by Render PostgreSQL and most managed DBs).
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL.includes("localhost") || process.env.DATABASE_URL.includes("127.0.0.1")
+    ? false
+    : { rejectUnauthorized: false },
+});
 
 async function ensureTables() {
   await pool.query(`
@@ -228,6 +242,28 @@ app.post("/api/posts", async (req, res) => {
 app.delete("/api/posts/:id", async (req, res) => {
   await withTables(async () => {
     await pool.query("DELETE FROM approved_posts WHERE id = $1", [req.params.id]);
+    invalidatePosts();
+    res.json({ ok: true });
+  }, res);
+});
+
+// /api/drafts — alias for POST /api/posts (drafts are stored in approved_posts with status:"draft")
+app.post("/api/drafts", async (req, res) => {
+  const { id, day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status } = req.body;
+  await withTables(async () => {
+    await pool.query(
+      `INSERT INTO approved_posts (id, day, caption, tags_summary, slide_count, scheduled_date, scheduled_time, media_ids, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         day = EXCLUDED.day, caption = EXCLUDED.caption, tags_summary = EXCLUDED.tags_summary,
+         slide_count = EXCLUDED.slide_count, scheduled_date = EXCLUDED.scheduled_date,
+         scheduled_time = EXCLUDED.scheduled_time, media_ids = EXCLUDED.media_ids,
+         status = EXCLUDED.status`,
+      [id, day, caption ?? "", tagsSummary ?? "", String(slideCount ?? 1),
+       scheduledDate ?? null, scheduledTime ?? null,
+       mediaIds ? JSON.stringify(mediaIds) : null,
+       status ?? "draft"]
+    );
     invalidatePosts();
     res.json({ ok: true });
   }, res);
