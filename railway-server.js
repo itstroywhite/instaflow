@@ -126,16 +126,13 @@ app.get("/api/media", async (req, res) => {
   await withTables(async () => {
     if (!mediaCache) {
       const result = await pool.query(
-        `SELECT id, name, tag, url, data_url, folder_id, used, created_at
+        `SELECT id, name, tag, url, folder_id, used, created_at
          FROM media_items
-         WHERE (data_url IS NULL OR data_url NOT LIKE 'data:video/%')
-           AND (url IS NULL OR url NOT LIKE 'data:video/%')
          ORDER BY created_at DESC`
       );
       mediaCache = result.rows.map((r) => ({
         id: r.id, name: r.name, tag: r.tag,
-        // Prefer Supabase public URL over stored base64
-        dataUrl: r.url ?? r.data_url ?? "",
+        dataUrl: r.url ?? "",
         folderId: r.folder_id ?? null,
         used: r.used ?? false, createdAt: r.created_at,
       }));
@@ -197,12 +194,13 @@ app.post("/api/media/upload", async (req, res) => {
   await withTables(async () => {
     if (publicUrl) {
       await pool.query(
-        `INSERT INTO media_items (id, name, tag, data_url, url, folder_id, used) VALUES ($1,$2,$3,$4,$4,$5,FALSE) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO media_items (id, name, tag, url, folder_id, used) VALUES ($1,$2,$3,$4,$5,FALSE) ON CONFLICT (id) DO NOTHING`,
         [id, name, tag ?? null, publicUrl, folderId ?? null]
       );
     } else {
+      // Supabase not configured — store base64 directly in url column as fallback
       await pool.query(
-        `INSERT INTO media_items (id, name, tag, data_url, url, folder_id, used) VALUES ($1,$2,$3,$4,NULL,$5,FALSE) ON CONFLICT (id) DO NOTHING`,
+        `INSERT INTO media_items (id, name, tag, url, folder_id, used) VALUES ($1,$2,$3,$4,$5,FALSE) ON CONFLICT (id) DO NOTHING`,
         [id, name, tag ?? null, dataUrl, folderId ?? null]
       );
     }
@@ -219,14 +217,9 @@ app.post("/api/media", async (req, res) => {
     return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
   }
   await withTables(async () => {
-    const isUrl = typeof dataUrl === "string" && dataUrl.startsWith("http");
     await pool.query(
-      `INSERT INTO media_items (id, name, tag, data_url, url, used)
-       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`,
-      [id, name, tag ?? null,
-       isUrl ? dataUrl : (dataUrl ?? ""),
-       isUrl ? dataUrl : null,
-       used ?? false]
+      `INSERT INTO media_items (id, name, tag, url, used) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING`,
+      [id, name, tag ?? null, dataUrl ?? "", used ?? false]
     );
     invalidateMedia();
     res.json({ ok: true });
@@ -455,7 +448,7 @@ app.post("/api/claude", async (req, res) => {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify(req.body),
+      body: JSON.stringify({ ...req.body, model: "claude-sonnet-4-5" }),
     });
     const data = await response.json();
     console.log(`[claude] Anthropic status=${response.status} error=${data?.error?.message ?? "none"}`);
