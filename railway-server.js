@@ -87,7 +87,7 @@ async function withTables(fn, res) {
     if (!tablesReady) { await ensureTables(); tablesReady = true; }
     await fn();
   } catch (err) {
-    console.error("DB error:", err?.message);
+    console.error("[DB error]", err?.message, err?.stack);
     res.status(500).json({ error: err?.message ?? "Database error" });
   }
 }
@@ -288,13 +288,19 @@ app.get("/api/folders", async (req, res) => {
 
 app.post("/api/folders", async (req, res) => {
   const { id, name, mediaIds } = req.body;
+  console.log("[POST /api/folders] body:", JSON.stringify({ id, name, mediaIds }));
+  if (!id || !name) {
+    console.warn("[POST /api/folders] Missing id or name — rejecting");
+    return res.status(400).json({ error: "id and name are required" });
+  }
   await withTables(async () => {
-    await pool.query(
-      "INSERT INTO media_folders (id, name, media_ids) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING",
+    const result = await pool.query(
+      "INSERT INTO media_folders (id, name, media_ids) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING RETURNING id",
       [id, name, mediaIds ? JSON.stringify(mediaIds) : "[]"]
     );
+    console.log("[POST /api/folders] DB insert result rowCount:", result.rowCount);
     invalidateFolders();
-    res.json({ ok: true });
+    res.json({ ok: true, id });
   }, res);
 });
 
@@ -351,30 +357,97 @@ app.post("/api/claude", async (req, res) => {
   }
 });
 
+// ── Supabase Storage Upload ────────────────────────────────────────────────────
+
+app.post("/api/upload", async (req, res) => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+  if (!supabaseUrl || !supabaseKey) {
+    // Not configured — tell frontend to fall back to base64
+    return res.status(503).json({ error: "Supabase not configured", fallback: true });
+  }
+
+  const { dataUrl, id } = req.body;
+  if (!dataUrl || !id) {
+    return res.status(400).json({ error: "dataUrl and id are required" });
+  }
+
+  const comma = dataUrl.indexOf(",");
+  if (comma === -1) {
+    return res.status(400).json({ error: "Invalid dataUrl format" });
+  }
+
+  const header = dataUrl.slice(0, comma);
+  const base64 = dataUrl.slice(comma + 1);
+  const mediaType = header.split(";")[0].replace("data:", "") || "image/jpeg";
+  const ext = mediaType.split("/")[1]?.split("+")[0] || "jpg";
+  const filename = `${id}.${ext}`;
+
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    console.log(`[upload] Uploading ${filename} (${buffer.length} bytes) to Supabase`);
+
+    const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/media/${filename}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "Content-Type": mediaType,
+        "x-upsert": "true",
+      },
+      body: buffer,
+    });
+
+    if (!uploadRes.ok) {
+      const errBody = await uploadRes.text();
+      console.error(`[upload] Supabase error ${uploadRes.status}:`, errBody);
+      return res.status(502).json({ error: `Supabase upload failed: ${uploadRes.status} — ${errBody}` });
+    }
+
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/media/${filename}`;
+    console.log(`[upload] Success: ${publicUrl}`);
+    res.json({ url: publicUrl });
+  } catch (err) {
+    console.error("[upload] Unexpected error:", err);
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // ── AI — Image Auto-Tag ───────────────────────────────────────────────────────
 
 const VALID_TAGS = ["me", "outfit", "food", "dj", "vibe", "friends", "location", "outdoor", "night", "other"];
 
 app.post("/api/analyze", async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  console.log("[analyze] ANTHROPIC_API_KEY present:", !!apiKey, "length:", apiKey ? apiKey.length : 0);
+
   if (!apiKey) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY not configured" });
+    console.error("[analyze] ANTHROPIC_API_KEY is not set — returning 'other'");
+    return res.status(500).json({ tag: "other", error: "ANTHROPIC_API_KEY not configured" });
   }
+
   const { dataUrl } = req.body;
   if (!dataUrl || typeof dataUrl !== "string") {
-    return res.status(400).json({ error: "dataUrl is required" });
+    return res.status(400).json({ tag: "other", error: "dataUrl is required" });
   }
+
   const comma = dataUrl.indexOf(",");
   if (comma === -1) {
-    return res.status(400).json({ error: "Invalid dataUrl format" });
+    return res.status(400).json({ tag: "other", error: "Invalid dataUrl format" });
   }
+
   const header = dataUrl.slice(0, comma);
   const base64 = dataUrl.slice(comma + 1);
   const mediaType = header.split(";")[0].replace("data:", "");
   const supportedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+  console.log(`[analyze] mediaType=${mediaType} base64Length=${base64.length}`);
+
   if (!supportedTypes.includes(mediaType)) {
+    console.warn(`[analyze] Unsupported mediaType: ${mediaType} — returning 'other'`);
     return res.json({ tag: "other" });
   }
+
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -384,7 +457,7 @@ app.post("/api/analyze", async (req, res) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5",
+        model: "claude-3-haiku-20240307",
         max_tokens: 20,
         messages: [{
           role: "user",
@@ -415,16 +488,22 @@ Reply with ONLY the single category word in lowercase, nothing else.`,
         }],
       }),
     });
+
     const data = await response.json();
+    console.log(`[analyze] Anthropic status=${response.status} response:`, JSON.stringify(data).slice(0, 300));
+
     if (!response.ok) {
+      console.error("[analyze] Anthropic API error:", data?.error?.message);
       return res.json({ tag: "other", error: data?.error?.message });
     }
+
     const rawText = data.content?.[0]?.text ?? "";
     const cleaned = rawText.toLowerCase().trim().replace(/[^a-z]/g, "");
     const tag = VALID_TAGS.includes(cleaned) ? cleaned : "other";
+    console.log(`[analyze] rawText="${rawText}" cleaned="${cleaned}" finalTag="${tag}"`);
     res.json({ tag });
   } catch (err) {
-    console.error("Analyze error:", err);
+    console.error("[analyze] Unexpected error:", err);
     res.status(502).json({ tag: "other", error: "Failed to reach Anthropic API" });
   }
 });

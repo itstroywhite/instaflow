@@ -208,6 +208,19 @@ async function analyzeTag(dataUrl: string, availableTags: string[]): Promise<str
   } catch { return "other"; }
 }
 
+// Upload image to Supabase Storage via the backend proxy.
+// Returns the public URL on success, or the original base64 dataUrl as fallback.
+async function uploadMediaToStorage(dataUrl: string, id: string): Promise<string> {
+  if (!dataUrl.startsWith("data:")) return dataUrl; // already a URL
+  try {
+    const result = await apiPost("/upload", { dataUrl, id });
+    if ((result as any).url) return (result as any).url;
+    return dataUrl; // fallback: keep base64
+  } catch {
+    return dataUrl; // fallback: keep base64
+  }
+}
+
 async function generate3Captions(
   tags: string[], cs: CaptionSettings, isCarousel: boolean,
   mode: "fresh" | "rephrase" | "shorter" | "longer" | "variations", previousCaption?: string, theme?: string, userIdeas?: string
@@ -832,12 +845,18 @@ export default function App() {
 
     if (videoItems.length > 0) setVideoTagQueue((prev) => [...prev, ...videoItems]);
 
-    // Auto-tag images
+    // Auto-tag images, then upload to Supabase Storage, then persist to DB
     for (const item of imageItems) {
       const tag = await analyzeTag(item.dataUrl, allAvailableTags);
       setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
-      try { await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: item.dataUrl, used: false }); }
-      catch (err) { console.error("Failed to save", err); }
+      try {
+        const storedUrl = await uploadMediaToStorage(item.dataUrl, item.id);
+        // Swap local base64 for the persisted URL so the grid shows the URL version
+        if (storedUrl !== item.dataUrl) {
+          setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
+        }
+        await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: storedUrl, used: false });
+      } catch (err) { console.error("Failed to save", err); }
     }
   }
 
@@ -1004,8 +1023,13 @@ export default function App() {
     const item = videoTagQueue[0]; if (!item) return;
     setVideoTagQueue((prev) => prev.slice(1));
     setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
-    try { await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: item.dataUrl, used: false }); }
-    catch (err) { console.error(err); }
+    try {
+      const storedUrl = await uploadMediaToStorage(item.dataUrl, item.id);
+      if (storedUrl !== item.dataUrl) {
+        setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
+      }
+      await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: storedUrl, used: false });
+    } catch (err) { console.error(err); }
   }
 
   // ── Selection ──
