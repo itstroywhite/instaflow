@@ -301,7 +301,7 @@ Return ONLY a valid JSON array of exactly 3 strings. No explanation, no markdown
     try {
       if (attempt > 0) await new Promise((r) => setTimeout(r, 1500));
       const data = await apiPost("/claude", {
-        model: "claude-haiku-4-5", max_tokens: 600,
+        model: "claude-3-haiku-20240307", max_tokens: 600,
         messages: [{ role: "user", content: prompt }],
       });
       const text = data.content?.[0]?.text?.trim() ?? "[]";
@@ -332,7 +332,7 @@ Context: single post featuring a ${tagLabel(tags[0] ?? "other")} photo. Tone: ${
 
 Output only the caption text, nothing else.`;
   const data = await apiPost("/claude", {
-    model: "claude-haiku-4-5", max_tokens: 200,
+    model: "claude-3-haiku-20240307", max_tokens: 200,
     messages: [{ role: "user", content: prompt }],
   });
   const text = data.content?.[0]?.text;
@@ -342,7 +342,7 @@ Output only the caption text, nothing else.`;
 
 async function aiPickTagsForTheme(theme: string, availableTags: string[]): Promise<string[]> {
   const data = await apiPost("/claude", {
-    model: "claude-haiku-4-5", max_tokens: 80,
+    model: "claude-3-haiku-20240307", max_tokens: 80,
     messages: [{ role: "user", content: `Given the theme "${theme}" and these image tags: ${availableTags.join(", ")}, pick 2–4 matching tags. Return ONLY a JSON array like ["tag1","tag2"]. No explanation.` }],
   });
   const text = data.content?.[0]?.text?.trim() ?? "[]";
@@ -430,6 +430,8 @@ export default function App() {
   const [filmDragFrom, setFilmDragFrom] = useState<number | null>(null);
   const [filmDragOver, setFilmDragOver] = useState<number | null>(null);
   const filmstripRef = useRef<HTMLDivElement>(null);
+  const touchScrollRef = useRef<{ startX: number; startScrollLeft: number; active: boolean }>({ startX: 0, startScrollLeft: 0, active: false });
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const pointerDragRef = useRef<{
     pointerId: number; fromIndex: number; overIndex: number;
     startX: number; startY: number; active: boolean;
@@ -1643,7 +1645,7 @@ export default function App() {
                         <div className="grid grid-cols-4 gap-1.5">
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75">
-                              {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" preload="none" /> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
+                              {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" preload="none" /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                               {item.tag && <span className={`absolute bottom-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
@@ -1759,7 +1761,7 @@ export default function App() {
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
                         {isVideo(item.dataUrl)
                           ? <div className="w-full h-full relative">{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)]" />}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span></div>
-                          : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" />}
+                          : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
@@ -1953,6 +1955,16 @@ export default function App() {
               {/* 2. FILMSTRIP */}
               <div
                 ref={filmstripRef}
+                onTouchStart={(e) => {
+                  if (filmDragFrom !== null) return;
+                  touchScrollRef.current = { startX: e.touches[0].clientX, startScrollLeft: filmstripRef.current?.scrollLeft ?? 0, active: true };
+                }}
+                onTouchMove={(e) => {
+                  const ts = touchScrollRef.current;
+                  if (!ts.active || filmDragFrom !== null || !filmstripRef.current) return;
+                  filmstripRef.current.scrollLeft = ts.startScrollLeft + (ts.startX - e.touches[0].clientX);
+                }}
+                onTouchEnd={() => { touchScrollRef.current.active = false; }}
                 style={{
                   display: "flex",
                   flexDirection: "row",
@@ -1996,9 +2008,11 @@ export default function App() {
                       } as React.CSSProperties}>
                       {isVideo(item.dataUrl)
                         ? <>{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)" }} />}<span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 9 }}>▶</span></span></>
-                        : <img src={item.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />}
-                      <button onClick={(e) => { e.stopPropagation(); removeFromCarousel(originalIdx); }}
-                        style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.8)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
+                        : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                      <button
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => { e.stopPropagation(); removeFromCarousel(originalIdx); }}
+                        style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.8)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, touchAction: "auto" }}>
                         <span style={{ color: "white", fontSize: 10, lineHeight: 1 }}>✕</span>
                       </button>
                       <div style={{ position: "absolute", bottom: 4, left: 6 }}><span style={{ color: "white", fontSize: 9, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{displayIdx + 1}</span></div>
@@ -2701,6 +2715,11 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
+              {settingsSaved && (
+                <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
+                  <span className="text-emerald-400 text-sm font-semibold">✓ Settings saved!</span>
+                </div>
+              )}
               <button onClick={handleSaveSettings} disabled={settingsSaving}
                 className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all ${settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"} disabled:opacity-60`}>
                 {settingsSaving ? "Saving…" : settingsSaved ? "✓ Saved!" : "Save Settings"}
@@ -2872,7 +2891,7 @@ export default function App() {
 
           <div className="flex-1 overflow-y-auto">
             {/* Image preview */}
-            <div className="relative w-full bg-black" style={{ aspectRatio: "4/5", maxHeight: 400 }}>
+            <div className="relative w-full bg-black" style={{ aspectRatio: "4/5" }}>
               <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" />
               {/* Tag badge */}
               {singlePostItem.tag && (
@@ -3060,7 +3079,7 @@ export default function App() {
                         }}
                         className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all
                           ${isCurrent ? "border-[hsl(263,70%,65%)] opacity-60" : "border-transparent hover:border-[hsl(263,70%,65%)/50]"}`}>
-                        <img src={item.dataUrl} alt="" className="w-full h-full object-cover" />
+                        {brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {isCurrent && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
                             <span className="text-white text-xs font-semibold">Current</span>
@@ -3113,7 +3132,7 @@ export default function App() {
                           }
                         }}
                         className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${isSelected ? "border-[hsl(263,70%,65%)]" : "border-transparent hover:border-[hsl(263,70%,65%)/50]"}`}>
-                        {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" /> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" />}
+                        {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {/* Number badge */}
                         {isSelected && (
                           <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center shadow-lg">
@@ -3517,7 +3536,7 @@ export default function App() {
                 <div className="flex gap-2">
                   {([["all", "🌐 All"], ["tag", "🏷️ Tag"], ["folder", "📁 Folder"]] as const).map(([val, label]) => (
                     <button key={val} onClick={() => { setAiCarouselSource(val); setAiCarouselTags([]); setAiCarouselFolderId(""); }}
-                      className={`text-xs px-3 py-1.5 rounded-lg border flex-1 transition-colors ${aiCarouselSource === val ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border flex-1 transition-all font-medium ${aiCarouselSource === val ? "bg-[hsl(263,70%,55%)] text-white border-[hsl(263,70%,55%)] shadow-sm" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
                       {label}
                     </button>
                   ))}

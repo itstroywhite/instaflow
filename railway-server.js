@@ -87,8 +87,12 @@ async function withTables(fn, res) {
     if (!tablesReady) { await ensureTables(); tablesReady = true; }
     await fn();
   } catch (err) {
-    console.error("[DB error]", err?.message, err?.stack);
-    res.status(500).json({ error: err?.message ?? "Database error" });
+    // Reset tablesReady on connection errors so the next request retries
+    if (err?.code === "ECONNREFUSED" || err?.code === "ECONNRESET" || err?.code === "57P03") {
+      tablesReady = false;
+    }
+    console.error("[DB error] code:", err?.code, "msg:", err?.message);
+    if (!res.headersSent) res.status(500).json({ error: err?.message ?? "Database error" });
   }
 }
 
@@ -333,8 +337,12 @@ app.delete("/api/folders/:id", async (req, res) => {
 
 app.post("/api/claude", async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  const model = req.body?.model ?? "(none)";
+  console.log(`[claude] model=${model} ANTHROPIC_API_KEY present:`, !!apiKey, "len:", apiKey ? apiKey.length : 0);
+
   if (!apiKey) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY is not configured" });
+    console.error("[claude] ANTHROPIC_API_KEY is not set — cannot generate captions");
+    return res.status(500).json({ error: "ANTHROPIC_API_KEY is not configured on the server" });
   }
   try {
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -347,13 +355,15 @@ app.post("/api/claude", async (req, res) => {
       body: JSON.stringify(req.body),
     });
     const data = await response.json();
+    console.log(`[claude] Anthropic status=${response.status} error=${data?.error?.message ?? "none"}`);
     if (!response.ok) {
+      console.error("[claude] Anthropic rejected request:", JSON.stringify(data).slice(0, 500));
       return res.status(response.status).json(data);
     }
     res.json(data);
   } catch (err) {
-    console.error("Claude proxy error:", err);
-    res.status(502).json({ error: "Failed to reach Anthropic API" });
+    console.error("[claude] fetch error:", err?.message);
+    res.status(502).json({ error: "Failed to reach Anthropic API: " + (err?.message ?? "unknown") });
   }
 });
 
