@@ -895,16 +895,19 @@ export default function App() {
     const trimmed = name.trim();
     if (!trimmed) { setFolderNameError(true); return; }
     const folder: MediaFolder = { id: generateId(), name: trimmed, mediaIds: initialIds ?? [], createdAt: new Date().toISOString() };
-    // Update UI first (optimistic), then persist to DB
-    setFolders((prev) => [...prev, folder]);
+    // Close form immediately so UX feels snappy
     setCreateFolderOpen(false);
     setNewFolderName("");
     setFolderNameError(false);
-    try { await apiPost("/folders", { id: folder.id, name: folder.name, mediaIds: folder.mediaIds }); }
-    catch (err) {
-      console.error("Failed to save folder", err);
-      // Rollback if DB save failed
-      setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+    // Persist to DB first — only add to state on success so it never "disappears"
+    try {
+      await apiPost("/folders", { id: folder.id, name: folder.name, mediaIds: folder.mediaIds });
+      setFolders((prev) => [...prev, folder]);
+    } catch (err) {
+      console.error("Failed to save folder to DB:", err);
+      // Re-open the form so the user can retry
+      setNewFolderName(trimmed);
+      setCreateFolderOpen(true);
     }
   }
 
@@ -2893,29 +2896,32 @@ export default function App() {
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {/* Image preview */}
-            <div className="relative w-full bg-black" style={{ aspectRatio: "4/5" }}>
-              <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" />
-              {/* Tag badge */}
-              {singlePostItem.tag && (
-                <div className="absolute top-3 left-3">
-                  <span className={`text-xs px-2.5 py-1 rounded-full border backdrop-blur-sm ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
+            {/* Image preview — same card + rounded-corners style as Carousel */}
+            <div className={`${card} overflow-hidden`}>
+              <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }}>
+                <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" />
+                {/* Tag badge — matches Carousel badge style */}
+                {singlePostItem.tag && (
+                  <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
                     {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}
                   </span>
-                </div>
-              )}
-              {/* Change image buttons */}
-              <div className="absolute bottom-0 left-0 right-0 flex">
+                )}
+                {/* "1 / 1" counter top-right — mirrors Carousel slide counter */}
+                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
+              </div>
+
+              {/* Bottom action bar — sits below image inside same card, like filmstrip */}
+              <div className="flex border-t border-[hsl(220,13%,18%)]">
                 <button onClick={() => setSinglePickerOpen(true)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-black/65 backdrop-blur-sm text-white text-xs hover:bg-black/80 transition-colors">
+                  className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[hsl(220,10%,60%)] hover:text-white text-xs transition-colors hover:bg-[hsl(220,14%,14%)]">
                   <span>🖼️</span><span>Choose from Pool</span>
                 </button>
-                <label className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-black/65 backdrop-blur-sm text-white text-xs cursor-pointer hover:bg-black/80 transition-colors border-l border-white/20">
+                <label className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[hsl(220,10%,60%)] hover:text-white text-xs cursor-pointer transition-colors hover:bg-[hsl(220,14%,14%)] border-l border-[hsl(220,13%,18%)]">
                   <span>📷</span><span>Take Photo</span>
                   <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
                     onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
                 </label>
-                <label className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-black/65 backdrop-blur-sm text-white text-xs cursor-pointer hover:bg-black/80 transition-colors border-l border-white/20">
+                <label className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[hsl(220,10%,60%)] hover:text-white text-xs cursor-pointer transition-colors hover:bg-[hsl(220,14%,14%)] border-l border-[hsl(220,13%,18%)]">
                   <span>📂</span><span>Camera Roll</span>
                   <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
