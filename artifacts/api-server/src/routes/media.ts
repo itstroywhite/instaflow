@@ -3,17 +3,22 @@ import { pool } from "@workspace/db";
 
 const router = Router();
 
+// ─── Schema ───────────────────────────────────────────────────────────────────
 async function ensureTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS media_items (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       tag TEXT,
-      data_url TEXT NOT NULL,
+      data_url TEXT,
+      url TEXT,
+      folder_id TEXT,
       used BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS used BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS url TEXT;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS folder_id TEXT;
 
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -51,12 +56,65 @@ async function withTables(fn: () => Promise<void>, res: any) {
     if (!tablesReady) { await ensureTables(); tablesReady = true; }
     await fn();
   } catch (err: any) {
-    res.status(500).json({ error: err?.message ?? "Database error" });
+    if (err?.message?.includes("connect") || err?.code === "ECONNREFUSED") {
+      tablesReady = false;
+    }
+    if (!res.headersSent) res.status(500).json({ error: err?.message ?? "Database error" });
   }
 }
 
-// ─── In-memory cache ──────────────────────────────────────────────────────────
-// Cache stores ALL image items (no videos). Pagination is done in-memory.
+// ─── Supabase Storage helpers ──────────────────────────────────────────────────
+function getSupabaseConfig() {
+  return {
+    url: process.env.SUPABASE_URL ?? "",
+    key: process.env.SUPABASE_SERVICE_KEY ?? "",
+  };
+}
+
+async function uploadToSupabase(base64: string, mediaType: string, filename: string): Promise<string> {
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key) throw new Error("Supabase not configured");
+
+  const buffer = Buffer.from(base64, "base64");
+  const uploadRes = await fetch(`${url}/storage/v1/object/media/${filename}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${key}`,
+      "Content-Type": mediaType,
+      "x-upsert": "true",
+    },
+    body: buffer,
+  });
+
+  if (!uploadRes.ok) {
+    const errBody = await uploadRes.text();
+    throw new Error(`Supabase upload failed ${uploadRes.status}: ${errBody}`);
+  }
+
+  return `${url}/storage/v1/object/public/media/${filename}`;
+}
+
+async function deleteFromSupabase(publicUrl: string): Promise<void> {
+  const { url, key } = getSupabaseConfig();
+  if (!url || !key) return; // silently skip if not configured
+
+  // Extract path after /public/media/
+  const marker = "/storage/v1/object/public/media/";
+  const idx = publicUrl.indexOf(marker);
+  if (idx === -1) return;
+  const filename = publicUrl.slice(idx + marker.length);
+
+  const res = await fetch(`${url}/storage/v1/object/media/${filename}`, {
+    method: "DELETE",
+    headers: { "Authorization": `Bearer ${key}` },
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    console.warn(`[Supabase delete] ${res.status}: ${body}`);
+  }
+}
+
+// ─── Caches ───────────────────────────────────────────────────────────────────
 let mediaCache: any[] | null = null;
 let postsCache: any[] | null = null;
 let settingsCache: Record<string, string> | null = null;
@@ -69,18 +127,88 @@ function invalidateFolders() { foldersCache = null; }
 
 const PAGE_SIZE = 20;
 
-// ─── Media ────────────────────────────────────────────────────────────────────
-// GET /api/media?page=1   (1-indexed, default 1, page size 20)
+// ─── Media Upload ─────────────────────────────────────────────────────────────
+// POST /media/upload
+// Body: { id, name, dataUrl (base64 data URL), tag?, folderId? }
+// Uploads to Supabase Storage, saves record to DB, returns saved record.
+router.post("/media/upload", async (req, res) => {
+  const { id, name, dataUrl, tag, folderId } = req.body;
+
+  if (!id || !name || !dataUrl) {
+    res.status(400).json({ error: "id, name, and dataUrl are required" });
+    return;
+  }
+
+  // Block video uploads
+  if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
+    res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
+    return;
+  }
+
+  // Parse base64 data URL
+  const comma = dataUrl.indexOf(",");
+  if (comma === -1) {
+    res.status(400).json({ error: "Invalid dataUrl format" });
+    return;
+  }
+  const header = dataUrl.slice(0, comma);
+  const base64 = dataUrl.slice(comma + 1);
+  const mediaType = header.split(";")[0].replace("data:", "") || "image/jpeg";
+  const ext = mediaType.split("/")[1]?.split("+")[0] ?? "jpg";
+  const filename = `${id}-${Date.now()}.${ext}`;
+
+  await withTables(async () => {
+    let publicUrl = "";
+    try {
+      publicUrl = await uploadToSupabase(base64, mediaType, filename);
+    } catch (err: any) {
+      req.log?.warn?.({ err }, "Supabase upload failed, storing base64 fallback");
+      // Fallback: store base64 directly in DB
+      await pool.query(
+        `INSERT INTO media_items (id, name, tag, data_url, url, folder_id, used)
+         VALUES ($1, $2, $3, $4, NULL, $5, FALSE)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, name, tag ?? null, dataUrl, folderId ?? null]
+      );
+      invalidateMedia();
+      const createdAt = new Date().toISOString();
+      res.json({ id, name, tag: tag ?? null, dataUrl, folderId: folderId ?? null, createdAt });
+      return;
+    }
+
+    await pool.query(
+      `INSERT INTO media_items (id, name, tag, data_url, url, folder_id, used)
+       VALUES ($1, $2, $3, NULL, $4, $5, FALSE)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, name, tag ?? null, publicUrl, folderId ?? null]
+    );
+    invalidateMedia();
+    const createdAt = new Date().toISOString();
+    res.json({ id, name, tag: tag ?? null, dataUrl: publicUrl, folderId: folderId ?? null, createdAt });
+  }, res);
+});
+
+// ─── Media CRUD ───────────────────────────────────────────────────────────────
+// GET /media?page=1
 router.get("/media", async (req, res) => {
   await withTables(async () => {
     if (!mediaCache) {
-      // Only load images — no videos allowed
       const result = await pool.query(
-        "SELECT id, name, tag, data_url, used, created_at FROM media_items WHERE data_url NOT LIKE 'data:video/%' ORDER BY created_at DESC"
+        `SELECT id, name, tag, url, data_url, folder_id, used, created_at
+         FROM media_items
+         WHERE (data_url IS NULL OR data_url NOT LIKE 'data:video/%')
+           AND (url IS NULL OR url NOT LIKE 'data:video/%')
+         ORDER BY created_at DESC`
       );
       mediaCache = result.rows.map((r) => ({
-        id: r.id, name: r.name, tag: r.tag, dataUrl: r.data_url,
-        used: r.used ?? false, createdAt: r.created_at,
+        id: r.id,
+        name: r.name,
+        tag: r.tag,
+        // Prefer Supabase public URL over stored base64
+        dataUrl: r.url ?? r.data_url ?? "",
+        folderId: r.folder_id ?? null,
+        used: r.used ?? false,
+        createdAt: r.created_at,
       }));
     }
 
@@ -94,18 +222,26 @@ router.get("/media", async (req, res) => {
   }, res);
 });
 
+// POST /media — legacy endpoint, stores base64 directly (kept for backward compat)
 router.post("/media", async (req, res) => {
   const { id, name, tag, dataUrl, used } = req.body;
 
-  // Block video uploads entirely
   if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
-    return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
+    res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
+    return;
   }
 
   await withTables(async () => {
+    // If dataUrl is already a URL (Supabase), store in url column
+    const isUrl = typeof dataUrl === "string" && dataUrl.startsWith("http");
     await pool.query(
-      "INSERT INTO media_items (id, name, tag, data_url, used) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
-      [id, name, tag ?? null, dataUrl, used ?? false]
+      `INSERT INTO media_items (id, name, tag, data_url, url, used)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO NOTHING`,
+      [id, name, tag ?? null,
+       isUrl ? null : (dataUrl ?? null),
+       isUrl ? dataUrl : null,
+       used ?? false]
     );
     invalidateMedia();
     res.json({ ok: true });
@@ -129,8 +265,20 @@ router.patch("/media/:id", async (req, res) => {
 
 router.delete("/media/:id", async (req, res) => {
   await withTables(async () => {
+    // Fetch the URL before deleting so we can remove from Supabase Storage
+    const row = await pool.query("SELECT url FROM media_items WHERE id = $1", [req.params.id]);
+    const publicUrl: string | null = row.rows[0]?.url ?? null;
+
     await pool.query("DELETE FROM media_items WHERE id = $1", [req.params.id]);
     invalidateMedia();
+
+    // Best-effort Supabase Storage deletion (non-blocking)
+    if (publicUrl && publicUrl.startsWith("http")) {
+      deleteFromSupabase(publicUrl).catch((err) => {
+        req.log?.warn?.({ err }, "Failed to delete from Supabase Storage");
+      });
+    }
+
     res.json({ ok: true });
   }, res);
 });
@@ -227,13 +375,17 @@ router.get("/folders", async (req, res) => {
 
 router.post("/folders", async (req, res) => {
   const { id, name, mediaIds } = req.body;
+  if (!id || !name) {
+    res.status(400).json({ error: "id and name are required" });
+    return;
+  }
   await withTables(async () => {
     await pool.query(
       "INSERT INTO media_folders (id, name, media_ids) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING",
       [id, name, mediaIds ? JSON.stringify(mediaIds) : "[]"]
     );
     invalidateFolders();
-    res.json({ ok: true });
+    res.json({ ok: true, id, name, mediaIds: mediaIds ?? [] });
   }, res);
 });
 
