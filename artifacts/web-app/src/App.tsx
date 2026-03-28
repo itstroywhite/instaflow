@@ -823,7 +823,30 @@ export default function App() {
   const [singleChooseFileOpen, setSingleChooseFileOpen] = useState(false);
   const [singleAiMode, setSingleAiMode] = useState(false);
 
+  // Offline + global toast
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const [globalToast, setGlobalToast] = useState<string | null>(null);
+  const globalToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
+
+  useEffect(() => {
+    const handle = { timer: null as ReturnType<typeof setTimeout> | null };
+    const goOffline = () => setIsOffline(true);
+    const goOnline = () => {
+      setIsOffline(false);
+      if (handle.timer) clearTimeout(handle.timer);
+      setGlobalToast("Back online!");
+      handle.timer = setTimeout(() => setGlobalToast(null), 3000);
+    };
+    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", goOnline);
+    return () => {
+      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", goOnline);
+      if (handle.timer) clearTimeout(handle.timer);
+    };
+  }, []);
 
   // Load + reconcile on mount
   useEffect(() => {
@@ -865,7 +888,7 @@ export default function App() {
         setScheduleTime(loaded.defaultScheduleTime);
         setSingleScheduleTime(loaded.defaultScheduleTime);
         setFolders(rawFolders.map((f: any) => ({ id: f.id, name: f.name, mediaIds: f.mediaIds ?? [], createdAt: f.createdAt })));
-      } catch (err) { console.error("Failed to load", err); }
+      } catch (err) { console.error("Failed to load", err); showGlobalToast("Couldn't load data — pull to refresh"); }
       finally { setMediaLoading(false); }
     }
     loadAll();
@@ -884,7 +907,7 @@ export default function App() {
       });
       setMediaHasMore(resp.hasMore ?? false);
       setMediaPage(nextPage);
-    } catch (err) { console.error("Failed to load more", err); }
+    } catch (err) { console.error("Failed to load more", err); showGlobalToast("Couldn't load more items — please try again"); }
     finally { setMediaLoadingMore(false); }
   }
 
@@ -1129,7 +1152,7 @@ export default function App() {
         if (storedUrl !== item.dataUrl) {
           setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
         }
-      } catch (err) { console.error("Failed to save media", err); }
+      } catch (err) { console.error("Failed to save media", err); showGlobalToast("Upload failed — please try again"); }
     }
   }
 
@@ -1137,7 +1160,7 @@ export default function App() {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
     setCarouselIds((prev) => prev.filter((cid) => cid !== id));
     setViewerItem(null);
-    try { await apiDelete(`/media/${id}`); } catch {}
+    try { await apiDelete(`/media/${id}`); } catch { showGlobalToast("Couldn't delete — please try again"); }
   }
 
   async function markItemsUsed(ids: string[]) {
@@ -1411,6 +1434,11 @@ export default function App() {
     setSingleToast(msg);
     setTimeout(() => setSingleToast(null), 2000);
   }
+  function showGlobalToast(msg: string) {
+    if (globalToastTimer.current) clearTimeout(globalToastTimer.current);
+    setGlobalToast(msg);
+    globalToastTimer.current = setTimeout(() => setGlobalToast(null), 3500);
+  }
   function handleSingleNewMedia() {
     const unused = mediaItems.filter((m) => !m.used && !m.analyzing);
     if (!unused.length) return;
@@ -1431,7 +1459,7 @@ export default function App() {
       setSingleCaptionIdx(0);
       setSingleCaption(opts[0]);
     }
-    catch (err) { setSingleError(err instanceof Error ? err.message : "Failed"); }
+    catch (err) { setSingleError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); }
     finally { setSingleGenerating(false); }
   }
   async function handleApproveSinglePost() {
@@ -1450,7 +1478,7 @@ export default function App() {
       setApprovedPosts((prev) => [post, ...prev]);
       await markItemsUsed([singlePostItem.id]);
       setSinglePostItem(null);
-      try { await apiPost("/posts", post); } catch {}
+      try { await apiPost("/posts", post); } catch { showGlobalToast("Couldn't save post — please try again"); }
       goToScreen("calendar");
     } finally {
       setApproveLoading(false);
@@ -1472,7 +1500,7 @@ export default function App() {
       setCaptionSelectedIdx(null);
       setCaptionOptionsExpanded(true);
       if (mode === "fresh") setCarouselCaption("");
-    } catch (err) { if (generationIdRef.current === thisGen) setCaptionError(err instanceof Error ? err.message : "Failed to generate"); }
+    } catch (err) { if (generationIdRef.current === thisGen) { setCaptionError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); } }
     finally { if (generationIdRef.current === thisGen) setGeneratingCaptions(false); }
   }
 
@@ -1507,11 +1535,11 @@ export default function App() {
           markItemsUsed(carouselIds),
         ]);
         setApprovedPosts((prev) => prev.map((p) => p.id === editingPost.id ? post : p));
-        try { await apiPut(`/posts/${editingPost.id}`, post); } catch {}
+        try { await apiPut(`/posts/${editingPost.id}`, post); } catch { showGlobalToast("Couldn't save post — please try again"); }
       } else {
         await markItemsUsed(carouselIds);
         setApprovedPosts((prev) => [post, ...prev]);
-        try { await apiPost("/posts", post); } catch {}
+        try { await apiPost("/posts", post); } catch { showGlobalToast("Couldn't save post — please try again"); }
       }
       setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
       setEditingPost(null);
@@ -1746,6 +1774,12 @@ export default function App() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[hsl(220,14%,8%)] text-[hsl(220,10%,95%)] font-sans">
+      {/* Global toast */}
+      {globalToast && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-[hsl(220,14%,20%)] text-white text-sm px-5 py-3 rounded-2xl shadow-2xl border border-[hsl(220,13%,30%)] max-w-xs text-center pointer-events-none">
+          {globalToast}
+        </div>
+      )}
 
       {/* NAV */}
       <nav className={`border-b ${border} px-4 py-3 flex items-center justify-between sticky top-0 z-20 bg-[hsl(220,14%,8%)]`}>
@@ -1783,6 +1817,12 @@ export default function App() {
         </div>
       </nav>
 
+      {isOffline && (
+        <div className="bg-amber-500/10 border-b border-amber-500/25 px-4 py-2 flex items-center gap-2">
+          <span className="text-amber-400 text-sm flex-shrink-0">📡</span>
+          <p className="text-sm text-amber-300 flex-1">You're offline — some features may not work</p>
+        </div>
+      )}
       {aiError && (
         <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-red-300">⚠️ {aiError}</p>
@@ -1961,10 +2001,16 @@ export default function App() {
                 {Array.from({ length: 9 }).map((_, i) => <div key={i} className="aspect-square rounded-xl bg-[hsl(220,14%,13%)] animate-pulse" />)}
               </div>
             ) : mediaItems.length === 0 ? (
-              <div onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-[hsl(220,13%,22%)] hover:border-[hsl(263,70%,65%)/50] rounded-2xl p-10 text-center cursor-pointer transition-colors bg-[hsl(220,14%,10%)]">
-                <span className="text-4xl">📁</span>
-                <p className={`text-sm ${dimText} mt-2`}>Click to upload photos or videos</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                <span className="text-6xl">📷</span>
+                <div>
+                  <p className="font-semibold text-[hsl(220,10%,80%)] text-lg">No media yet</p>
+                  <p className={`text-sm ${dimText} mt-1`}>Upload your first photo or video to get started</p>
+                </div>
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="px-5 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold hover:bg-[hsl(263,70%,58%)] transition-colors">
+                  + Upload
+                </button>
               </div>
             ) : usedFilter === "used" ? (
               <div className="space-y-5">
@@ -1997,7 +2043,7 @@ export default function App() {
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75">
                               {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" preload="none" /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                              {item.tag && <span className={`absolute bottom-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
+                              {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
                         </div>
@@ -2069,7 +2115,17 @@ export default function App() {
                         : mediaItems.filter((m) => openFolder.mediaIds.includes(m.id)))
                     : filteredSortedMedia;
                   if (displayItems.length === 0 && !openFolder) return (
-                    <div className={`col-span-3 text-center py-10 ${dimText} text-sm`}>No items match these filters.</div>
+                    <div className="col-span-3 flex flex-col items-center justify-center py-16 gap-3 text-center">
+                      <span className="text-4xl">🔍</span>
+                      <div>
+                        <p className={`text-sm font-medium text-[hsl(220,10%,70%)]`}>No results found</p>
+                        <p className={`text-xs ${dimText} mt-1`}>Try different filters or tags</p>
+                      </div>
+                      <button onClick={() => { setActiveFilters([]); setPoolSort("latest"); }}
+                        className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                        Clear filters
+                      </button>
+                    </div>
                   );
                   if (displayItems.length === 0 && openFolder && folderAddMode) return (
                     <div className={`col-span-3 text-center py-8 ${dimText} text-sm`}>
@@ -2077,9 +2133,16 @@ export default function App() {
                     </div>
                   );
                   if (displayItems.length === 0 && openFolder) return (
-                    <div className={`col-span-3 text-center py-8 ${dimText} text-sm`}>
-                      <p>This folder is empty.</p>
-                      <p className="text-xs mt-1">Tap "+ Add File(s)" above or long-press in the pool.</p>
+                    <div className="col-span-3 flex flex-col items-center justify-center py-14 gap-3 text-center">
+                      <span className="text-4xl">📂</span>
+                      <div>
+                        <p className={`text-sm font-medium text-[hsl(220,10%,70%)]`}>This folder is empty</p>
+                        <p className={`text-xs ${dimText} mt-1`}>Add photos or videos to this folder</p>
+                      </div>
+                      <button onClick={() => setFolderAddSourceSheet(true)}
+                        className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                        + Add File(s)
+                      </button>
                     </div>
                   );
                   const mappedItems = displayItems.map((item) => {
@@ -2116,7 +2179,7 @@ export default function App() {
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
-                            className={`absolute bottom-1 left-1 text-[9px] px-1.5 py-0.5 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
+                            className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
                             {item.tag ? `${tagIcon(item.tag)} ${tagLabel(item.tag)}` : "＋ Tag"}
                           </button>
                         )}
@@ -2855,9 +2918,16 @@ export default function App() {
             )}
 
             {scheduledPosts.length === 0 ? (
-              <div className="text-center py-16 space-y-3">
-                <span className="text-4xl">📅</span>
-                <p className={`${dimText} text-sm`}>No posts scheduled yet.</p>
+              <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+                <span className="text-6xl">📅</span>
+                <div>
+                  <p className="font-semibold text-[hsl(220,10%,80%)] text-lg">No posts scheduled</p>
+                  <p className={`text-sm ${dimText} mt-1`}>Create your first post to see it here</p>
+                </div>
+                <button onClick={() => setCreatePostModal(true)}
+                  className="px-5 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold hover:bg-[hsl(263,70%,58%)] transition-colors">
+                  + Create Post
+                </button>
               </div>
             ) : calendarView === "week" ? (
               /* Week view */
@@ -3511,7 +3581,7 @@ export default function App() {
                           </div>
                         )}
                         {item.tag && !isCurrent && (
-                          <span className="absolute bottom-1 left-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>
+                          <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>
                         )}
                       </button>
                     );
@@ -3571,7 +3641,7 @@ export default function App() {
                             </div>
                           </div>
                         )}
-                        {item.tag && !isSelected && <span className="absolute bottom-1 left-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
+                        {item.tag && !isSelected && <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
