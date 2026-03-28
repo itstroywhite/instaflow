@@ -339,6 +339,26 @@ app.post("/api/posts", async (req, res) => {
   }, res);
 });
 
+app.put("/api/posts/:id", async (req, res) => {
+  const { day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status } = req.body;
+  await withTables(async () => {
+    await pool.query(
+      `UPDATE approved_posts SET
+         day = $1, caption = $2, tags_summary = $3,
+         slide_count = $4, scheduled_date = $5,
+         scheduled_time = $6, media_ids = $7,
+         status = $8
+       WHERE id = $9`,
+      [day, caption ?? "", tagsSummary ?? "", String(slideCount ?? 1),
+       scheduledDate ?? null, scheduledTime ?? null,
+       mediaIds ? JSON.stringify(mediaIds) : null,
+       status ?? "approved", req.params.id]
+    );
+    invalidatePosts();
+    res.json({ ok: true });
+  }, res);
+});
+
 app.delete("/api/posts/:id", async (req, res) => {
   await withTables(async () => {
     await pool.query("DELETE FROM approved_posts WHERE id = $1", [req.params.id]);
@@ -448,7 +468,7 @@ app.post("/api/claude", async (req, res) => {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ ...req.body, model: "claude-sonnet-4-5" }),
+      body: JSON.stringify({ ...req.body, model: "claude-haiku-4-5-20251001", max_tokens: 300 }),
     });
     const data = await response.json();
     console.log(`[claude] Anthropic status=${response.status} error=${data?.error?.message ?? "none"}`);
@@ -521,7 +541,7 @@ app.post("/api/upload", async (req, res) => {
 
 // ── AI — Image Auto-Tag ───────────────────────────────────────────────────────
 
-const VALID_TAGS = ["me", "outfit", "food", "dj", "vibe", "friends", "location", "outdoor", "night", "other"];
+const VALID_TAGS = ["me", "outfit", "food", "drinks", "dj", "vibe", "friends", "location", "outdoor", "night", "pet", "animal", "other"];
 
 app.post("/api/analyze", async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -600,7 +620,10 @@ CATEGORIES:
 - "me" → A single person who appears to be the subject/subject-of-focus: solo selfie, solo portrait, single person posing alone, mirror pic alone. NOT multiple people.
 - "friends" → Two or more people together: group photo, friends hanging out, social gathering, couple shot, people at a party together.
 - "outfit" → Fashion-focused: clothing flat lay, someone modeling clothes/shoes/accessories, OOTD style post. The focus is the clothes/look, not the person.
-- "food" → Food or beverages are the main subject: meal, coffee, drinks, restaurant plate, dessert, cocktails, snacks. Even if a person is holding it, food is the focus.
+- "food" → Food is clearly visible: meal, restaurant plate, dessert, snacks, pizza, burger, sushi, etc. If BOTH food AND drinks are visible, choose "food".
+- "drinks" → Drinks are the subject with NO significant food present: wine glass, cocktail, beer, coffee cup, juice, bottle of wine or spirits, bartender pouring drinks.
+- "pet" → Image features a dog or cat as the main subject.
+- "animal" → Any other animal that is NOT a dog or cat: bird, horse, rabbit, cow, wild animal, etc.
 - "dj" → DJ or music performance context: DJ booth, turntables, CDJs, mixer, concert stage, festival performance setup, crowd at a music event.
 - "vibe" → Mood/aesthetic shot with no clear subject: decorative objects, aesthetic flat lay, candles, bottles arranged artfully, artistic blur, bokeh, abstract textures.
 - "location" → A recognizable landmark or iconic place: famous building, monument, skyline, tourist attraction, city view. No prominent person in foreground.

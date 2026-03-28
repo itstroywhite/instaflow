@@ -3,24 +3,29 @@ import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaF
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_TAG_LABELS: Record<string, string> = {
-  me: "Me", outfit: "Outfit", food: "Food", dj: "DJ", vibe: "Vibe",
-  friends: "Friends", location: "Location", outdoor: "Outdoor", night: "Night", other: "Other",
+  me: "Me", outfit: "Outfit", food: "Food", drinks: "Drinks", dj: "DJ", vibe: "Vibe",
+  friends: "Friends", location: "Location", outdoor: "Outdoor", night: "Night",
+  pet: "Pet", animal: "Animal", other: "Other",
 };
 const BASE_TAG_COLORS: Record<string, string> = {
   me: "bg-purple-500/20 text-purple-300 border-purple-500/30",
   outfit: "bg-pink-500/20 text-pink-300 border-pink-500/30",
   food: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  drinks: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
   dj: "bg-orange-500/20 text-orange-300 border-orange-500/30",
   vibe: "bg-sky-500/20 text-sky-300 border-sky-500/30",
   friends: "bg-green-500/20 text-green-300 border-green-500/30",
   location: "bg-teal-500/20 text-teal-300 border-teal-500/30",
   outdoor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
   night: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+  pet: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+  animal: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
   other: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
 };
 const BASE_TAG_ICONS: Record<string, string> = {
-  me: "🧍", outfit: "👗", food: "🍽️", dj: "🎧", vibe: "✨",
-  friends: "👥", location: "📍", outdoor: "🌿", night: "🌙", other: "📷",
+  me: "🧍", outfit: "👗", food: "🍽️", drinks: "🍹", dj: "🎧", vibe: "✨",
+  friends: "👥", location: "📍", outdoor: "🌿", night: "🌙",
+  pet: "🐾", animal: "🦋", other: "📷",
 };
 const BASE_TAGS = Object.keys(BASE_TAG_LABELS);
 const KEYWORD_TO_EMOJI: Record<string, string> = {
@@ -469,11 +474,12 @@ function DatePicker({ value, onChange, className }: { value: string; onChange: (
 
 function TimePicker({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
   const [open, setOpen] = useState(false);
+  const [inputText, setInputText] = useState("");
   const listRef = useRef<HTMLDivElement>(null);
 
   const times: string[] = [];
   for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 15) {
+    for (let m = 0; m < 60; m++) {
       times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     }
   }
@@ -487,29 +493,84 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
     return `${h12}:${mStr} ${ampm}`;
   }
 
+  function getNearestTime() {
+    const now = new Date();
+    const h = now.getHours();
+    const rawM = now.getMinutes();
+    const m = Math.ceil(rawM / 5) * 5;
+    if (m >= 60) {
+      const nh = (h + 1) % 24;
+      return `${String(nh).padStart(2, "0")}:00`;
+    }
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
   useEffect(() => {
-    if (open && listRef.current && value) {
-      const idx = times.indexOf(value);
-      if (idx !== -1) {
+    if (open && listRef.current) {
+      const target = value || getNearestTime();
+      const idx = times.indexOf(target);
+      const scrollIdx = idx !== -1 ? idx : times.indexOf(getNearestTime());
+      if (scrollIdx !== -1) {
         const children = listRef.current.children;
-        if (children[idx]) (children[idx] as HTMLElement).scrollIntoView({ block: "center" });
+        if (children[scrollIdx]) (children[scrollIdx] as HTMLElement).scrollIntoView({ block: "center" });
       }
     }
   }, [open]);
 
+  function parseInput(text: string): string | null {
+    const t = text.trim();
+    const match24 = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      const h = parseInt(match24[1]);
+      const m = parseInt(match24[2]);
+      if (h >= 0 && h < 24 && m >= 0 && m < 60)
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+    const match12 = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
+    if (match12) {
+      let h = parseInt(match12[1]);
+      const m = parseInt(match12[2]);
+      const period = match12[3].toLowerCase();
+      if (period === "pm" && h !== 12) h += 12;
+      if (period === "am" && h === 12) h = 0;
+      if (h >= 0 && h < 24 && m >= 0 && m < 60)
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    }
+    return null;
+  }
+
+  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      const parsed = parseInput(inputText);
+      if (parsed) { onChange(parsed); setInputText(""); setOpen(false); }
+    }
+    if (e.key === "Escape") { setOpen(false); setInputText(""); }
+  }
+
   return (
     <div className="relative">
-      <button type="button" onClick={() => setOpen((o) => !o)} className={className} style={{ textAlign: "left", cursor: "pointer" }}>
+      <button type="button" onClick={() => { setOpen((o) => !o); setInputText(""); }} className={className} style={{ textAlign: "left", cursor: "pointer" }}>
         {formatDisplay(value)}
       </button>
       {open && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-xl shadow-2xl overflow-hidden" style={{ width: 120 }}>
+          <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setInputText(""); }} />
+          <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-xl shadow-2xl overflow-hidden" style={{ width: 150 }}>
+            <div className="p-2 border-b border-[hsl(220,13%,22%)]">
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                placeholder={formatDisplay(value) || "e.g. 14:30"}
+                autoFocus
+                className="w-full bg-[hsl(220,14%,18%)] border border-[hsl(220,13%,28%)] rounded-lg px-2 py-1 text-xs text-[hsl(220,10%,85%)] placeholder-[hsl(220,10%,45%)] focus:outline-none focus:border-[hsl(263,70%,55%)]"
+              />
+            </div>
             <div ref={listRef} style={{ maxHeight: 192, overflowY: "auto" }}>
               {times.map((t) => (
-                <button type="button" key={t} onClick={() => { onChange(t); setOpen(false); }}
-                  className={`w-full px-3 py-2 text-sm text-left transition-colors
+                <button type="button" key={t} onClick={() => { onChange(t); setInputText(""); setOpen(false); }}
+                  className={`w-full px-3 py-1.5 text-sm text-left transition-colors
                     ${value === t ? "bg-[hsl(263,70%,65%)] text-white font-semibold" : "text-[hsl(220,10%,72%)] hover:bg-[hsl(220,14%,22%)]"}`}>
                   {formatDisplay(t)}
                 </button>
@@ -634,8 +695,11 @@ export default function App() {
   const [longPressFolder, setLongPressFolder] = useState<MediaFolder | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<MediaFolder | null>(null);
   const [folderNameError, setFolderNameError] = useState(false);
-  // Fix 1: Today screen mode — true when actively building a new post from Today screen
   const [todayBuildMode, setTodayBuildMode] = useState(false);
+  const [createPostModal, setCreatePostModal] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   // Fix 3: Video poster frames (mediaId → data URL) and which video is playing
   const [videoPosters, setVideoPosters] = useState<Record<string, string>>({});
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
@@ -684,6 +748,7 @@ export default function App() {
   const singleLibraryRef = useRef<HTMLInputElement>(null);
   const singleCameraRef = useRef<HTMLInputElement>(null);
   const folderCameraInputRef = useRef<HTMLInputElement>(null);
+  const folderFileInputRef = useRef<HTMLInputElement>(null);
   const swipeStartX = useRef<number | null>(null);
 
   // Tag picker — when opened from fullscreen viewer, restore viewer on close
@@ -977,7 +1042,6 @@ export default function App() {
         const toAdd = imageItems.slice(0, MAX_CAROUSEL - carouselIds.length);
         setMediaItems((prev) => [...prev, ...imageItems]);
         setCarouselIds((prev) => [...prev, ...toAdd.map((m) => m.id)]);
-        setCaptionOptions(null); setCaptionSelectedIdx(null); setCarouselCaption("");
         setAddMoreOpen(false);
       } else {
         setMediaItems((prev) => [...prev, ...imageItems]);
@@ -1318,20 +1382,26 @@ export default function App() {
     finally { setSingleGenerating(false); }
   }
   async function handleApproveSinglePost() {
-    if (!singlePostItem) return;
-    const finalCaption = singleEditing ? singleEditText : singleCaption;
-    const effectiveDate = singleScheduleDate || todayStr();
-    const post: ApprovedPost = {
-      id: generateId(), day: effectiveDate, caption: finalCaption,
-      tagsSummary: tagIcon(singlePostItem.tag ?? "other"), slideCount: 1,
-      scheduledDate: effectiveDate, scheduledTime: singleScheduleTime || appSettings.defaultScheduleTime,
-      mediaIds: [singlePostItem.id], createdAt: new Date().toISOString(),
-    };
-    setApprovedPosts((prev) => [post, ...prev]);
-    await markItemsUsed([singlePostItem.id]);
-    setSinglePostItem(null);
-    try { await apiPost("/posts", post); } catch {}
-    goToScreen("calendar");
+    if (!singlePostItem || approveLoading) return;
+    setApproveLoading(true);
+    try {
+      const finalCaption = singleEditing ? singleEditText : singleCaption;
+      const effectiveDate = singleScheduleDate || todayStr();
+      const post: ApprovedPost = {
+        id: generateId(), day: effectiveDate, caption: finalCaption,
+        tagsSummary: tagIcon(singlePostItem.tag ?? "other"), slideCount: 1,
+        scheduledDate: effectiveDate, scheduledTime: singleScheduleTime || appSettings.defaultScheduleTime,
+        mediaIds: [singlePostItem.id], createdAt: new Date().toISOString(),
+        timezone: userTimezone,
+      };
+      setApprovedPosts((prev) => [post, ...prev]);
+      await markItemsUsed([singlePostItem.id]);
+      setSinglePostItem(null);
+      try { await apiPost("/posts", post); } catch {}
+      goToScreen("calendar");
+    } finally {
+      setApproveLoading(false);
+    }
   }
 
   // ── Caption – 3-option system ──
@@ -1362,56 +1432,71 @@ export default function App() {
 
   // ── Approve carousel ──
   async function handleApproveCarousel() {
-    const finalCaption = isEditingCaption ? editingCaption : carouselCaption;
-    const tags = carouselItems.map((i) => i.tag ?? "other");
-    const effectiveDate = scheduleDate || todayStr();
-    const postId = editingPost ? editingPost.id : generateId();
-    if (editingPost) {
-      setApprovedPosts((prev) => prev.filter((p) => p.id !== editingPost.id));
-      try { await apiDelete(`/posts/${editingPost.id}`); } catch {}
-      const remaining = approvedPosts.filter((p) => p.id !== editingPost.id);
-      await reconcileAfterDelete(remaining, mediaItems);
-      await markItemsUsed(carouselIds);
-    } else {
-      await markItemsUsed(carouselIds);
+    if (approveLoading) return;
+    setApproveLoading(true);
+    try {
+      const finalCaption = isEditingCaption ? editingCaption : carouselCaption;
+      const tags = carouselItems.map((i) => i.tag ?? "other");
+      const effectiveDate = scheduleDate || todayStr();
+      const postId = editingPost ? editingPost.id : generateId();
+      const post: ApprovedPost = {
+        id: postId, day: effectiveDate, caption: finalCaption,
+        tagsSummary: [...new Set(tags)].map(tagIcon).join(" "),
+        slideCount: carouselItems.length, scheduledDate: effectiveDate,
+        scheduledTime: scheduleTime || appSettings.defaultScheduleTime,
+        mediaIds: carouselIds, createdAt: new Date().toISOString(),
+        timezone: userTimezone,
+      };
+      if (editingPost) {
+        const remaining = approvedPosts.filter((p) => p.id !== editingPost.id);
+        await reconcileAfterDelete(remaining, mediaItems);
+        await markItemsUsed(carouselIds);
+        setApprovedPosts((prev) => prev.map((p) => p.id === editingPost.id ? post : p));
+        try { await apiPut(`/posts/${editingPost.id}`, post); } catch {}
+      } else {
+        await markItemsUsed(carouselIds);
+        setApprovedPosts((prev) => [post, ...prev]);
+        try { await apiPost("/posts", post); } catch {}
+      }
+      setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
+      setEditingPost(null);
+      setScreen("calendar");
+    } finally {
+      setApproveLoading(false);
     }
-    const post: ApprovedPost = {
-      id: postId, day: effectiveDate, caption: finalCaption,
-      tagsSummary: [...new Set(tags)].map(tagIcon).join(" "),
-      slideCount: carouselItems.length, scheduledDate: effectiveDate,
-      scheduledTime: scheduleTime || appSettings.defaultScheduleTime,
-      mediaIds: carouselIds, createdAt: new Date().toISOString(),
-    };
-    setApprovedPosts((prev) => [post, ...prev]);
-    setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
-    setEditingPost(null);
-    try { await apiPost("/posts", post); } catch {}
-    setScreen("calendar");
   }
 
   async function handleSaveDraft() {
-    const finalCaption = isEditingCaption ? editingCaption : (carouselCaption ?? "");
-    const tags = carouselItems.map((i) => i.tag ?? "other");
-    const postId = editingPost ? editingPost.id : generateId();
-    if (editingPost && editingPost.status === "draft") {
-      setApprovedPosts((prev) => prev.filter((p) => p.id !== editingPost.id));
-      try { await apiDelete(`/posts/${editingPost.id}`); } catch {}
+    if (draftLoading) return;
+    setDraftLoading(true);
+    try {
+      const finalCaption = isEditingCaption ? editingCaption : (carouselCaption ?? "");
+      const tags = carouselItems.map((i) => i.tag ?? "other");
+      const postId = editingPost ? editingPost.id : generateId();
+      const draft: ApprovedPost = {
+        id: postId, day: scheduleDate || todayStr(), caption: finalCaption,
+        tagsSummary: [...new Set(tags)].map(tagIcon).join(" "),
+        slideCount: carouselItems.length,
+        scheduledDate: scheduleDate || null,
+        scheduledTime: scheduleTime || null,
+        mediaIds: carouselIds,
+        status: "draft",
+        createdAt: new Date().toISOString(),
+        timezone: userTimezone,
+      };
+      if (editingPost) {
+        setApprovedPosts((prev) => prev.map((p) => p.id === editingPost.id ? draft : p));
+        try { await apiPut(`/posts/${editingPost.id}`, draft); } catch {}
+      } else {
+        setApprovedPosts((prev) => [draft, ...prev]);
+        try { await apiPost("/posts", draft); } catch {}
+      }
+      setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
+      setEditingPost(null); setTodayBuildMode(false);
+      setScreen("calendar");
+    } finally {
+      setDraftLoading(false);
     }
-    const draft: ApprovedPost = {
-      id: postId, day: scheduleDate || todayStr(), caption: finalCaption,
-      tagsSummary: [...new Set(tags)].map(tagIcon).join(" "),
-      slideCount: carouselItems.length,
-      scheduledDate: scheduleDate || null,
-      scheduledTime: scheduleTime || null,
-      mediaIds: carouselIds,
-      status: "draft",
-      createdAt: new Date().toISOString(),
-    };
-    setApprovedPosts((prev) => [draft, ...prev.filter((p) => p.id !== postId)]);
-    setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
-    setEditingPost(null); setTodayBuildMode(false);
-    try { await apiPost("/posts", draft); } catch {}
-    setScreen("calendar");
   }
 
   // ── Filmstrip drag ──
@@ -1941,7 +2026,7 @@ export default function App() {
                       <p className="text-xs mt-1">Tap "+ Add Media" above or long-press in the pool.</p>
                     </div>
                   );
-                  return displayItems.map((item) => {
+                  const mappedItems = displayItems.map((item) => {
                     const isSelected = selectionMode ? selectedIds.includes(item.id) : bulkMode ? bulkSelectedIds.includes(item.id) : false;
                     return (
                       <div key={item.id}
@@ -2002,6 +2087,20 @@ export default function App() {
                       </div>
                     );
                   });
+                  return (
+                    <>
+                      {mappedItems}
+                      {openFolder && !folderAddMode && !bulkMode && !selectionMode && (
+                        <button
+                          key="add-file-tile"
+                          onClick={() => folderFileInputRef.current?.click()}
+                          className="aspect-square rounded-xl border-2 border-dashed border-[hsl(220,13%,28%)] hover:border-[hsl(263,70%,65%)/60] flex flex-col items-center justify-center gap-1.5 text-[hsl(220,10%,40%)] hover:text-[hsl(263,70%,70%)] transition-colors cursor-pointer">
+                          <span className="text-2xl leading-none">+</span>
+                          <span className="text-[10px] font-medium">Add File(s)</span>
+                        </button>
+                      )}
+                    </>
+                  );
                 })()}
 
                 {/* "+ Add Media" tile in folder view → shows source picker */}
@@ -2044,13 +2143,12 @@ export default function App() {
                       <h1 className="text-xl font-bold">Today</h1>
                       <p className={`${dimText} text-sm`}>{formatDay(todayStr())}</p>
                     </div>
-                    <button onClick={() => setAiTypeModal(true)} className={`text-xs px-3 py-1.5 rounded-xl border ${border} ${dimText} hover:text-white hover:bg-[hsl(220,14%,16%)] transition-colors flex items-center gap-1.5`}>🤖 AI Create</button>
                   </div>
 
                   {todayPosts.length === 0 ? (
                     /* Empty state — large centered "+" */
                     <button
-                      onClick={() => { setTodayBuildMode(true); goToScreen("pool"); enterSelectionMode("carousel"); }}
+                      onClick={() => setCreatePostModal(true)}
                       className={`w-full ${card} flex flex-col items-center justify-center gap-3 py-16 hover:bg-[hsl(220,14%,14%)] transition-colors group`}>
                       <div className="w-16 h-16 rounded-full border-2 border-dashed border-[hsl(263,70%,65%)/50] group-hover:border-[hsl(263,70%,65%)] flex items-center justify-center transition-colors">
                         <span className="text-3xl font-light text-[hsl(263,70%,65%)]">+</span>
@@ -2067,7 +2165,7 @@ export default function App() {
                         const sc = postStatusClasses(post);
                         const thumb = (post.mediaIds ?? []).map((id) => mediaMap[id]).find(Boolean);
                         return (
-                          <div key={post.id} className={`${card} border ${sc.card} overflow-hidden`}>
+                          <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} overflow-hidden cursor-pointer hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
                             <div className="flex items-stretch">
                               {thumb && (
                                 <div className="w-20 flex-shrink-0 overflow-hidden relative">
@@ -2084,9 +2182,8 @@ export default function App() {
                                     {post.scheduledTime && <span className={`text-xs ${dimText}`}>🕐 {post.scheduledTime}</span>}
                                   </div>
                                   <div className="flex gap-2 items-center flex-shrink-0">
-                                    <button onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-white`}>👁</button>
-                                    <button onClick={() => openPostForEdit(post)} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button>
-                                    <button onClick={() => setDeleteConfirmPost(post)} className={`text-xs ${dimText} hover:text-red-400`}>🗑</button>
+                                    <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑</button>
                                   </div>
                                 </div>
                                 {post.caption && <p className={`text-xs ${dimText} line-clamp-2 leading-relaxed`}>{post.caption}</p>}
@@ -2098,7 +2195,7 @@ export default function App() {
 
                       {/* Smaller "Create Post" below existing posts */}
                       <button
-                        onClick={() => { setTodayBuildMode(true); goToScreen("pool"); enterSelectionMode("carousel"); }}
+                        onClick={() => setCreatePostModal(true)}
                         className={`w-full py-3 rounded-xl border border-dashed ${border} ${dimText} hover:border-[hsl(263,70%,65%)/50] hover:text-[hsl(263,70%,70%)] transition-colors flex items-center justify-center gap-2 text-sm font-medium`}>
                         <span className="text-base">+</span> Create Another Post
                       </button>
@@ -2388,14 +2485,14 @@ export default function App() {
                   </div>
                 </div>
                 <button onClick={handleApproveCarousel}
-                  disabled={!(isEditingCaption ? editingCaption : carouselCaption) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
+                  disabled={approveLoading || !(isEditingCaption ? editingCaption : carouselCaption) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
                   className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
-                  {editingPost && editingPost.status !== "draft" ? "✓ Update Post" : "✓ Approve & Schedule"}
+                  {approveLoading ? "⏳ Saving…" : editingPost && editingPost.status !== "draft" ? "✓ Update Post" : "✓ Approve & Schedule"}
                 </button>
                 <button onClick={handleSaveDraft}
-                  disabled={carouselItems.length === 0}
+                  disabled={draftLoading || carouselItems.length === 0}
                   className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}>
-                  💾 Save as Draft
+                  {draftLoading ? "⏳ Saving…" : "💾 Save as Draft"}
                 </button>
               </div>
             )}
@@ -2603,9 +2700,9 @@ export default function App() {
                 </div>
               </div>
               <button onClick={handleApproveSinglePost}
-                disabled={!(singleEditing ? singleEditText : singleCaption)}
+                disabled={approveLoading || !(singleEditing ? singleEditText : singleCaption)}
                 className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
-                ✓ Approve & Schedule
+                {approveLoading ? "⏳ Saving…" : "✓ Approve & Schedule"}
               </button>
               <button
                 onClick={async () => {
@@ -2742,13 +2839,12 @@ export default function App() {
                             {dayPosts.map((post) => {
                               const sc = postStatusClasses(post);
                               return (
-                                <div key={post.id} className={`flex items-center gap-2 py-1 border-t ${border}`}>
+                                <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`flex items-center gap-2 py-1 border-t ${border} cursor-pointer hover:bg-[hsl(220,14%,14%)] rounded transition-colors`}>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
                                   <p className={`text-xs ${dimText} truncate flex-1`}>{post.caption || `${post.slideCount} slides`}</p>
                                   {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)]">{post.scheduledTime}</span>}
                                   <div className="flex gap-2 flex-shrink-0">
-                                    {post.mediaIds?.length ? <button onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`text-[10px] ${dimText} hover:text-white`}>👁</button> : null}
-                                    {post.mediaIds?.length ? <button onClick={() => openPostForEdit(post)} className={`text-[10px] ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button> : null}
+                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-[10px] ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button> : null}
                                   </div>
                                 </div>
                               );
@@ -2772,7 +2868,7 @@ export default function App() {
                           {wg.posts.map((post) => {
                             const sc = postStatusClasses(post);
                             return (
-                              <div key={post.id} className={`${card} border ${sc.card} p-3 space-y-2`}>
+                              <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} p-3 space-y-2 cursor-pointer hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
@@ -2790,9 +2886,8 @@ export default function App() {
                                     {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
                                   </span>
                                   <div className="flex gap-3 items-center">
-                                    {post.mediaIds?.length ? <button onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-white`}>👁 Preview</button> : null}
-                                    {post.mediaIds?.length ? <button onClick={() => openPostForEdit(post)} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                    <button onClick={() => setDeleteConfirmPost(post)} className={`text-xs ${dimText} hover:text-red-400`}>Delete</button>
+                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>Delete</button>
                                   </div>
                                 </div>
                               </div>
@@ -2843,7 +2938,7 @@ export default function App() {
                         const sc = postStatusClasses(post);
                         const allThumbs = (post.mediaIds ?? []).slice(0, 3).map((id) => mediaMap[id]).filter(Boolean) as MediaItem[];
                         return (
-                          <div key={post.id} className={`${card} border ${sc.card} overflow-hidden`}>
+                          <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} overflow-hidden cursor-pointer hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
                             <div className="flex items-stretch">
                               {allThumbs.length > 0 && (
                                 <div className="w-14 flex-shrink-0 overflow-hidden">
@@ -2857,9 +2952,8 @@ export default function App() {
                                 </div>
                                 {post.caption && <p className={`text-xs ${dimText} line-clamp-2`}>{post.caption}</p>}
                                 <div className="flex gap-3 justify-end">
-                                  {post.mediaIds?.length ? <button onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-white`}>👁 Preview</button> : null}
-                                  {post.mediaIds?.length ? <button onClick={() => openPostForEdit(post)} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                  <button onClick={() => setDeleteConfirmPost(post)} className={`text-xs ${dimText} hover:text-red-400`}>Delete</button>
+                                  {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>Delete</button>
                                 </div>
                               </div>
                             </div>
@@ -3403,7 +3497,6 @@ export default function App() {
                             setCarouselIds((prev) => prev.filter((id) => id !== item.id));
                           } else if (carouselIds.length < MAX_CAROUSEL) {
                             setCarouselIds((prev) => [...prev, item.id]);
-                            setCaptionOptions(null); setCaptionSelectedIdx(null); setCarouselCaption("");
                           }
                         }}
                         className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${isSelected ? "border-[hsl(263,70%,65%)]" : "border-transparent hover:border-[hsl(263,70%,65%)/50]"}`}>
@@ -4101,6 +4194,43 @@ export default function App() {
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
           e.target.value = "";
         }} />
+      <input ref={folderFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden"
+        onChange={(e) => {
+          const files = Array.from(e.target.files ?? []);
+          if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
+          e.target.value = "";
+        }} />
+
+      {/* Create Post choice modal (BUG 7) */}
+      {createPostModal && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center" onClick={() => setCreatePostModal(false)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className={`relative w-full max-w-sm bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-t-2xl flex flex-col`}
+            style={{ maxHeight: "85vh" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+              <p className="font-semibold">Create Post</p>
+              <button onClick={() => setCreatePostModal(false)} className="text-[hsl(220,10%,50%)] hover:text-white text-xl">✕</button>
+            </div>
+            <div className="px-5 pb-6 space-y-3">
+              {([
+                { icon: "🖼️", label: "Single Post", sub: "One image", action: () => { setCreatePostModal(false); setTodayBuildMode(true); goToScreen("pool"); enterSelectionMode("single"); } },
+                { icon: "📸", label: "Carousel", sub: "2–20 images", action: () => { setCreatePostModal(false); setTodayBuildMode(true); goToScreen("pool"); enterSelectionMode("carousel"); } },
+                { icon: "✨", label: "AI Generate Single", sub: "AI picks best image", action: () => { setCreatePostModal(false); handleAIGenerateSingle(); } },
+                { icon: "🤖", label: "AI Generate Carousel", sub: "Rule-based or by theme", action: () => { setCreatePostModal(false); setAiTypeModal(true); } },
+              ] as const).map((opt) => (
+                <button key={opt.label} onClick={opt.action}
+                  className={`w-full text-left px-4 py-3 rounded-xl border border-[hsl(220,13%,22%)] hover:bg-[hsl(220,14%,16%)] transition-colors flex items-center gap-3`}>
+                  <span className="text-2xl">{opt.icon}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-[hsl(220,10%,85%)]">{opt.label}</p>
+                    <p className="text-xs text-[hsl(220,10%,50%)]">{opt.sub}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {plusMenuOpen && <div className="fixed inset-0 z-[15]" onClick={() => setPlusMenuOpen(false)} />}
       {(filterDropdownOpen || sortDropdownOpen) && <div className="fixed inset-0 z-10" onClick={() => { setFilterDropdownOpen(false); setSortDropdownOpen(false); }} />}

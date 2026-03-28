@@ -23,6 +23,7 @@ export interface ApprovedPost {
   mediaIds?: string[];
   status?: "draft" | "approved";
   createdAt: string;
+  timezone?: string;
 }
 
 export interface CaptionSettings {
