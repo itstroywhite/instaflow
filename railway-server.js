@@ -45,11 +45,15 @@ async function ensureTables() {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       tag TEXT,
-      data_url TEXT NOT NULL,
+      data_url TEXT,
+      url TEXT,
+      folder_id TEXT,
       used BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS used BOOLEAN NOT NULL DEFAULT FALSE;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS url TEXT;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS folder_id TEXT;
 
     CREATE TABLE IF NOT EXISTS app_settings (
       key TEXT PRIMARY KEY,
@@ -122,10 +126,17 @@ app.get("/api/media", async (req, res) => {
   await withTables(async () => {
     if (!mediaCache) {
       const result = await pool.query(
-        "SELECT id, name, tag, data_url, used, created_at FROM media_items WHERE data_url NOT LIKE 'data:video/%' ORDER BY created_at DESC"
+        `SELECT id, name, tag, url, data_url, folder_id, used, created_at
+         FROM media_items
+         WHERE (data_url IS NULL OR data_url NOT LIKE 'data:video/%')
+           AND (url IS NULL OR url NOT LIKE 'data:video/%')
+         ORDER BY created_at DESC`
       );
       mediaCache = result.rows.map((r) => ({
-        id: r.id, name: r.name, tag: r.tag, dataUrl: r.data_url,
+        id: r.id, name: r.name, tag: r.tag,
+        // Prefer Supabase public URL over stored base64
+        dataUrl: r.url ?? r.data_url ?? "",
+        folderId: r.folder_id ?? null,
         used: r.used ?? false, createdAt: r.created_at,
       }));
     }
@@ -138,15 +149,84 @@ app.get("/api/media", async (req, res) => {
   }, res);
 });
 
+// POST /api/media/upload — upload to Supabase Storage + save DB record in one call
+app.post("/api/media/upload", async (req, res) => {
+  const { id, name, dataUrl, tag, folderId } = req.body;
+  if (!id || !name || !dataUrl) {
+    return res.status(400).json({ error: "id, name, and dataUrl are required" });
+  }
+  if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
+    return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
+  }
+
+  const comma = dataUrl.indexOf(",");
+  if (comma === -1) return res.status(400).json({ error: "Invalid dataUrl format" });
+  const header = dataUrl.slice(0, comma);
+  const base64 = dataUrl.slice(comma + 1);
+  const mediaType = header.split(";")[0].replace("data:", "") || "image/jpeg";
+  const ext = mediaType.split("/")[1]?.split("+")[0] || "jpg";
+  const filename = `${id}-${Date.now()}.${ext}`;
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+  let publicUrl = null;
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const buffer = Buffer.from(base64, "base64");
+      console.log(`[media/upload] Uploading ${filename} (${buffer.length} bytes)`);
+      const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/media/${filename}`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": mediaType, "x-upsert": "true" },
+        body: buffer,
+      });
+      if (uploadRes.ok) {
+        publicUrl = `${supabaseUrl}/storage/v1/object/public/media/${filename}`;
+        console.log(`[media/upload] Supabase OK: ${publicUrl}`);
+      } else {
+        const errBody = await uploadRes.text();
+        console.error(`[media/upload] Supabase ${uploadRes.status}: ${errBody}`);
+      }
+    } catch (err) {
+      console.error("[media/upload] Supabase error:", err.message);
+    }
+  } else {
+    console.warn("[media/upload] Supabase not configured, storing base64 fallback");
+  }
+
+  await withTables(async () => {
+    if (publicUrl) {
+      await pool.query(
+        `INSERT INTO media_items (id, name, tag, data_url, url, folder_id, used) VALUES ($1,$2,$3,$4,$4,$5,FALSE) ON CONFLICT (id) DO NOTHING`,
+        [id, name, tag ?? null, publicUrl, folderId ?? null]
+      );
+    } else {
+      await pool.query(
+        `INSERT INTO media_items (id, name, tag, data_url, url, folder_id, used) VALUES ($1,$2,$3,$4,NULL,$5,FALSE) ON CONFLICT (id) DO NOTHING`,
+        [id, name, tag ?? null, dataUrl, folderId ?? null]
+      );
+    }
+    invalidateMedia();
+    const createdAt = new Date().toISOString();
+    res.json({ id, name, tag: tag ?? null, dataUrl: publicUrl ?? dataUrl, folderId: folderId ?? null, createdAt });
+  }, res);
+});
+
+// POST /api/media — legacy endpoint for backward compat (and video saves)
 app.post("/api/media", async (req, res) => {
   const { id, name, tag, dataUrl, used } = req.body;
   if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
     return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
   }
   await withTables(async () => {
+    const isUrl = typeof dataUrl === "string" && dataUrl.startsWith("http");
     await pool.query(
-      "INSERT INTO media_items (id, name, tag, data_url, used) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING",
-      [id, name, tag ?? null, dataUrl, used ?? false]
+      `INSERT INTO media_items (id, name, tag, data_url, url, used)
+       VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING`,
+      [id, name, tag ?? null,
+       isUrl ? dataUrl : (dataUrl ?? ""),
+       isUrl ? dataUrl : null,
+       used ?? false]
     );
     invalidateMedia();
     res.json({ ok: true });
@@ -170,9 +250,32 @@ app.patch("/api/media/:id", async (req, res) => {
 
 app.delete("/api/media/:id", async (req, res) => {
   await withTables(async () => {
+    // Fetch URL before deletion so we can clean Supabase Storage
+    const row = await pool.query("SELECT url FROM media_items WHERE id = $1", [req.params.id]);
+    const publicUrl = row.rows[0]?.url ?? null;
+
     await pool.query("DELETE FROM media_items WHERE id = $1", [req.params.id]);
     invalidateMedia();
     res.json({ ok: true });
+
+    // Non-blocking Supabase Storage cleanup
+    if (publicUrl && publicUrl.startsWith("http")) {
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const marker = "/storage/v1/object/public/media/";
+        const idx = publicUrl.indexOf(marker);
+        if (idx !== -1) {
+          const filename = publicUrl.slice(idx + marker.length);
+          fetch(`${supabaseUrl}/storage/v1/object/media/${filename}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${supabaseKey}` },
+          }).then(async (r) => {
+            if (!r.ok) console.warn(`[delete] Supabase Storage delete ${r.status}:`, await r.text());
+          }).catch((err) => console.warn("[delete] Supabase Storage delete error:", err.message));
+        }
+      }
+    }
   }, res);
 });
 
@@ -436,22 +539,42 @@ app.post("/api/analyze", async (req, res) => {
     return res.status(500).json({ tag: "other", error: "ANTHROPIC_API_KEY not configured" });
   }
 
-  const { dataUrl } = req.body;
-  if (!dataUrl || typeof dataUrl !== "string") {
-    return res.status(400).json({ tag: "other", error: "dataUrl is required" });
+  const { dataUrl, url } = req.body;
+  if (!dataUrl && !url) {
+    return res.status(400).json({ tag: "other", error: "dataUrl or url is required" });
   }
 
-  const comma = dataUrl.indexOf(",");
-  if (comma === -1) {
-    return res.status(400).json({ tag: "other", error: "Invalid dataUrl format" });
+  let base64, mediaType;
+
+  if (url && typeof url === "string" && url.startsWith("http")) {
+    // Fetch image from Supabase public URL and convert to base64
+    try {
+      const imgRes = await fetch(url);
+      if (!imgRes.ok) {
+        console.warn(`[analyze] Failed to fetch url ${url} — status ${imgRes.status}`);
+        return res.json({ tag: "other" });
+      }
+      const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
+      mediaType = contentType.split(";")[0].trim();
+      const buf = Buffer.from(await imgRes.arrayBuffer());
+      base64 = buf.toString("base64");
+      console.log(`[analyze] Fetched url, mediaType=${mediaType} base64Length=${base64.length}`);
+    } catch (err) {
+      console.warn("[analyze] Error fetching image url:", err.message);
+      return res.json({ tag: "other" });
+    }
+  } else if (dataUrl && typeof dataUrl === "string") {
+    const comma = dataUrl.indexOf(",");
+    if (comma === -1) return res.status(400).json({ tag: "other", error: "Invalid dataUrl format" });
+    const header = dataUrl.slice(0, comma);
+    base64 = dataUrl.slice(comma + 1);
+    mediaType = header.split(";")[0].replace("data:", "");
+    console.log(`[analyze] dataUrl path, mediaType=${mediaType} base64Length=${base64.length}`);
+  } else {
+    return res.status(400).json({ tag: "other", error: "Invalid dataUrl or url" });
   }
 
-  const header = dataUrl.slice(0, comma);
-  const base64 = dataUrl.slice(comma + 1);
-  const mediaType = header.split(";")[0].replace("data:", "");
   const supportedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
-
-  console.log(`[analyze] mediaType=${mediaType} base64Length=${base64.length}`);
 
   if (!supportedTypes.includes(mediaType)) {
     console.warn(`[analyze] Unsupported mediaType: ${mediaType} — returning 'other'`);
