@@ -1960,15 +1960,21 @@ export default function App() {
             {openFolder && (
               <div className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setOpenFolder(null); setFolderAddMode(false); }} className={`${dimText} hover:text-white text-sm`}>← Back</button>
+                  <button onClick={() => { setOpenFolder(null); setFolderAddMode(false); cancelBulkMode(); }} className={`${dimText} hover:text-white text-sm`}>← Back</button>
                   <span className="text-sm font-semibold">📁 {openFolder.name}</span>
                   <span className={`text-xs ${dimText}`}>({openFolder.mediaIds.filter((id) => mediaMap[id]).length})</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  {folderAddMode && (
+                <div className="flex items-center gap-2">
+                  {folderAddMode ? (
                     <button onClick={() => setFolderAddMode(false)} className={`text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,75%)] border border-[hsl(263,70%,65%)/30]`}>Done Adding</button>
+                  ) : bulkMode ? (
+                    <button onClick={cancelBulkMode} className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>Cancel</button>
+                  ) : (
+                    <>
+                      <button onClick={() => { setBulkMode(true); setBulkSelectedIds([]); }} className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>Select</button>
+                      <button onClick={() => setConfirmDeleteFolder(true)} className={`text-xs ${dimText} hover:text-red-400`}>Delete folder</button>
+                    </>
                   )}
-                  <button onClick={() => setConfirmDeleteFolder(true)} className={`text-xs ${dimText} hover:text-red-400`}>Delete folder</button>
                 </div>
               </div>
             )}
