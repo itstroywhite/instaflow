@@ -327,7 +327,7 @@ Return ONLY a valid JSON array of exactly 3 strings. No explanation, no markdown
   throw new Error("Caption generation failed. Please try again.");
 }
 
-async function generateSingleCaption(tags: string[], cs: CaptionSettings, userIdeas?: string): Promise<string> {
+async function generateSingleCaption(tags: string[], cs: CaptionSettings, userIdeas?: string, onChunk?: (partial: string) => void): Promise<string> {
   const basePrompt = cs.captionPrompt?.trim() || DEFAULT_CAPTION_PROMPT;
   const toneStr = cs.tone || "cool, modern";
   const isLowercase = toneStr.toLowerCase().includes("lowercase");
@@ -340,8 +340,43 @@ async function generateSingleCaption(tags: string[], cs: CaptionSettings, userId
 Context: single post featuring a ${tagLabel(tags[0] ?? "other")} photo. Tone: ${toneStr}.${hashtagPart}${lowercaseRule}${customRule}${ideasPart}
 
 Output only the caption text, nothing else.`;
+
+  if (onChunk) {
+    const res = await fetch(`${API_BASE}/api/claude`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, stream: true, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!res.ok || !res.body) throw new Error(`Caption request failed: ${res.status}`);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+    let buf = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") break;
+        try {
+          const evt = JSON.parse(jsonStr);
+          if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
+            fullText += evt.delta.text;
+            onChunk(fullText);
+          }
+        } catch { /* skip malformed */ }
+      }
+    }
+    if (!fullText) throw new Error("Empty response");
+    return fullText;
+  }
+
   const data = await apiPost("/claude", {
-    model: "claude-3-haiku-20240307", max_tokens: 200,
+    model: "claude-haiku-4-5-20251001", max_tokens: 200,
     messages: [{ role: "user", content: prompt }],
   });
   const text = data.content?.[0]?.text;
@@ -1624,8 +1659,9 @@ export default function App() {
       setSinglePostItem(best); setSingleEditing(false); setSingleError(null);
       setSingleScheduleDate(todayStr()); setSingleScheduleTime(nowTimeStr());
       setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleCaptionOptionsExpanded(false);
-      setSingleCaption(await generateSingleCaption([best.tag ?? "other"], appSettings.captionSettings));
+      setSingleCaption("");
       setScreen("single");
+      await generateSingleCaption([best.tag ?? "other"], appSettings.captionSettings, undefined, (partial) => setSingleCaption(partial));
     } catch (err) { setAiError(err instanceof Error ? err.message : "AI error"); setSinglePostItem(null); setScreen("pool"); }
     finally { setAiGenerating(false); }
   }
@@ -2184,16 +2220,22 @@ export default function App() {
                                     : <LazyImg src={thumb.dataUrl} alt="" className="object-cover" />}
                                 </div>
                               )}
-                              <div className="flex-1 p-3 space-y-1.5 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
-                                    <span className={`text-xs ${dimText}`}>{post.slideCount === 1 ? "Single" : `${post.slideCount} slides`}</span>
-                                    {post.tagsSummary && <span className="text-sm leading-none">{post.tagsSummary}</span>}
-                                  </div>
-                                  {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)] flex-shrink-0">🕐 {post.scheduledTime}</span>}
+                              <div className="flex-1 p-4 space-y-2 min-w-0">
+                                {/* Row 1: type + status dot */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
+                                  <span className={`text-xs ${dimText}`}>{post.slideCount === 1 ? "Single" : `${post.slideCount} slides`}</span>
                                 </div>
+                                {/* Row 2: tags + scheduled time — own breathing row */}
+                                {(post.tagsSummary || post.scheduledTime) && (
+                                  <div className="flex items-center justify-between gap-2">
+                                    {post.tagsSummary ? <span className="text-base leading-none">{post.tagsSummary}</span> : <span />}
+                                    {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)] flex-shrink-0">🕐 {post.scheduledTime}</span>}
+                                  </div>
+                                )}
+                                {/* Row 3: caption */}
                                 {post.caption && <p className={`text-xs ${dimText} line-clamp-2 leading-relaxed`}>{post.caption}</p>}
+                                {/* Row 4: status badge + edit/delete */}
                                 <div className="flex items-center justify-between pt-0.5">
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
                                     {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
@@ -3363,8 +3405,8 @@ export default function App() {
 
             {/* Main scrollable area — tap dark background to close */}
             <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => setViewerItem(null)}>
-              {/* Image / Video */}
-              <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+              {/* Image / Video — with tag badge overlaid top-left */}
+              <div className="w-full max-w-sm relative" onClick={(e) => e.stopPropagation()}>
                 {isVideo(viewerItem.dataUrl) ? (
                   <video
                     ref={(el) => { (viewerVideoRef as any).current = el; }}
@@ -3380,21 +3422,25 @@ export default function App() {
                     className="w-full max-h-[55vh] object-contain rounded-xl"
                   />
                 )}
+                {/* Tag badge — top-left overlay on image */}
+                {viewerItem.tag && (
+                  <button
+                    onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
+                    className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none">
+                    {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
+                  </button>
+                )}
               </div>
 
               {/* Action card — rounded-xl below image */}
-              <div className="w-full max-w-sm bg-[hsl(220,14%,12%)] rounded-xl px-4 py-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-                {/* Tag pill */}
-                {viewerItem.tag && (
-                  <div className="flex justify-center">
-                    <button onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
-                      className="text-xs px-3 py-1.5 rounded-full bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,80%)] border border-[hsl(263,70%,65%)/35] hover:bg-[hsl(263,70%,65%)/30] transition-colors">
-                      {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)} · tap to change
-                    </button>
-                  </div>
-                )}
-                {/* Action buttons */}
+              <div className="w-full max-w-sm bg-[hsl(220,14%,12%)] rounded-xl px-4 py-4" onClick={(e) => e.stopPropagation()}>
+                {/* Action buttons: Single Post → Carousel → Favorite → Tag → Delete */}
                 <div className="flex items-center justify-around">
+                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                    onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
+                    <span className="text-xl">🖼️</span>
+                    <span className="text-[10px] text-white/60">Single Post</span>
+                  </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                     onClick={() => {
                       const item = viewerItem; setViewerItem(null);
@@ -3408,11 +3454,6 @@ export default function App() {
                     }}>
                     <span className="text-xl">📸</span>
                     <span className="text-[10px] text-white/60">Carousel</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
-                    <span className="text-xl">🖼️</span>
-                    <span className="text-[10px] text-white/60">Single Post</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                     onClick={() => setViewerFavorites((prev) => { const next = new Set(prev); isFav ? next.delete(viewerItem.id) : next.add(viewerItem.id); return next; })}>
