@@ -566,6 +566,7 @@ export default function App() {
   const [singleUserIdeas, setSingleUserIdeas] = useState("");
   const [singleCaptionOptionsExpanded, setSingleCaptionOptionsExpanded] = useState(false);
   const singlePostFromScreen = useRef<Screen>("pool");
+  const [singleToast, setSingleToast] = useState<string | null>(null);
   const [singleAiMode, setSingleAiMode] = useState(false);
 
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
@@ -1116,6 +1117,20 @@ export default function App() {
   function cancelSinglePost() {
     setSinglePostItem(null);
     setScreen(singlePostFromScreen.current);
+  }
+  function showSingleToast(msg: string) {
+    setSingleToast(msg);
+    setTimeout(() => setSingleToast(null), 2000);
+  }
+  function handleSingleNewMedia() {
+    const unused = mediaItems.filter((m) => !m.used && !m.analyzing);
+    if (!unused.length) { showSingleToast("No unused media in pool"); return; }
+    const currentIdx = singlePostItem ? unused.findIndex((m) => m.id === singlePostItem.id) : -1;
+    const nextItem = unused[(currentIdx + 1) % unused.length];
+    setSinglePostItem(nextItem);
+    setSingleCaption(""); setSingleError(null);
+    setSingleEditing(false); setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleCaptionOptionsExpanded(false);
+    showSingleToast("New media loaded");
   }
   function handleStartSinglePost() { const item = mediaMap[selectedIds[0]]; if (item) openSinglePost(item); }
   async function handleGenerateSingleCaption(mode: "fresh" | "rephrase" | "shorter" | "longer" | "variations" = "fresh") {
@@ -2216,8 +2231,8 @@ export default function App() {
               <button onClick={cancelSinglePost} className={mutedBtn}>Cancel</button>
             </div>
 
-            {/* 1. MAIN VIEWER + 2. SINGLE-IMAGE FILMSTRIP (same card as Carousel) */}
-            <div className={`${card} overflow-visible`}>
+            {/* 1. MAIN VIEWER + BOTTOM ACTION BAR (same card as Carousel) */}
+            <div className={`${card} overflow-hidden`}>
               {/* 4:5 viewer */}
               <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }}>
                 {brokenImages.has(singlePostItem.id)
@@ -2228,34 +2243,37 @@ export default function App() {
                     {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}
                   </span>
                 )}
-                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
+                {/* Slide counter + New Media pill — top right */}
+                <div className="absolute top-3 right-3 flex items-center gap-1.5">
+                  <button onClick={handleSingleNewMedia}
+                    className="text-[10px] px-2 py-0.5 rounded-lg bg-black/60 text-white/80 hover:text-white backdrop-blur-sm hover:bg-black/75 transition-colors font-medium">
+                    ↺ New Media
+                  </button>
+                  <span className="text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
+                </div>
+                {/* Toast */}
+                {singleToast && (
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/80 text-white text-xs backdrop-blur-sm whitespace-nowrap pointer-events-none">
+                    {singleToast}
+                  </div>
+                )}
               </div>
 
-              {/* 2. Single-image filmstrip — one selected thumb + change-image tiles */}
-              <div style={{ display: "flex", flexDirection: "row", overflowX: "scroll", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", columnGap: 8, padding: 12 } as React.CSSProperties}>
-                {/* Current image thumbnail (always selected) */}
-                <div style={{ width: 84, height: 84, flexShrink: 0, position: "relative", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 2.5px hsl(263,70%,65%)", outline: "2px solid hsl(263,70%,65%)" } as React.CSSProperties}>
-                  {brokenImages.has(singlePostItem.id)
-                    ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{tagIcon(singlePostItem.tag ?? "other")}</div>
-                    : <img src={singlePostItem.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
-                  <div style={{ position: "absolute", bottom: 4, left: 6 }}><span style={{ color: "white", fontSize: 9, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>1</span></div>
-                </div>
-                {/* From Pool tile */}
-                <button onClick={() => setSinglePickerOpen(true)} style={{ width: 84, height: 84, flexShrink: 0, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 10, border: "2px dashed hsl(220,13%,32%)", background: "hsl(220,14%,9%)", color: "hsl(220,10%,40%)", cursor: "pointer" } as React.CSSProperties}>
-                  <span style={{ fontSize: 20 }}>🖼️</span>
-                  <span style={{ fontSize: 9, fontWeight: 500 }}>From Pool</span>
+              {/* 2. iOS-style bottom action bar — 3 equal buttons, dividers only */}
+              <div className="flex border-t border-[hsl(220,13%,16%)]">
+                <button onClick={() => setSinglePickerOpen(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium">
+                  <span>🖼</span><span>From Pool</span>
                 </button>
-                {/* Camera tile */}
-                <label style={{ width: 84, height: 84, flexShrink: 0, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 10, border: "2px dashed hsl(220,13%,32%)", background: "hsl(220,14%,9%)", color: "hsl(220,10%,40%)", cursor: "pointer" } as React.CSSProperties}>
-                  <span style={{ fontSize: 20 }}>📷</span>
-                  <span style={{ fontSize: 9, fontWeight: 500 }}>Camera</span>
+                <div className="w-px bg-[hsl(220,13%,16%)]" />
+                <label className="flex-1 flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium cursor-pointer">
+                  <span>📷</span><span>Camera</span>
                   <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
                     onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
                 </label>
-                {/* Library tile */}
-                <label style={{ width: 84, height: 84, flexShrink: 0, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 10, border: "2px dashed hsl(220,13%,32%)", background: "hsl(220,14%,9%)", color: "hsl(220,10%,40%)", cursor: "pointer" } as React.CSSProperties}>
-                  <span style={{ fontSize: 20 }}>📂</span>
-                  <span style={{ fontSize: 9, fontWeight: 500 }}>Library</span>
+                <div className="w-px bg-[hsl(220,13%,16%)]" />
+                <label className="flex-1 flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium cursor-pointer">
+                  <span>📁</span><span>Camera Roll</span>
                   <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
                     onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
                 </label>
