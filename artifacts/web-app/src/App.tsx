@@ -472,6 +472,24 @@ function DatePicker({ value, onChange, className }: { value: string; onChange: (
   );
 }
 
+function LazyImg({ src, alt, className, onError }: { src: string; alt?: string; className?: string; onError?: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div className="relative w-full h-full">
+      {!loaded && <div className="absolute inset-0 bg-[hsl(220,14%,16%)] animate-pulse" />}
+      <img
+        src={src}
+        alt={alt ?? ""}
+        loading="lazy"
+        decoding="async"
+        className={`w-full h-full transition-opacity duration-300 ${loaded ? "opacity-100" : "opacity-0"} ${className ?? ""}`}
+        onLoad={() => setLoaded(true)}
+        onError={() => { setLoaded(true); onError?.(); }}
+      />
+    </div>
+  );
+}
+
 function TimePicker({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
   const [open, setOpen] = useState(false);
   const [inputText, setInputText] = useState("");
@@ -479,7 +497,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
 
   const times: string[] = [];
   for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m++) {
+    for (let m = 0; m < 60; m += 15) {
       times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
     }
   }
@@ -497,7 +515,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
     const now = new Date();
     const h = now.getHours();
     const rawM = now.getMinutes();
-    const m = Math.ceil(rawM / 5) * 5;
+    const m = Math.ceil(rawM / 15) * 15;
     if (m >= 60) {
       const nh = (h + 1) % 24;
       return `${String(nh).padStart(2, "0")}:00`;
@@ -1710,10 +1728,10 @@ export default function App() {
             {plusMenuOpen && (
               <div className={`absolute right-0 top-10 w-60 rounded-xl border ${border} bg-[hsl(220,14%,12%)] shadow-xl overflow-hidden z-30`}>
                 {[
-                  { icon: "📸", label: "Build Carousel", sub: "Select 2–20 items", action: () => { goToScreen("pool"); enterSelectionMode("carousel"); } },
-                  { icon: "🖼️", label: "Build Single Post", sub: "Select 1 image", action: () => { goToScreen("pool"); enterSelectionMode("single"); } },
-                  { icon: "🤖", label: "AI Generate Carousel", sub: "Rule-based or by theme", action: () => { setPlusMenuOpen(false); setAiTypeModal(true); } },
+                  { icon: "🖼️", label: "Single Post", sub: "Select 1 image", action: () => { setPlusMenuOpen(false); goToScreen("pool"); enterSelectionMode("single"); } },
+                  { icon: "📸", label: "Carousel", sub: "Select 2–20 items", action: () => { setPlusMenuOpen(false); goToScreen("pool"); enterSelectionMode("carousel"); } },
                   { icon: "✨", label: "AI Generate Single", sub: "AI picks best image", action: handleAIGenerateSingle },
+                  { icon: "🤖", label: "AI Generate Carousel", sub: "Rule-based or by theme", action: () => { setPlusMenuOpen(false); setAiTypeModal(true); } },
                 ].map((item, idx, arr) => (
                   <button key={item.label} onClick={item.action}
                     className={`w-full text-left px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors ${idx < arr.length - 1 ? `border-b border-[hsl(220,13%,20%)]` : ""}`}>
@@ -2023,7 +2041,7 @@ export default function App() {
                   if (displayItems.length === 0 && openFolder) return (
                     <div className={`col-span-3 text-center py-8 ${dimText} text-sm`}>
                       <p>This folder is empty.</p>
-                      <p className="text-xs mt-1">Tap "+ Add Media" above or long-press in the pool.</p>
+                      <p className="text-xs mt-1">Tap "+ Add File(s)" above or long-press in the pool.</p>
                     </div>
                   );
                   const mappedItems = displayItems.map((item) => {
@@ -2056,7 +2074,7 @@ export default function App() {
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
                         {isVideo(item.dataUrl)
                           ? <div className="w-full h-full relative">{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)]" />}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span></div>
-                          : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                          : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <LazyImg src={item.dataUrl} alt={item.name} className="object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
@@ -2093,7 +2111,7 @@ export default function App() {
                       {openFolder && !folderAddMode && !bulkMode && !selectionMode && (
                         <button
                           key="add-file-tile"
-                          onClick={() => folderFileInputRef.current?.click()}
+                          onClick={() => setFolderAddSourceSheet(true)}
                           className="aspect-square rounded-xl border-2 border-dashed border-[hsl(220,13%,28%)] hover:border-[hsl(263,70%,65%)/60] flex flex-col items-center justify-center gap-1.5 text-[hsl(220,10%,40%)] hover:text-[hsl(263,70%,70%)] transition-colors cursor-pointer">
                           <span className="text-2xl leading-none">+</span>
                           <span className="text-[10px] font-medium">Add File(s)</span>
@@ -2102,16 +2120,6 @@ export default function App() {
                     </>
                   );
                 })()}
-
-                {/* "+ Add Media" tile in folder view → shows source picker */}
-                {openFolder && !folderAddMode && !bulkMode && !selectionMode && (
-                  <button
-                    onClick={() => setFolderAddSourceSheet(true)}
-                    className="aspect-square rounded-xl border-2 border-dashed border-[hsl(220,13%,28%)] hover:border-[hsl(263,70%,65%)/50] flex flex-col items-center justify-center gap-1 text-[hsl(220,10%,40%)] hover:text-[hsl(263,70%,70%)] transition-colors cursor-pointer">
-                    <span className="text-2xl font-light leading-none">+</span>
-                    <span className="text-[10px] font-medium">Add Media</span>
-                  </button>
-                )}
               </div>
 
               {/* ── Load More button (only in main pool, not inside a folder) ── */}
@@ -2170,23 +2178,30 @@ export default function App() {
                               {thumb && (
                                 <div className="w-20 flex-shrink-0 overflow-hidden relative">
                                   {isVideo(thumb.dataUrl)
-                                    ? <>{videoPosters[thumb.id] ? <img src={videoPosters[thumb.id]} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)]" />}<span className="absolute inset-0 flex items-center justify-center"><span className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white text-xs">▶</span></span></>
-                                    : <img src={thumb.dataUrl} alt="" className="w-full h-full object-cover" />}
+                                    ? <>{videoPosters[thumb.id] ? <LazyImg src={videoPosters[thumb.id]} alt="" className="object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)]" />}<span className="absolute inset-0 flex items-center justify-center"><span className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white text-xs">▶</span></span></>
+                                    : <LazyImg src={thumb.dataUrl} alt="" className="object-cover" />}
                                 </div>
                               )}
-                              <div className="flex-1 px-3 py-3 space-y-1.5 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-1.5">
+                              <div className="flex-1 p-3 space-y-1.5 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
                                     <span className={`text-xs ${dimText}`}>{post.slideCount === 1 ? "Single" : `${post.slideCount} slides`}</span>
-                                    {post.scheduledTime && <span className={`text-xs ${dimText}`}>🕐 {post.scheduledTime}</span>}
+                                    {post.tagsSummary && <span className="text-sm leading-none">{post.tagsSummary}</span>}
                                   </div>
+                                  {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)] flex-shrink-0">🕐 {post.scheduledTime}</span>}
+                                </div>
+                                {post.caption && <p className={`text-xs ${dimText} line-clamp-2 leading-relaxed`}>{post.caption}</p>}
+                                <div className="flex items-center justify-between pt-0.5">
+                                  <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
+                                    {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
+                                  </span>
                                   <div className="flex gap-2 items-center flex-shrink-0">
+                                    <button onClick={(e) => { e.stopPropagation(); setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-white`}>👁</button>
                                     <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button>
                                     <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑</button>
                                   </div>
                                 </div>
-                                {post.caption && <p className={`text-xs ${dimText} line-clamp-2 leading-relaxed`}>{post.caption}</p>}
                               </div>
                             </div>
                           </div>
@@ -2197,7 +2212,7 @@ export default function App() {
                       <button
                         onClick={() => setCreatePostModal(true)}
                         className={`w-full py-3 rounded-xl border border-dashed ${border} ${dimText} hover:border-[hsl(263,70%,65%)/50] hover:text-[hsl(263,70%,70%)] transition-colors flex items-center justify-center gap-2 text-sm font-medium`}>
-                        <span className="text-base">+</span> Create Another Post
+                        <span className="text-base">+</span> Create Post
                       </button>
                     </div>
                   )}
@@ -2354,7 +2369,7 @@ export default function App() {
                       cursor: "pointer",
                     } as React.CSSProperties}>
                     <span style={{ fontSize: 24, fontWeight: 300, lineHeight: 1 }}>+</span>
-                    <span style={{ fontSize: 9, fontWeight: 500 }}>{carouselIds.length === 0 ? "Add slides" : "Add File"}</span>
+                    <span style={{ fontSize: 9, fontWeight: 500 }}>{carouselIds.length === 0 ? "Add slides" : "Add File(s)"}</span>
                   </button>
                 )}
               </div>
@@ -3329,26 +3344,29 @@ export default function App() {
           ? new Date(viewerItem.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
           : "";
         return (
-          <div className="fixed inset-0 z-40 flex flex-col bg-black" style={{ userSelect: "none" }}>
-            {/* iOS-style top bar */}
-            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-12 pb-3 bg-gradient-to-b from-black/80 to-transparent absolute top-0 left-0 right-0 z-10">
-              <div>
-                {dateStr && <p className="text-white text-sm font-semibold leading-tight">{dateStr}</p>}
-                {timeStr && <p className="text-white/60 text-xs">{timeStr}</p>}
-              </div>
+          <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+            {/* Top bar */}
+            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pt-10 pb-3 absolute top-0 left-0 right-0 z-10">
+              {(dateStr || timeStr) ? (
+                <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
+                  {dateStr && <span className="text-white/90 text-xs font-medium">{dateStr}</span>}
+                  {dateStr && timeStr && <span className="text-white/30 text-xs">·</span>}
+                  {timeStr && <span className="text-white/50 text-xs">{timeStr}</span>}
+                </div>
+              ) : <div />}
               <button onClick={() => setViewerItem(null)}
-                className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white text-lg leading-none">
+                className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
                 ✕
               </button>
             </div>
 
             {/* Media area — tap background to close */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden" onClick={() => setViewerItem(null)}>
+            <div className="flex-1 flex items-center justify-center overflow-hidden px-4 py-20" onClick={() => setViewerItem(null)}>
               {isVideo(viewerItem.dataUrl) ? (
                 <video
                   ref={(el) => { (viewerVideoRef as any).current = el; }}
                   src={viewerItem.dataUrl}
-                  className="max-w-full max-h-full object-contain"
+                  className="max-w-full max-h-full object-contain rounded-xl"
                   controls
                   playsInline
                   onClick={(e) => e.stopPropagation()}
@@ -3357,27 +3375,26 @@ export default function App() {
                 <img
                   src={viewerItem.dataUrl}
                   alt={viewerItem.name}
-                  className="max-w-full max-h-full object-contain"
+                  className="max-w-full max-h-full object-contain rounded-xl"
                   onClick={(e) => e.stopPropagation()}
                 />
               )}
             </div>
 
-            {/* iOS-style bottom action bar */}
-            <div className="flex-shrink-0 bg-black/80 backdrop-blur-md border-t border-white/10 pb-8 pt-3 px-4">
-              {/* Tag row */}
+            {/* Bottom action bar */}
+            <div className="flex-shrink-0 bg-[hsl(220,14%,10%)/90] backdrop-blur-md border-t border-white/8 pb-8 pt-4 px-6 space-y-4">
+              {/* Tag pill */}
               {viewerItem.tag && (
-                <div className="flex justify-center mb-3">
+                <div className="flex justify-center">
                   <button onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
-                    className={`text-xs px-3 py-1.5 rounded-full border backdrop-blur-sm ${tagColor(viewerItem.tag, appSettings.customTags)}`}>
+                    className="text-xs px-3 py-1.5 rounded-full bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,80%)] border border-[hsl(263,70%,65%)/35] backdrop-blur-sm hover:bg-[hsl(263,70%,65%)/30] transition-colors">
                     {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)} · tap to change
                   </button>
                 </div>
               )}
               {/* Action icons */}
-              <div className="flex items-center justify-around">
-                {/* Add to carousel */}
-                <button className="flex flex-col items-center gap-1.5 text-white/80 hover:text-white active:opacity-60"
+              <div className="flex items-end justify-around">
+                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                   onClick={() => {
                     const item = viewerItem; setViewerItem(null);
                     if (carouselIds.length > 0 && screen === "carousel") {
@@ -3388,32 +3405,28 @@ export default function App() {
                       goToScreen("pool");
                     }
                   }}>
-                  <span className="text-2xl">📸</span>
-                  <span className="text-[10px]">Carousel</span>
+                  <span className="text-xl">📸</span>
+                  <span className="text-[10px] text-white/60">Carousel</span>
                 </button>
-                {/* Single post */}
-                <button className="flex flex-col items-center gap-1.5 text-white/80 hover:text-white active:opacity-60"
+                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                   onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
-                  <span className="text-2xl">🖼️</span>
-                  <span className="text-[10px]">Single Post</span>
+                  <span className="text-xl">🖼️</span>
+                  <span className="text-[10px] text-white/60">Single Post</span>
                 </button>
-                {/* Favorite */}
-                <button className="flex flex-col items-center gap-1.5 active:opacity-60"
+                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                   onClick={() => setViewerFavorites((prev) => { const next = new Set(prev); isFav ? next.delete(viewerItem.id) : next.add(viewerItem.id); return next; })}>
-                  <span className="text-2xl">{isFav ? "⭐" : "☆"}</span>
-                  <span className={`text-[10px] ${isFav ? "text-amber-400" : "text-white/80"}`}>Favorite</span>
+                  <span className="text-xl">{isFav ? "⭐" : "☆"}</span>
+                  <span className={`text-[10px] ${isFav ? "text-amber-400" : "text-white/60"}`}>Favorite</span>
                 </button>
-                {/* Edit tag */}
-                <button className="flex flex-col items-center gap-1.5 text-white/80 hover:text-white active:opacity-60"
+                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                   onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
-                  <span className="text-2xl">🏷️</span>
-                  <span className="text-[10px]">Tag</span>
+                  <span className="text-xl">🏷️</span>
+                  <span className="text-[10px] text-white/60">Tag</span>
                 </button>
-                {/* Delete */}
-                <button className="flex flex-col items-center gap-1.5 text-red-400 hover:text-red-300 active:opacity-60"
+                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
                   onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
-                  <span className="text-2xl">🗑️</span>
-                  <span className="text-[10px]">Delete</span>
+                  <span className="text-xl">🗑️</span>
+                  <span className="text-[10px] text-red-400">Delete</span>
                 </button>
               </div>
             </div>
