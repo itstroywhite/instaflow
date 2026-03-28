@@ -202,7 +202,11 @@ async function apiDelete(path: string) {
 
 async function analyzeTag(dataUrl: string, availableTags: string[]): Promise<string> {
   try {
-    const data = await apiPost("/analyze", { dataUrl });
+    // If the item already has a Supabase public URL, send it as `url` so the
+    // backend can fetch and convert to base64 — avoids sending a stale/empty dataUrl.
+    const isRemoteUrl = dataUrl.startsWith("https://") || dataUrl.startsWith("http://");
+    const body = isRemoteUrl ? { url: dataUrl } : { dataUrl };
+    const data = await apiPost("/analyze", body);
     const tag = data?.tag ?? "other";
     return availableTags.includes(tag) ? tag : "other";
   } catch { return "other"; }
@@ -847,18 +851,20 @@ export default function App() {
 
     if (videoItems.length > 0) setVideoTagQueue((prev) => [...prev, ...videoItems]);
 
-    // Auto-tag images, then upload to Supabase Storage, then persist to DB
+    // Auto-tag images (using base64 still in state), then upload+persist via /media/upload
     for (const item of imageItems) {
+      // analyzeTag while item.dataUrl is still base64 (before Supabase upload)
       const tag = await analyzeTag(item.dataUrl, allAvailableTags);
       setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
       try {
-        const storedUrl = await uploadMediaToStorage(item.dataUrl, item.id);
-        // Swap local base64 for the persisted URL so the grid shows the URL version
+        // Single endpoint: uploads to Supabase Storage AND saves DB record
+        const saved = await apiPost("/media/upload", { id: item.id, name: item.name, dataUrl: item.dataUrl, tag });
+        const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
+        // Swap local base64 for the persisted Supabase URL in state
         if (storedUrl !== item.dataUrl) {
           setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
         }
-        await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: storedUrl, used: false });
-      } catch (err) { console.error("Failed to save", err); }
+      } catch (err) { console.error("Failed to save media", err); }
     }
   }
 
@@ -1026,11 +1032,8 @@ export default function App() {
     setVideoTagQueue((prev) => prev.slice(1));
     setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
     try {
-      const storedUrl = await uploadMediaToStorage(item.dataUrl, item.id);
-      if (storedUrl !== item.dataUrl) {
-        setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
-      }
-      await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: storedUrl, used: false });
+      // Videos: use legacy /media endpoint (Supabase Storage doesn't accept video in this app)
+      await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: item.dataUrl, used: false });
     } catch (err) { console.error(err); }
   }
 
