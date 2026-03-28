@@ -1467,8 +1467,10 @@ export default function App() {
       };
       if (editingPost) {
         const remaining = approvedPosts.filter((p) => p.id !== editingPost.id);
-        await reconcileAfterDelete(remaining, mediaItems);
-        await markItemsUsed(carouselIds);
+        await Promise.all([
+          reconcileAfterDelete(remaining, mediaItems),
+          markItemsUsed(carouselIds),
+        ]);
         setApprovedPosts((prev) => prev.map((p) => p.id === editingPost.id ? post : p));
         try { await apiPut(`/posts/${editingPost.id}`, post); } catch {}
       } else {
@@ -2196,10 +2198,9 @@ export default function App() {
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
                                     {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
                                   </span>
-                                  <div className="flex gap-2 items-center flex-shrink-0">
-                                    <button onClick={(e) => { e.stopPropagation(); setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-white`}>👁</button>
-                                    <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button>
-                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑</button>
+                                  <div className="flex gap-3 items-center">
+                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
                                   </div>
                                 </div>
                               </div>
@@ -2902,7 +2903,7 @@ export default function App() {
                                   </span>
                                   <div className="flex gap-3 items-center">
                                     {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>Delete</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
                                   </div>
                                 </div>
                               </div>
@@ -2968,7 +2969,7 @@ export default function App() {
                                 {post.caption && <p className={`text-xs ${dimText} line-clamp-2`}>{post.caption}</p>}
                                 <div className="flex gap-3 justify-end">
                                   {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>Delete</button>
+                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
                                 </div>
                               </div>
                             </div>
@@ -3360,74 +3361,75 @@ export default function App() {
               </button>
             </div>
 
-            {/* Media area — tap background to close */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden px-4 py-20" onClick={() => setViewerItem(null)}>
-              {isVideo(viewerItem.dataUrl) ? (
-                <video
-                  ref={(el) => { (viewerVideoRef as any).current = el; }}
-                  src={viewerItem.dataUrl}
-                  className="max-w-full max-h-full object-contain rounded-xl"
-                  controls
-                  playsInline
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <img
-                  src={viewerItem.dataUrl}
-                  alt={viewerItem.name}
-                  className="max-w-full max-h-full object-contain rounded-xl"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              )}
-            </div>
+            {/* Main scrollable area — tap dark background to close */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => setViewerItem(null)}>
+              {/* Image / Video */}
+              <div className="w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
+                {isVideo(viewerItem.dataUrl) ? (
+                  <video
+                    ref={(el) => { (viewerVideoRef as any).current = el; }}
+                    src={viewerItem.dataUrl}
+                    className="w-full max-h-[55vh] object-contain rounded-xl"
+                    controls
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={viewerItem.dataUrl}
+                    alt={viewerItem.name}
+                    className="w-full max-h-[55vh] object-contain rounded-xl"
+                  />
+                )}
+              </div>
 
-            {/* Bottom action bar */}
-            <div className="flex-shrink-0 bg-[hsl(220,14%,10%)/90] backdrop-blur-md border-t border-white/8 pb-8 pt-4 px-6 space-y-4">
-              {/* Tag pill */}
-              {viewerItem.tag && (
-                <div className="flex justify-center">
-                  <button onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
-                    className="text-xs px-3 py-1.5 rounded-full bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,80%)] border border-[hsl(263,70%,65%)/35] backdrop-blur-sm hover:bg-[hsl(263,70%,65%)/30] transition-colors">
-                    {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)} · tap to change
+              {/* Action card — rounded-xl below image */}
+              <div className="w-full max-w-sm bg-[hsl(220,14%,12%)] rounded-xl px-4 py-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+                {/* Tag pill */}
+                {viewerItem.tag && (
+                  <div className="flex justify-center">
+                    <button onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
+                      className="text-xs px-3 py-1.5 rounded-full bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,80%)] border border-[hsl(263,70%,65%)/35] hover:bg-[hsl(263,70%,65%)/30] transition-colors">
+                      {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)} · tap to change
+                    </button>
+                  </div>
+                )}
+                {/* Action buttons */}
+                <div className="flex items-center justify-around">
+                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                    onClick={() => {
+                      const item = viewerItem; setViewerItem(null);
+                      if (carouselIds.length > 0 && screen === "carousel") {
+                        setCarouselIds((prev) => [...prev.filter((id) => id !== item.id), item.id]);
+                        setTodayBuildMode(true);
+                      } else {
+                        enterSelectionMode("carousel", item.id);
+                        goToScreen("pool");
+                      }
+                    }}>
+                    <span className="text-xl">📸</span>
+                    <span className="text-[10px] text-white/60">Carousel</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                    onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
+                    <span className="text-xl">🖼️</span>
+                    <span className="text-[10px] text-white/60">Single Post</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                    onClick={() => setViewerFavorites((prev) => { const next = new Set(prev); isFav ? next.delete(viewerItem.id) : next.add(viewerItem.id); return next; })}>
+                    <span className="text-xl">{isFav ? "⭐" : "☆"}</span>
+                    <span className={`text-[10px] ${isFav ? "text-amber-400" : "text-white/60"}`}>Favorite</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                    onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
+                    <span className="text-xl">🏷️</span>
+                    <span className="text-[10px] text-white/60">Tag</span>
+                  </button>
+                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
+                    onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
+                    <span className="text-xl">🗑️</span>
+                    <span className="text-[10px] text-red-400">Delete</span>
                   </button>
                 </div>
-              )}
-              {/* Action icons */}
-              <div className="flex items-end justify-around">
-                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                  onClick={() => {
-                    const item = viewerItem; setViewerItem(null);
-                    if (carouselIds.length > 0 && screen === "carousel") {
-                      setCarouselIds((prev) => [...prev.filter((id) => id !== item.id), item.id]);
-                      setTodayBuildMode(true);
-                    } else {
-                      enterSelectionMode("carousel", item.id);
-                      goToScreen("pool");
-                    }
-                  }}>
-                  <span className="text-xl">📸</span>
-                  <span className="text-[10px] text-white/60">Carousel</span>
-                </button>
-                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                  onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
-                  <span className="text-xl">🖼️</span>
-                  <span className="text-[10px] text-white/60">Single Post</span>
-                </button>
-                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                  onClick={() => setViewerFavorites((prev) => { const next = new Set(prev); isFav ? next.delete(viewerItem.id) : next.add(viewerItem.id); return next; })}>
-                  <span className="text-xl">{isFav ? "⭐" : "☆"}</span>
-                  <span className={`text-[10px] ${isFav ? "text-amber-400" : "text-white/60"}`}>Favorite</span>
-                </button>
-                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                  onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
-                  <span className="text-xl">🏷️</span>
-                  <span className="text-[10px] text-white/60">Tag</span>
-                </button>
-                <button className="flex flex-col items-center gap-2 px-3 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
-                  onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
-                  <span className="text-xl">🗑️</span>
-                  <span className="text-[10px] text-red-400">Delete</span>
-                </button>
               </div>
             </div>
           </div>

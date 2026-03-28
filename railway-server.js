@@ -468,7 +468,7 @@ app.post("/api/claude", async (req, res) => {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({ ...req.body, model: "claude-haiku-4-5-20251001", max_tokens: 300 }),
+      body: JSON.stringify({ ...req.body, model: "claude-haiku-4-5-20251001", max_tokens: 250 }),
     });
     const data = await response.json();
     console.log(`[claude] Anthropic status=${response.status} error=${data?.error?.message ?? "none"}`);
