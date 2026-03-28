@@ -2267,17 +2267,17 @@ export default function App() {
                     {/* Backdrop to close on outside click */}
                     <div className="fixed inset-0 z-10" onClick={() => setSingleChooseFileOpen(false)} />
                     <div className={`absolute bottom-full left-0 right-0 mb-1 rounded-xl border ${border} bg-[hsl(220,14%,12%)] shadow-xl overflow-hidden z-20`}>
-                      <button onClick={() => { setSingleChooseFileOpen(false); setSinglePickerOpen(true); }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
-                        <span>🖼</span><span>Media Pool</span>
-                      </button>
                       <button onClick={() => { setSingleChooseFileOpen(false); singleCameraRef.current?.click(); }}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
                         <span>📷</span><span>Camera</span>
                       </button>
                       <button onClick={() => { setSingleChooseFileOpen(false); singleLibraryRef.current?.click(); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors">
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
                         <span>📁</span><span>Camera Roll</span>
+                      </button>
+                      <button onClick={() => { setSingleChooseFileOpen(false); setSinglePickerOpen(true); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors">
+                        <span>🖼</span><span>Media Pool</span>
                       </button>
                     </div>
                   </>
