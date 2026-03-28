@@ -567,6 +567,7 @@ export default function App() {
   const [singleCaptionOptionsExpanded, setSingleCaptionOptionsExpanded] = useState(false);
   const singlePostFromScreen = useRef<Screen>("pool");
   const [singleToast, setSingleToast] = useState<string | null>(null);
+  const [singleChooseFileOpen, setSingleChooseFileOpen] = useState(false);
   const [singleAiMode, setSingleAiMode] = useState(false);
 
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
@@ -1124,13 +1125,12 @@ export default function App() {
   }
   function handleSingleNewMedia() {
     const unused = mediaItems.filter((m) => !m.used && !m.analyzing);
-    if (!unused.length) { showSingleToast("No unused media in pool"); return; }
+    if (!unused.length) return;
     const currentIdx = singlePostItem ? unused.findIndex((m) => m.id === singlePostItem.id) : -1;
     const nextItem = unused[(currentIdx + 1) % unused.length];
     setSinglePostItem(nextItem);
     setSingleCaption(""); setSingleError(null);
     setSingleEditing(false); setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleCaptionOptionsExpanded(false);
-    showSingleToast("New media loaded");
   }
   function handleStartSinglePost() { const item = mediaMap[selectedIds[0]]; if (item) openSinglePost(item); }
   async function handleGenerateSingleCaption(mode: "fresh" | "rephrase" | "shorter" | "longer" | "variations" = "fresh") {
@@ -2243,40 +2243,49 @@ export default function App() {
                     {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}
                   </span>
                 )}
-                {/* Slide counter + New Media pill — top right */}
+                {/* ↻ New File pill + 1/1 counter — top right */}
                 <div className="absolute top-3 right-3 flex items-center gap-1.5">
                   <button onClick={handleSingleNewMedia}
                     className="text-[10px] px-2 py-0.5 rounded-lg bg-black/60 text-white/80 hover:text-white backdrop-blur-sm hover:bg-black/75 transition-colors font-medium">
-                    ↺ New Media
+                    ↻ New File
                   </button>
                   <span className="text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
                 </div>
-                {/* Toast */}
-                {singleToast && (
-                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 rounded-full bg-black/80 text-white text-xs backdrop-blur-sm whitespace-nowrap pointer-events-none">
-                    {singleToast}
-                  </div>
-                )}
               </div>
 
-              {/* 2. iOS-style bottom action bar — 3 equal buttons, dividers only */}
-              <div className="flex border-t border-[hsl(220,13%,16%)]">
-                <button onClick={() => setSinglePickerOpen(true)}
-                  className="flex-1 flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium">
-                  <span>🖼</span><span>From Pool</span>
+              {/* Hidden file inputs (triggered programmatically from dropdown) */}
+              <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+                onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
+              <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
+                onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
+
+              {/* Bottom bar — single "Choose File" button with dropdown */}
+              <div className="relative border-t border-[hsl(220,13%,16%)]">
+                {/* Dropdown — renders above the bar */}
+                {singleChooseFileOpen && (
+                  <>
+                    {/* Backdrop to close on outside click */}
+                    <div className="fixed inset-0 z-10" onClick={() => setSingleChooseFileOpen(false)} />
+                    <div className={`absolute bottom-full left-0 right-0 mb-1 rounded-xl border ${border} bg-[hsl(220,14%,12%)] shadow-xl overflow-hidden z-20`}>
+                      <button onClick={() => { setSingleChooseFileOpen(false); setSinglePickerOpen(true); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
+                        <span>🖼</span><span>Media Pool</span>
+                      </button>
+                      <button onClick={() => { setSingleChooseFileOpen(false); singleCameraRef.current?.click(); }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
+                        <span>📷</span><span>Camera</span>
+                      </button>
+                      <button onClick={() => { setSingleChooseFileOpen(false); singleLibraryRef.current?.click(); }}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors">
+                        <span>📁</span><span>Camera Roll</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+                <button onClick={() => setSingleChooseFileOpen((o) => !o)}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium">
+                  <span>📂</span><span>Choose File</span><span className={`text-[10px] transition-transform duration-150 ${singleChooseFileOpen ? "rotate-180" : ""}`}>▾</span>
                 </button>
-                <div className="w-px bg-[hsl(220,13%,16%)]" />
-                <label className="flex-1 flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium cursor-pointer">
-                  <span>📷</span><span>Camera</span>
-                  <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
-                    onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-                </label>
-                <div className="w-px bg-[hsl(220,13%,16%)]" />
-                <label className="flex-1 flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium cursor-pointer">
-                  <span>📁</span><span>Camera Roll</span>
-                  <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
-                    onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-                </label>
               </div>
             </div>
 
