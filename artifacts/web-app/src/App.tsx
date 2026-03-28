@@ -389,7 +389,7 @@ function reorder<T>(arr: T[], from: number, to: number): T[] {
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
-type Screen = "pool" | "carousel" | "calendar" | "settings";
+type Screen = "pool" | "carousel" | "calendar" | "settings" | "single";
 const LAST_TAB_KEY = "instaflow_last_tab";
 
 export default function App() {
@@ -564,6 +564,8 @@ export default function App() {
   const [singleCaptionOptions, setSingleCaptionOptions] = useState<string[] | null>(null);
   const [singleCaptionIdx, setSingleCaptionIdx] = useState<number | null>(null);
   const [singleUserIdeas, setSingleUserIdeas] = useState("");
+  const [singleCaptionOptionsExpanded, setSingleCaptionOptionsExpanded] = useState(false);
+  const singlePostFromScreen = useRef<Screen>("pool");
   const [singleAiMode, setSingleAiMode] = useState(false);
 
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
@@ -1104,9 +1106,16 @@ export default function App() {
 
   // ── Single post ──
   function openSinglePost(item: MediaItem) {
+    singlePostFromScreen.current = (screen === "single" ? singlePostFromScreen.current : screen) as Screen;
     setSinglePostItem(item); setSingleCaption(""); setSingleError(null);
-    setSingleEditing(false); setSingleScheduleDate(todayStr()); setSingleScheduleTime(nowTimeStr()); // Fix 5
+    setSingleEditing(false); setSingleScheduleDate(todayStr()); setSingleScheduleTime(nowTimeStr());
+    setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleCaptionOptionsExpanded(false);
     setViewerItem(null); cancelSelection();
+    setScreen("single");
+  }
+  function cancelSinglePost() {
+    setSinglePostItem(null);
+    setScreen(singlePostFromScreen.current);
   }
   function handleStartSinglePost() { const item = mediaMap[selectedIds[0]]; if (item) openSinglePost(item); }
   async function handleGenerateSingleCaption(mode: "fresh" | "rephrase" | "shorter" | "longer" | "variations" = "fresh") {
@@ -1136,7 +1145,7 @@ export default function App() {
     await markItemsUsed([singlePostItem.id]);
     setSinglePostItem(null);
     try { await apiPost("/posts", post); } catch {}
-    setScreen("calendar");
+    goToScreen("calendar");
   }
 
   // ── Caption – 3-option system ──
@@ -1322,9 +1331,11 @@ export default function App() {
       const best = p.find((m) => m.tag === "me") ?? p.find((m) => m.tag && appSettings.preferredTags.includes(m.tag)) ?? p[0];
       if (!best) { setAiError("No tagged unused media."); setAiGenerating(false); return; }
       setSinglePostItem(best); setSingleEditing(false); setSingleError(null);
-      setSingleScheduleDate(todayStr()); setSingleScheduleTime(nowTimeStr()); // Fix 5
+      setSingleScheduleDate(todayStr()); setSingleScheduleTime(nowTimeStr());
+      setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleCaptionOptionsExpanded(false);
       setSingleCaption(await generateSingleCaption([best.tag ?? "other"], appSettings.captionSettings));
-    } catch (err) { setAiError(err instanceof Error ? err.message : "AI error"); setSinglePostItem(null); }
+      setScreen("single");
+    } catch (err) { setAiError(err instanceof Error ? err.message : "AI error"); setSinglePostItem(null); setScreen("pool"); }
     finally { setAiGenerating(false); }
   }
 
@@ -2192,6 +2203,220 @@ export default function App() {
           </div>
         )}
 
+        {/* ════ SINGLE POST ════ */}
+        {screen === "single" && singlePostItem && (
+          <div className="space-y-5">
+
+            {/* Builder header — mirrors Carousel builder header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold">New Single Post</h1>
+                <p className={`${dimText} text-sm`}>{formatDay(todayStr())} · 1 image</p>
+              </div>
+              <button onClick={cancelSinglePost} className={mutedBtn}>Cancel</button>
+            </div>
+
+            {/* 1. MAIN VIEWER + 2. SINGLE-IMAGE FILMSTRIP (same card as Carousel) */}
+            <div className={`${card} overflow-visible`}>
+              {/* 4:5 viewer */}
+              <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }}>
+                {brokenImages.has(singlePostItem.id)
+                  ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
+                  : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
+                {singlePostItem.tag && (
+                  <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
+                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}
+                  </span>
+                )}
+                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
+              </div>
+
+              {/* 2. Single-image filmstrip — one selected thumb + change-image tiles */}
+              <div style={{ display: "flex", flexDirection: "row", overflowX: "scroll", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", columnGap: 8, padding: 12 } as React.CSSProperties}>
+                {/* Current image thumbnail (always selected) */}
+                <div style={{ width: 84, height: 84, flexShrink: 0, position: "relative", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 2.5px hsl(263,70%,65%)", outline: "2px solid hsl(263,70%,65%)" } as React.CSSProperties}>
+                  {brokenImages.has(singlePostItem.id)
+                    ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{tagIcon(singlePostItem.tag ?? "other")}</div>
+                    : <img src={singlePostItem.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
+                  <div style={{ position: "absolute", bottom: 4, left: 6 }}><span style={{ color: "white", fontSize: 9, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>1</span></div>
+                </div>
+                {/* From Pool tile */}
+                <button onClick={() => setSinglePickerOpen(true)} style={{ width: 84, height: 84, flexShrink: 0, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 10, border: "2px dashed hsl(220,13%,32%)", background: "hsl(220,14%,9%)", color: "hsl(220,10%,40%)", cursor: "pointer" } as React.CSSProperties}>
+                  <span style={{ fontSize: 20 }}>🖼️</span>
+                  <span style={{ fontSize: 9, fontWeight: 500 }}>From Pool</span>
+                </button>
+                {/* Camera tile */}
+                <label style={{ width: 84, height: 84, flexShrink: 0, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 10, border: "2px dashed hsl(220,13%,32%)", background: "hsl(220,14%,9%)", color: "hsl(220,10%,40%)", cursor: "pointer" } as React.CSSProperties}>
+                  <span style={{ fontSize: 20 }}>📷</span>
+                  <span style={{ fontSize: 9, fontWeight: 500 }}>Camera</span>
+                  <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+                    onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
+                </label>
+                {/* Library tile */}
+                <label style={{ width: 84, height: 84, flexShrink: 0, display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, borderRadius: 10, border: "2px dashed hsl(220,13%,32%)", background: "hsl(220,14%,9%)", color: "hsl(220,10%,40%)", cursor: "pointer" } as React.CSSProperties}>
+                  <span style={{ fontSize: 20 }}>📂</span>
+                  <span style={{ fontSize: 9, fontWeight: 500 }}>Library</span>
+                  <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
+                    onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
+                </label>
+              </div>
+            </div>
+
+            {/* 3. CAPTION OPTIONS card — identical structure to Carousel */}
+            <div className={`${card} p-5 space-y-3`}>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => singleCaptionOptions && !singleGenerating && setSingleCaptionOptionsExpanded((v) => !v)}
+                  className="flex items-center gap-2"
+                  disabled={!singleCaptionOptions || singleGenerating}>
+                  <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption Options</span>
+                  {singleCaptionOptions && !singleGenerating && (
+                    <span className={`text-[hsl(220,10%,45%)] text-xs transition-transform duration-200 ${singleCaptionOptionsExpanded ? "rotate-180" : "rotate-0"}`} style={{ display: "inline-block" }}>▾</span>
+                  )}
+                </button>
+                {singleCaptionOptions && !singleGenerating && (
+                  <button onClick={() => handleGenerateSingleCaption("fresh")}
+                    className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
+                    🆕 New
+                  </button>
+                )}
+              </div>
+              {/* User ideas */}
+              <div>
+                <label className={`block text-[10px] font-medium ${dimText} mb-1 uppercase tracking-wider`}>Your ideas (optional)</label>
+                <textarea value={singleUserIdeas} onChange={(e) => setSingleUserIdeas(e.target.value)}
+                  placeholder="e.g. summer vibes, mention the event, keep it chill…"
+                  rows={2}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2 text-xs text-[hsl(220,10%,80%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`} />
+              </div>
+              {singleError && (
+                <div className="flex items-center justify-between gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                  <span>⚠️ {singleError}</span>
+                  <button onClick={() => handleGenerateSingleCaption("fresh")} className="flex-shrink-0 px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium">↺ Try Again</button>
+                </div>
+              )}
+              {singleGenerating ? (
+                <div className="flex flex-col items-center gap-3 py-4">
+                  <p className={`text-sm ${dimText} animate-pulse`}>✨ Generating 3 caption options…</p>
+                </div>
+              ) : singleCaptionOptions ? (
+                singleCaptionOptionsExpanded ? (
+                  <div className="space-y-2">
+                    <p className={`text-xs ${dimText}`}>Tap a style to use it as your caption:</p>
+                    {singleCaptionOptions.map((opt, i) => {
+                      const labels = ["Minimal / cool", "Bold / confident", "Poetic / aesthetic"];
+                      const selected = singleCaptionIdx === i;
+                      return (
+                        <button key={i} onClick={() => { setSingleCaptionIdx(i); setSingleCaption(opt); }}
+                          className={`w-full text-left p-3 rounded-xl border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : "border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]"}`}>
+                          <div className="flex items-start gap-2.5">
+                            <span className={`mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
+                              {selected && <span className="text-white text-[10px] font-bold">✓</span>}
+                            </span>
+                            <div>
+                              <p className={`text-[10px] font-medium mb-1 ${selected ? "text-[hsl(263,70%,70%)]" : dimText}`}>{labels[i]}</p>
+                              <p className={`text-sm leading-relaxed whitespace-pre-wrap ${selected ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{opt}</p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <button onClick={() => setSingleCaptionOptionsExpanded(true)}
+                    className="w-full text-left p-3 rounded-xl border border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)] hover:border-[hsl(220,13%,35%)] transition-colors">
+                    {singleCaptionIdx !== null ? (
+                      <p className="text-sm leading-snug whitespace-pre-wrap text-[hsl(220,10%,75%)] line-clamp-2">{singleCaptionOptions[singleCaptionIdx]}</p>
+                    ) : (
+                      <p className={`text-sm ${dimText}`}>3 options ready — tap to choose</p>
+                    )}
+                    <p className="text-[10px] mt-1 text-[hsl(263,70%,65%)]">{singleCaptionIdx !== null ? "Tap to change" : "Tap to view options"} ›</p>
+                  </button>
+                )
+              ) : !singleCaption ? (
+                <button onClick={() => handleGenerateSingleCaption("fresh")}
+                  className="w-full py-3 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors">
+                  ✨ Generate 3 Caption Options
+                </button>
+              ) : null}
+            </div>
+
+            {/* 4. SELECTED CAPTION DISPLAY */}
+            {singleCaption && !singleEditing && (
+              <div className={`${card} p-4`}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm text-[hsl(220,10%,85%)] leading-relaxed whitespace-pre-wrap flex-1">{singleCaption}</p>
+                  <button onClick={() => { setSingleEditText(singleCaption); setSingleEditing(true); }}
+                    className={`text-xs px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] flex-shrink-0`}>✏️</button>
+                </div>
+                <div className="flex gap-2 mt-2.5 flex-wrap">
+                  <button onClick={() => handleGenerateSingleCaption("variations")} disabled={singleGenerating}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40">
+                    {singleGenerating ? "…" : "↺ Variations"}
+                  </button>
+                  <button onClick={() => handleGenerateSingleCaption("fresh")} disabled={singleGenerating}
+                    className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40`}>
+                    🆕 New Caption
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Caption edit mode */}
+            {singleEditing && (
+              <div className={`${card} p-4 space-y-2`}>
+                <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Edit Caption</p>
+                <textarea value={singleEditText} onChange={(e) => setSingleEditText(e.target.value)} rows={4} autoFocus
+                  className="w-full bg-[hsl(220,14%,9%)] border border-[hsl(263,70%,65%)/40] rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/70]" />
+                <div className="flex gap-2 justify-end">
+                  <button onClick={() => setSingleEditing(false)} className={mutedBtn}>Cancel</button>
+                  <button onClick={() => { setSingleCaption(singleEditText); setSingleEditing(false); }}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white">Save</button>
+                </div>
+              </div>
+            )}
+
+            {/* 5. SCHEDULE + APPROVE — mirrors Carousel */}
+            <div className={`${card} p-5 space-y-3`}>
+              <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Schedule</span>
+              <div className="flex gap-3 flex-wrap">
+                <div className="flex flex-col gap-0.5">
+                  <label className={`text-[10px] ${dimText}`}>Date</label>
+                  <input type="date" value={singleScheduleDate} onChange={(e) => setSingleScheduleDate(e.target.value)} className={inputCls} />
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <label className={`text-[10px] ${dimText}`}>Time</label>
+                  <input type="time" value={singleScheduleTime} onChange={(e) => setSingleScheduleTime(e.target.value)} className={inputCls} />
+                </div>
+              </div>
+              <button onClick={handleApproveSinglePost}
+                disabled={!(singleEditing ? singleEditText : singleCaption)}
+                className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                ✓ Approve & Schedule
+              </button>
+              <button
+                onClick={async () => {
+                  if (!singlePostItem) return;
+                  const draft = {
+                    id: generateId(), type: "single" as const,
+                    mediaIds: [singlePostItem.id],
+                    caption: singleEditing ? singleEditText : (singleCaption || ""),
+                    scheduleDate: singleScheduleDate, scheduleTime: singleScheduleTime,
+                    createdAt: new Date().toISOString(),
+                  };
+                  setDrafts((prev) => [draft, ...prev]);
+                  try { await apiPost("/drafts", draft); } catch {}
+                  cancelSinglePost();
+                  goToScreen("drafts");
+                }}
+                className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                💾 Save as Draft
+              </button>
+            </div>
+
+          </div>
+        )}
+
         {/* ════ CALENDAR ════ */}
         {screen === "calendar" && (
           <div className="space-y-4">
@@ -2885,181 +3110,6 @@ export default function App() {
           </div>
         );
       })()}
-
-      {/* ── SINGLE POST ── */}
-      {singlePostItem && (
-        <div className="fixed inset-0 z-30 flex flex-col bg-[hsl(220,14%,8%)]">
-          {/* Header */}
-          <div className={`flex-shrink-0 flex items-center justify-between px-5 py-4 border-b ${border} bg-[hsl(220,14%,10%)]`}>
-            <p className="font-semibold">Single Post</p>
-            <button onClick={() => setSinglePostItem(null)} className={`${dimText} hover:text-white text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[hsl(220,14%,18%)]`}>✕</button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto">
-            {/* Image preview — same card + rounded-corners style as Carousel */}
-            <div className={`${card} overflow-hidden`}>
-              <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }}>
-                <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" />
-                {/* Tag badge — matches Carousel badge style */}
-                {singlePostItem.tag && (
-                  <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
-                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}
-                  </span>
-                )}
-                {/* "1 / 1" counter top-right — mirrors Carousel slide counter */}
-                <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
-              </div>
-
-              {/* Bottom action bar — sits below image inside same card, like filmstrip */}
-              <div className="flex border-t border-[hsl(220,13%,18%)]">
-                <button onClick={() => setSinglePickerOpen(true)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[hsl(220,10%,60%)] hover:text-white text-xs transition-colors hover:bg-[hsl(220,14%,14%)]">
-                  <span>🖼️</span><span>Choose from Pool</span>
-                </button>
-                <label className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[hsl(220,10%,60%)] hover:text-white text-xs cursor-pointer transition-colors hover:bg-[hsl(220,14%,14%)] border-l border-[hsl(220,13%,18%)]">
-                  <span>📷</span><span>Take Photo</span>
-                  <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
-                    onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-                </label>
-                <label className="flex-1 flex items-center justify-center gap-1.5 py-3 text-[hsl(220,10%,60%)] hover:text-white text-xs cursor-pointer transition-colors hover:bg-[hsl(220,14%,14%)] border-l border-[hsl(220,13%,18%)]">
-                  <span>📂</span><span>Camera Roll</span>
-                  <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
-                    onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-                </label>
-              </div>
-            </div>
-
-            <div className="p-5 space-y-4 bg-[hsl(220,14%,8%)]">
-
-              {/* Caption section */}
-              <div className={`${card} p-4 space-y-3`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
-                  {!singleEditing && (
-                    <div className="flex gap-1.5 flex-wrap justify-end">
-                      {singleCaption && !singleGenerating && (
-                        <>
-                          <button onClick={() => handleGenerateSingleCaption("shorter")} className={`text-[11px] px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>Shorter</button>
-                          <button onClick={() => handleGenerateSingleCaption("longer")} className={`text-[11px] px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>Longer</button>
-                          <button onClick={() => handleGenerateSingleCaption("rephrase")} className={`text-[11px] px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>Rephrase</button>
-                          <button onClick={() => { setSingleEditText(singleCaption); setSingleEditing(true); }} className={`text-[11px] px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>✏️ Edit</button>
-                        </>
-                      )}
-                      <button onClick={() => handleGenerateSingleCaption("fresh")} disabled={singleGenerating}
-                        className="text-[11px] px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-50">
-                        {singleGenerating ? "…" : singleCaption ? "↺ New" : "✨ Generate"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* User ideas */}
-                <div>
-                  <label className={`text-[10px] ${dimText} mb-1 block`}>Your ideas (optional)</label>
-                  <textarea value={singleUserIdeas} onChange={(e) => setSingleUserIdeas(e.target.value)}
-                    placeholder="e.g. summer vibes, mention the event, keep it chill…"
-                    rows={2} className={`w-full ${inputCls} resize-none text-xs`} />
-                </div>
-
-                {singleError && <p className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">⚠️ {singleError}</p>}
-
-                {singleGenerating && (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[hsl(263,70%,65%)] border-t-transparent rounded-full animate-spin" />
-                    <span className={`text-xs ${dimText}`}>Generating 3 caption options…</span>
-                  </div>
-                )}
-
-                {/* 3-option picker */}
-                {singleCaptionOptions && !singleGenerating && !singleEditing && (
-                  <div className="space-y-2">
-                    {singleCaptionOptions.map((opt, i) => (
-                      <button key={i} onClick={() => { setSingleCaptionIdx(i); setSingleCaption(opt); }}
-                        className={`w-full text-left text-sm px-3 py-2.5 rounded-xl border transition-all leading-snug
-                          ${singleCaptionIdx === i
-                            ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/12] text-[hsl(220,10%,85%)]"
-                            : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                        <span className={`text-[10px] font-bold mr-1.5 ${singleCaptionIdx === i ? "text-[hsl(263,70%,70%)]" : "text-[hsl(220,10%,40%)]"}`}>
-                          {i === 0 ? "A" : i === 1 ? "B" : "C"}
-                        </span>
-                        {opt}
-                      </button>
-                    ))}
-                    {singleCaptionIdx !== null && (
-                      <p className={`text-[10px] ${dimText} text-center`}>Option {["A","B","C"][singleCaptionIdx!]} selected — you can still edit it below</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Edit mode */}
-                {singleEditing ? (
-                  <div className="space-y-2">
-                    <textarea value={singleEditText} onChange={(e) => setSingleEditText(e.target.value)} rows={5} autoFocus
-                      className="w-full bg-[hsl(220,14%,6%)] border border-[hsl(263,70%,65%)/40] rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none" />
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => setSingleEditing(false)} className={mutedBtn}>Cancel</button>
-                      <button onClick={() => { setSingleCaption(singleEditText); setSingleEditing(false); }} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white">Save</button>
-                    </div>
-                  </div>
-                ) : singleCaption && !singleCaptionOptions ? (
-                  <div className="space-y-2">
-                    <p className="text-sm text-[hsl(220,10%,80%)] leading-relaxed whitespace-pre-wrap">{singleCaption}</p>
-                    <div className="flex gap-1.5 flex-wrap">
-                      <button onClick={() => handleGenerateSingleCaption("variations")} disabled={singleGenerating}
-                        className={`text-[11px] px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>Variations</button>
-                      <button onClick={() => { setSingleEditText(singleCaption); setSingleEditing(true); }}
-                        className={`text-[11px] px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>✏️ Edit</button>
-                    </div>
-                  </div>
-                ) : !singleCaption && !singleGenerating ? (
-                  <p className={`text-sm ${dimText} italic`}>Hit Generate to create 3 caption options — A, B, C.</p>
-                ) : null}
-              </div>
-
-              {/* Schedule */}
-              <div className={`${card} p-4 space-y-3`}>
-                <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Schedule</span>
-                <div className="flex gap-3 flex-wrap">
-                  <div className="flex flex-col gap-0.5">
-                    <label className={`text-[10px] ${dimText}`}>Date</label>
-                    <input type="date" value={singleScheduleDate} onChange={(e) => setSingleScheduleDate(e.target.value)} className={inputCls} />
-                  </div>
-                  <div className="flex flex-col gap-0.5">
-                    <label className={`text-[10px] ${dimText}`}>Time</label>
-                    <input type="time" value={singleScheduleTime} onChange={(e) => setSingleScheduleTime(e.target.value)} className={inputCls} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="space-y-2 pb-6">
-                <button onClick={handleApproveSinglePost} disabled={!(singleEditing ? singleEditText : singleCaption)}
-                  className="w-full py-3.5 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
-                  ✓ Approve & Schedule
-                </button>
-                <button
-                  onClick={async () => {
-                    if (!singlePostItem) return;
-                    const draft = {
-                      id: generateId(), type: "single" as const,
-                      mediaIds: [singlePostItem.id],
-                      caption: singleEditing ? singleEditText : (singleCaption || ""),
-                      scheduleDate: singleScheduleDate, scheduleTime: singleScheduleTime,
-                      createdAt: new Date().toISOString(),
-                    };
-                    setDrafts((prev) => [draft, ...prev]);
-                    try { await apiPost("/drafts", draft); } catch {}
-                    setSinglePostItem(null);
-                    setScreen("drafts");
-                  }}
-                  className={`w-full py-3 rounded-xl font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,14%)] text-sm`}>
-                  Save as Draft
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── SINGLE POST POOL PICKER ── */}
       {singlePickerOpen && (
