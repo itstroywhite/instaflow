@@ -9,6 +9,7 @@ export interface MediaItem {
   dataUrl: string;
   used?: boolean;
   createdAt?: string;
+  fileSize?: number;
 }
 
 export interface ApprovedPost {

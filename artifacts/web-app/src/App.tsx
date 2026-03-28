@@ -388,6 +388,140 @@ function reorder<T>(arr: T[], from: number, to: number): T[] {
   const next = [...arr]; const [item] = next.splice(from, 1); next.splice(to, 0, item); return next;
 }
 
+// ─── Date / Time picker components ───────────────────────────────────────────
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DAY_HEADERS = ["Su","Mo","Tu","We","Th","Fr","Sa"];
+
+function DatePicker({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const parsed = value ? new Date(value + "T00:00:00") : null;
+  const [open, setOpen] = useState(false);
+  const [viewYear, setViewYear] = useState(() => parsed ? parsed.getFullYear() : new Date().getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => parsed ? parsed.getMonth() : new Date().getMonth());
+  const today = new Date();
+
+  const display = parsed
+    ? parsed.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    : "Select date";
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
+    else setViewMonth((m) => m - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
+    else setViewMonth((m) => m + 1);
+  }
+  function selectDay(day: number) {
+    const m = String(viewMonth + 1).padStart(2, "0");
+    const d = String(day).padStart(2, "0");
+    onChange(`${viewYear}-${m}-${d}`);
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} className={className} style={{ textAlign: "left", cursor: "pointer" }}>
+        {display}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-xl shadow-2xl p-3" style={{ width: 248 }}>
+            <div className="flex items-center justify-between mb-2">
+              <button type="button" onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[hsl(220,14%,22%)] text-[hsl(220,10%,55%)] hover:text-white text-lg leading-none">‹</button>
+              <span className="text-sm font-semibold text-[hsl(220,10%,88%)]">{MONTHS[viewMonth]} {viewYear}</span>
+              <button type="button" onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[hsl(220,14%,22%)] text-[hsl(220,10%,55%)] hover:text-white text-lg leading-none">›</button>
+            </div>
+            <div className="grid grid-cols-7 mb-1">
+              {DAY_HEADERS.map((h) => (
+                <div key={h} className="text-center text-[10px] text-[hsl(220,10%,38%)] font-medium py-0.5">{h}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-y-0.5">
+              {Array.from({ length: firstDay }).map((_, i) => <div key={`e${i}`} />)}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const day = i + 1;
+                const mStr = String(viewMonth + 1).padStart(2, "0");
+                const dStr = String(day).padStart(2, "0");
+                const dateStr = `${viewYear}-${mStr}-${dStr}`;
+                const isSelected = value === dateStr;
+                const isToday = today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
+                return (
+                  <button type="button" key={day} onClick={() => selectDay(day)}
+                    className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full text-xs font-medium transition-colors
+                      ${isSelected ? "bg-[hsl(263,70%,65%)] text-white" :
+                        isToday ? "border border-[hsl(263,70%,65%)] text-[hsl(263,70%,70%)]" :
+                        "text-[hsl(220,10%,72%)] hover:bg-[hsl(220,14%,22%)]"}`}>
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TimePicker({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
+  const [open, setOpen] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  const times: string[] = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
+    }
+  }
+
+  function formatDisplay(t: string) {
+    if (!t) return "Select time";
+    const [hStr, mStr] = t.split(":");
+    const h = parseInt(hStr, 10);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${h12}:${mStr} ${ampm}`;
+  }
+
+  useEffect(() => {
+    if (open && listRef.current && value) {
+      const idx = times.indexOf(value);
+      if (idx !== -1) {
+        const children = listRef.current.children;
+        if (children[idx]) (children[idx] as HTMLElement).scrollIntoView({ block: "center" });
+      }
+    }
+  }, [open]);
+
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} className={className} style={{ textAlign: "left", cursor: "pointer" }}>
+        {formatDisplay(value)}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-xl shadow-2xl overflow-hidden" style={{ width: 120 }}>
+            <div ref={listRef} style={{ maxHeight: 192, overflowY: "auto" }}>
+              {times.map((t) => (
+                <button type="button" key={t} onClick={() => { onChange(t); setOpen(false); }}
+                  className={`w-full px-3 py-2 text-sm text-left transition-colors
+                    ${value === t ? "bg-[hsl(263,70%,65%)] text-white font-semibold" : "text-[hsl(220,10%,72%)] hover:bg-[hsl(220,14%,22%)]"}`}>
+                  {formatDisplay(t)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 type Screen = "pool" | "carousel" | "calendar" | "settings" | "single";
 const LAST_TAB_KEY = "instaflow_last_tab";
@@ -531,6 +665,7 @@ export default function App() {
   // Discard confirm
   const [discardConfirm, setDiscardConfirm] = useState(false);
   const [discardAction, setDiscardAction] = useState<(() => void) | null>(null);
+  const [discardSaveDraftAction, setDiscardSaveDraftAction] = useState<(() => void) | null>(null);
 
   // Fullscreen viewer
   const [viewerItem, setViewerItem] = useState<MediaItem | null>(null);
@@ -657,7 +792,13 @@ export default function App() {
   const allAvailableTags = useMemo(() => [
     ...BASE_TAGS.filter((t) => !appSettings.hiddenBaseTags.includes(t)),
     ...appSettings.customTags,
-  ], [appSettings.hiddenBaseTags, appSettings.customTags]);
+  ].sort((a, b) => {
+    const aOther = a.toLowerCase() === "other" || a.toLowerCase().endsWith(" other");
+    const bOther = b.toLowerCase() === "other" || b.toLowerCase().endsWith(" other");
+    if (aOther && !bOther) return 1;
+    if (!aOther && bOther) return -1;
+    return 0;
+  }), [appSettings.hiddenBaseTags, appSettings.customTags]);
 
   const mediaMap = useMemo(() => Object.fromEntries(mediaItems.map((m) => [m.id, m])), [mediaItems]);
   const folderItemIds = useMemo(() => new Set(folders.flatMap((f) => f.mediaIds)), [folders]);
@@ -782,10 +923,13 @@ export default function App() {
       if (imageFiles.length === 0) return;
     }
 
-    // Duplicate detection — skip files whose name already exists in the pool
-    const existingNames = new Set(mediaItems.map((m) => m.name));
-    const duplicateFiles = imageFiles.filter((f) => existingNames.has(f.name));
-    const newImageFiles = imageFiles.filter((f) => !existingNames.has(f.name));
+    // Duplicate detection — skip files whose name+size already exist in the pool
+    const duplicateFiles = imageFiles.filter((f) =>
+      mediaItems.some((m) => m.name === f.name && (!m.fileSize || m.fileSize === f.size))
+    );
+    const newImageFiles = imageFiles.filter((f) =>
+      !mediaItems.some((m) => m.name === f.name && (!m.fileSize || m.fileSize === f.size))
+    );
     if (duplicateFiles.length > 0) {
       const names = duplicateFiles.map((f) => f.name);
       setDuplicatesBanner(names);
@@ -799,7 +943,7 @@ export default function App() {
       reader.onload = async (e) => {
         const raw = e.target?.result as string;
         const dataUrl = await compressImage(raw);
-        resolve({ id: generateId(), name: f.name, tag: null, analyzing: true, dataUrl, used: false });
+        resolve({ id: generateId(), name: f.name, tag: null, analyzing: true, dataUrl, used: false, fileSize: f.size });
       };
       reader.readAsDataURL(f);
     })));
@@ -1072,8 +1216,35 @@ export default function App() {
   }
 
   function attemptCancel(action: () => void) {
-    if (hasCarouselChanges()) { setDiscardAction(() => action); setDiscardConfirm(true); }
-    else action();
+    if (hasCarouselChanges()) {
+      setDiscardAction(() => action);
+      setDiscardSaveDraftAction(() => () => { handleSaveDraft(); });
+      setDiscardConfirm(true);
+    } else action();
+  }
+
+  function attemptCancelSingle(onDiscard: () => void) {
+    const hasChanges = !!(singleCaption || singleEditing);
+    if (hasChanges) {
+      setDiscardAction(() => onDiscard);
+      setDiscardSaveDraftAction(() => async () => {
+        if (!singlePostItem) return;
+        const draft: ApprovedPost = {
+          id: generateId(), day: singleScheduleDate || todayStr(),
+          caption: singleEditing ? singleEditText : (singleCaption || ""),
+          tagsSummary: tagIcon(singlePostItem.tag ?? "other"), slideCount: 1,
+          scheduledDate: singleScheduleDate || null,
+          scheduledTime: singleScheduleTime || null,
+          mediaIds: [singlePostItem.id],
+          status: "draft",
+          createdAt: new Date().toISOString(),
+        };
+        setApprovedPosts((prev) => [draft, ...prev]);
+        try { await apiPost("/posts", draft); } catch {}
+        onDiscard();
+      });
+      setDiscardConfirm(true);
+    } else onDiscard();
   }
 
   function cancelAIGeneration() {
@@ -1403,6 +1574,13 @@ export default function App() {
     setDeleteConfirmPost(null);
     try { await apiDelete(`/posts/${post.id}`); } catch {}
     await reconcileAfterDelete(remaining, mediaItems);
+    // If we deleted the post we were editing, clear state and navigate away
+    if (editingPost?.id === post.id) {
+      setEditingPost(null);
+      setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
+      setIsEditingCaption(false); setTodayBuildMode(false);
+      goToScreen("calendar");
+    }
   }
 
   function goToScreen(s: Screen) {
@@ -1987,6 +2165,10 @@ export default function App() {
               {/* 2. FILMSTRIP */}
               <div
                 ref={filmstripRef}
+                onWheel={(e) => {
+                  if (!filmstripRef.current) return;
+                  filmstripRef.current.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+                }}
                 onTouchStart={(e) => {
                   if (filmDragFrom !== null) return;
                   touchScrollRef.current = { startX: e.touches[0].clientX, startScrollLeft: filmstripRef.current?.scrollLeft ?? 0, active: true };
@@ -1994,9 +2176,13 @@ export default function App() {
                 onTouchMove={(e) => {
                   const ts = touchScrollRef.current;
                   if (!ts.active || filmDragFrom !== null || !filmstripRef.current) return;
+                  e.stopPropagation();
                   filmstripRef.current.scrollLeft = ts.startScrollLeft + (ts.startX - e.touches[0].clientX);
                 }}
                 onTouchEnd={() => { touchScrollRef.current.active = false; }}
+                onPointerMove={handleFilmPointerMove}
+                onPointerUp={handleFilmPointerUp}
+                onPointerCancel={handleFilmPointerCancel}
                 style={{
                   display: "flex",
                   flexDirection: "row",
@@ -2071,7 +2257,7 @@ export default function App() {
                       cursor: "pointer",
                     } as React.CSSProperties}>
                     <span style={{ fontSize: 24, fontWeight: 300, lineHeight: 1 }}>+</span>
-                    <span style={{ fontSize: 9, fontWeight: 500 }}>{carouselIds.length === 0 ? "Add slides" : "Add more"}</span>
+                    <span style={{ fontSize: 9, fontWeight: 500 }}>{carouselIds.length === 0 ? "Add slides" : "Add File"}</span>
                   </button>
                 )}
               </div>
@@ -2194,15 +2380,15 @@ export default function App() {
                 <div className="flex gap-3 flex-wrap">
                   <div className="flex flex-col gap-0.5">
                     <label className={`text-[10px] ${dimText}`}>Date</label>
-                    <input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className={inputCls} />
+                    <DatePicker value={scheduleDate} onChange={setScheduleDate} className={inputCls} />
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <label className={`text-[10px] ${dimText}`}>Time</label>
-                    <input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className={inputCls} />
+                    <TimePicker value={scheduleTime} onChange={setScheduleTime} className={inputCls} />
                   </div>
                 </div>
                 <button onClick={handleApproveCarousel}
-                  disabled={!(isEditingCaption ? editingCaption : carouselCaption) || carouselItems.length < 2}
+                  disabled={!(isEditingCaption ? editingCaption : carouselCaption) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
                   className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
                   {editingPost && editingPost.status !== "draft" ? "✓ Update Post" : "✓ Approve & Schedule"}
                 </button>
@@ -2228,7 +2414,7 @@ export default function App() {
                 <h1 className="text-xl font-bold">New Single Post</h1>
                 <p className={`${dimText} text-sm`}>{formatDay(todayStr())} · 1 image</p>
               </div>
-              <button onClick={cancelSinglePost} className={mutedBtn}>Cancel</button>
+              <button onClick={() => attemptCancelSingle(cancelSinglePost)} className={mutedBtn}>Cancel</button>
             </div>
 
             {/* 1. MAIN VIEWER + BOTTOM ACTION BAR (same card as Carousel) */}
@@ -2409,11 +2595,11 @@ export default function App() {
               <div className="flex gap-3 flex-wrap">
                 <div className="flex flex-col gap-0.5">
                   <label className={`text-[10px] ${dimText}`}>Date</label>
-                  <input type="date" value={singleScheduleDate} onChange={(e) => setSingleScheduleDate(e.target.value)} className={inputCls} />
+                  <DatePicker value={singleScheduleDate} onChange={setSingleScheduleDate} className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <label className={`text-[10px] ${dimText}`}>Time</label>
-                  <input type="time" value={singleScheduleTime} onChange={(e) => setSingleScheduleTime(e.target.value)} className={inputCls} />
+                  <TimePicker value={singleScheduleTime} onChange={setSingleScheduleTime} className={inputCls} />
                 </div>
               </div>
               <button onClick={handleApproveSinglePost}
@@ -2424,17 +2610,20 @@ export default function App() {
               <button
                 onClick={async () => {
                   if (!singlePostItem) return;
-                  const draft = {
-                    id: generateId(), type: "single" as const,
-                    mediaIds: [singlePostItem.id],
+                  const draft: ApprovedPost = {
+                    id: generateId(), day: singleScheduleDate || todayStr(),
                     caption: singleEditing ? singleEditText : (singleCaption || ""),
-                    scheduleDate: singleScheduleDate, scheduleTime: singleScheduleTime,
+                    tagsSummary: tagIcon(singlePostItem.tag ?? "other"), slideCount: 1,
+                    scheduledDate: singleScheduleDate || null,
+                    scheduledTime: singleScheduleTime || null,
+                    mediaIds: [singlePostItem.id],
+                    status: "draft",
                     createdAt: new Date().toISOString(),
                   };
-                  setDrafts((prev) => [draft, ...prev]);
-                  try { await apiPost("/drafts", draft); } catch {}
+                  setApprovedPosts((prev) => [draft, ...prev]);
+                  try { await apiPost("/posts", draft); } catch {}
                   cancelSinglePost();
-                  goToScreen("drafts");
+                  goToScreen("calendar");
                 }}
                 className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
                 💾 Save as Draft
@@ -3194,8 +3383,8 @@ export default function App() {
           <div className={`flex items-center justify-between px-4 py-2.5 border-b ${border} bg-[hsl(220,14%,10%)]`}>
             <span className={`text-xs ${dimText}`}>Tap to add · tap again to remove</span>
             <div className="flex gap-2">
-              <button onClick={() => addMoreLibraryRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/25]">🖼️ Camera Roll</button>
-              <button onClick={() => addMoreCameraRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/25]">📷 Take Photo</button>
+              <button onClick={() => addMoreCameraRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/25]">📷 Camera</button>
+              <button onClick={() => addMoreLibraryRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/25]">📁 Camera Roll</button>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
@@ -3381,13 +3570,31 @@ export default function App() {
               <p className="font-semibold text-[hsl(220,10%,90%)]">Discard changes?</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>Any unsaved changes to this post will be lost.</p>
             </div>
-            <div className="flex gap-3">
+            <div className="space-y-2">
               <button onClick={() => setDiscardConfirm(false)}
-                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
-                No, Keep Editing
+                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                No, keep editing
               </button>
-              <button onClick={() => { setDiscardConfirm(false); if (discardAction) { discardAction(); setDiscardAction(null); } }}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors">
+              {discardSaveDraftAction && (
+                <button onClick={() => {
+                  setDiscardConfirm(false);
+                  const fn = discardSaveDraftAction;
+                  setDiscardSaveDraftAction(null);
+                  setDiscardAction(null);
+                  fn();
+                }}
+                  className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] transition-colors`}>
+                  💾 Save as Draft
+                </button>
+              )}
+              <button onClick={() => {
+                setDiscardConfirm(false);
+                const fn = discardAction;
+                setDiscardAction(null);
+                setDiscardSaveDraftAction(null);
+                if (fn) fn();
+              }}
+                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors">
                 Yes, Discard
               </button>
             </div>
@@ -3803,7 +4010,7 @@ export default function App() {
         <div className="fixed top-0 left-0 right-0 z-50 bg-[hsl(220,20%,15%)] border-b border-[hsl(220,13%,25%)] px-4 py-3 flex items-center gap-3">
           <span className="text-lg">⚠️</span>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-[hsl(220,10%,85%)]">Duplicate{duplicatesBanner.length > 1 ? "s" : ""} skipped</p>
+            <p className="text-sm font-semibold text-[hsl(220,10%,85%)]">File already exists</p>
             <p className="text-xs text-[hsl(220,10%,55%)] mt-0.5 truncate">{duplicatesBanner.join(", ")}</p>
           </div>
           <button onClick={() => setDuplicatesBanner([])} className={`${dimText} hover:text-white text-lg leading-none`}>✕</button>
