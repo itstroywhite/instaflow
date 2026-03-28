@@ -14,21 +14,48 @@ router.post("/analyze", async (req, res) => {
     return;
   }
 
-  const { dataUrl } = req.body;
-  if (!dataUrl || typeof dataUrl !== "string") {
-    res.status(400).json({ error: "dataUrl is required" });
+  const { dataUrl, url } = req.body;
+
+  // Must have either dataUrl (base64) or url (Supabase public URL)
+  if (!dataUrl && !url) {
+    res.status(400).json({ error: "dataUrl or url is required" });
     return;
   }
 
-  // Extract media type and base64 data
-  const comma = dataUrl.indexOf(",");
-  if (comma === -1) {
-    res.status(400).json({ error: "Invalid dataUrl format" });
+  let base64: string;
+  let mediaType: string;
+
+  if (url && typeof url === "string" && url.startsWith("http")) {
+    // Fetch image from URL and convert to base64
+    try {
+      const imgRes = await fetch(url);
+      if (!imgRes.ok) {
+        req.log.warn({ url, status: imgRes.status }, "Failed to fetch image URL");
+        res.json({ tag: "other" });
+        return;
+      }
+      const contentType = imgRes.headers.get("content-type") ?? "image/jpeg";
+      mediaType = contentType.split(";")[0].trim();
+      const arrayBuffer = await imgRes.arrayBuffer();
+      base64 = Buffer.from(arrayBuffer).toString("base64");
+    } catch (err: any) {
+      req.log.warn({ err }, "Error fetching image from URL");
+      res.json({ tag: "other" });
+      return;
+    }
+  } else if (dataUrl && typeof dataUrl === "string") {
+    const comma = dataUrl.indexOf(",");
+    if (comma === -1) {
+      res.status(400).json({ error: "Invalid dataUrl format" });
+      return;
+    }
+    const header = dataUrl.slice(0, comma);
+    base64 = dataUrl.slice(comma + 1);
+    mediaType = header.split(";")[0].replace("data:", "");
+  } else {
+    res.status(400).json({ error: "Invalid dataUrl or url" });
     return;
   }
-  const header = dataUrl.slice(0, comma); // e.g. "data:image/jpeg;base64"
-  const base64 = dataUrl.slice(comma + 1);
-  const mediaType = header.split(";")[0].replace("data:", ""); // e.g. "image/jpeg"
 
   // Only Claude-supported image types
   const supportedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -47,7 +74,7 @@ router.post("/analyze", async (req, res) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5",
+        model: "claude-3-haiku-20240307",
         max_tokens: 20,
         messages: [
           {
