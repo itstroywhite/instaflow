@@ -1,5 +1,13 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
+
+// ─── Supabase client ──────────────────────────────────────────────────────────
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_TAG_LABELS: Record<string, string> = {
@@ -179,28 +187,57 @@ function postStatusClasses(post: ApprovedPost) {
 // In development (Replit) it defaults to "" so relative /api/... paths are used via the Vite proxy.
 const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
+async function getAuthToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
+async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json", ...extra };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  return headers;
+}
+
+function handle401(status: number) {
+  if (status === 401) {
+    supabase?.auth.signOut();
+  }
+}
+
 async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}/api${path}`);
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/api${path}`, { headers });
+  handle401(res.status);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPost(path: string, body: object) {
-  const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+  handle401(res.status);
   if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPatch(path: string, body: object) {
-  const res = await fetch(`${API_BASE}/api${path}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "PATCH", headers, body: JSON.stringify(body) });
+  handle401(res.status);
   if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPut(path: string, body: object) {
-  const res = await fetch(`${API_BASE}/api${path}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "PUT", headers, body: JSON.stringify(body) });
+  handle401(res.status);
   if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiDelete(path: string) {
-  const res = await fetch(`${API_BASE}/api${path}`, { method: "DELETE" });
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/api${path}`, { method: "DELETE", headers });
+  handle401(res.status);
   if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -342,9 +379,10 @@ Context: single post featuring a ${tagLabel(tags[0] ?? "other")} photo. Tone: ${
 Output only the caption text, nothing else.`;
 
   if (onChunk) {
+    const streamHeaders = await authHeaders();
     const res = await fetch(`${API_BASE}/api/claude`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: streamHeaders,
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, stream: true, messages: [{ role: "user", content: prompt }] }),
     });
     if (!res.ok || !res.body) throw new Error(`Caption request failed: ${res.status}`);
@@ -636,11 +674,150 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   );
 }
 
+// ─── Login Screen ─────────────────────────────────────────────────────────────
+function LoginScreen() {
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const border = "border-[hsl(220,13%,18%)]";
+  const inputCls = "w-full bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,22%)] rounded-xl px-4 py-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,35%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60] transition-colors";
+
+  async function handleSubmit(e: { preventDefault(): void }) {
+    e.preventDefault();
+    if (!supabase) { setError("Auth not configured — VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY required"); return; }
+    setLoading(true); setError(null); setMessage(null);
+    try {
+      if (mode === "signin") {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) setError(error.message);
+      } else if (mode === "signup") {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) setError(error.message);
+        else setMessage("Check your email to confirm your account, then sign in.");
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin,
+        });
+        if (error) setError(error.message);
+        else setMessage("Password reset link sent — check your email.");
+      }
+    } catch (err: any) {
+      setError(err?.message ?? "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-[hsl(220,14%,8%)] flex flex-col items-center justify-center px-5">
+      <div className="w-full max-w-sm space-y-8">
+        {/* Logo */}
+        <div className="text-center space-y-2">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-2xl">📸</span>
+            <span className="text-2xl font-bold tracking-tight text-white">InstaFlow</span>
+          </div>
+          <p className="text-sm text-[hsl(220,10%,50%)]">Your Instagram content workflow</p>
+        </div>
+
+        {/* Card */}
+        <div className={`rounded-2xl border ${border} bg-[hsl(220,14%,11%)] p-6 space-y-5`}>
+          <h2 className="text-base font-semibold text-white">
+            {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Reset password"}
+          </h2>
+
+          {error && (
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 text-sm text-emerald-400">
+              {message}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className={inputCls}
+            />
+            {mode !== "forgot" && (
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                className={inputCls}
+              />
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold transition-colors disabled:opacity-60">
+              {loading ? "Please wait…" : mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : "Send Reset Link"}
+            </button>
+          </form>
+
+          {mode !== "forgot" && (
+            <button
+              onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setMessage(null); }}
+              className="w-full text-sm text-[hsl(220,10%,50%)] hover:text-white transition-colors text-center">
+              {mode === "signin" ? "Don't have an account? Create one" : "Already have an account? Sign in"}
+            </button>
+          )}
+
+          {mode === "signin" && (
+            <button
+              onClick={() => { setMode("forgot"); setError(null); setMessage(null); }}
+              className="w-full text-xs text-[hsl(220,10%,40%)] hover:text-[hsl(220,10%,65%)] transition-colors text-center">
+              Forgot password?
+            </button>
+          )}
+
+          {mode === "forgot" && (
+            <button
+              onClick={() => { setMode("signin"); setError(null); setMessage(null); }}
+              className="w-full text-sm text-[hsl(220,10%,50%)] hover:text-white transition-colors text-center">
+              Back to sign in
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── App ─────────────────────────────────────────────────────────────────────
 type Screen = "pool" | "carousel" | "calendar" | "settings" | "single";
 const LAST_TAB_KEY = "instaflow_last_tab";
 
 export default function App() {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    if (!supabase) { setAuthLoading(false); return; }
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaPage, setMediaPage] = useState(1);
@@ -1770,6 +1947,19 @@ export default function App() {
   const activeNavCls = "bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,75%)] border border-[hsl(263,70%,65%)/30]";
   const inputCls = "bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,22%)] rounded-lg px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/50]";
   const SORT_LABELS: Record<PoolSort, string> = { latest: "Latest", oldest: "Oldest", name: "A–Z" };
+
+  // ─── Auth gates ────────────────────────────────────────────────────────────
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[hsl(220,14%,8%)] flex items-center justify-center">
+        <div className="w-8 h-8 rounded-full border-2 border-[hsl(263,70%,65%)] border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <LoginScreen />;
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
@@ -3400,6 +3590,13 @@ export default function App() {
                 {settingsSaving ? "Saving…" : settingsSaved ? "✓ Saved!" : "Save Settings"}
               </button>
               <p className={`text-xs ${dimText} text-center`}>{mediaItems.length} items in pool · {approvedPosts.length} posts</p>
+              {supabase && session && (
+                <button
+                  onClick={async () => { await supabase!.auth.signOut(); }}
+                  className={`w-full py-2.5 rounded-xl border border-red-500/20 text-red-400 text-sm font-medium hover:bg-red-500/10 transition-colors`}>
+                  Sign Out
+                </button>
+              )}
             </div>
           </div>
         )}
