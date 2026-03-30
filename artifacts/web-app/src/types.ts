@@ -24,6 +24,9 @@ export interface ApprovedPost {
   status?: "draft" | "approved";
   createdAt: string;
   timezone?: string;
+  usedAICaption?: boolean;
+  usedAITagging?: boolean;
+  usedVideo?: boolean;
 }
 
 export interface CaptionSettings {

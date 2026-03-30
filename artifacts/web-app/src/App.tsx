@@ -674,6 +674,29 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   );
 }
 
+// ─── Freemium Plan Config ──────────────────────────────────────────────────────
+const USER_PLAN: "free" | "pro" | "agency" = "free"; // TODO: read from DB per user
+const PLAN_LIMITS = {
+  free:   { maxPostsPerMonth: 7, maxMedia: 30, aiCaptions: false, aiTagging: false, videoUpload: false },
+  pro:    { maxPostsPerMonth: Infinity, maxMedia: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
+  agency: { maxPostsPerMonth: Infinity, maxMedia: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
+};
+const PLAN_LABELS: Record<"free" | "pro" | "agency", string> = { free: "Free", pro: "Pro 💎", agency: "Agency 💎" };
+
+function DiamondBadge() {
+  const [show, setShow] = useState(false);
+  return (
+    <span className="relative inline-flex items-center" onClick={(e) => { e.stopPropagation(); setShow((v) => !v); }}>
+      <span className="text-[hsl(263,70%,65%)] text-[11px] ml-1 cursor-pointer select-none" title="Pro feature — upgrade to unlock">💎</span>
+      {show && (
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-[hsl(220,14%,20%)] border border-[hsl(263,70%,65%)/40] text-[10px] text-[hsl(220,10%,70%)] px-2.5 py-1.5 text-center z-50 pointer-events-none shadow-lg">
+          Pro feature — upgrade to unlock
+        </span>
+      )}
+    </span>
+  );
+}
+
 // ─── Login Screen ─────────────────────────────────────────────────────────────
 function LoginScreen() {
   const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
@@ -947,6 +970,14 @@ export default function App() {
   // Video upload progress
   const [videoUploadProgress, setVideoUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
+  // Freemium plan
+  const plan = USER_PLAN;
+  const limits = PLAN_LIMITS[plan];
+  const [monthPostCount, setMonthPostCount] = useState(0);
+  const [postUsedAICaption, setPostUsedAICaption] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [upgradeModalData, setUpgradeModalData] = useState<{ reasons: string[]; canContinue: boolean; onContinue: () => void } | null>(null);
+
   // AI carousel source
   const [aiCarouselSource, setAiCarouselSource] = useState<"all" | "tag" | "folder">("all");
   const [aiCarouselTags, setAiCarouselTags] = useState<string[]>([]);
@@ -1029,12 +1060,14 @@ export default function App() {
   useEffect(() => {
     async function loadAll() {
       try {
-        const [mediaResp, posts, settings, rawFolders] = await Promise.all([
+        const [mediaResp, posts, settings, rawFolders, countData] = await Promise.all([
           apiGet<{ items: any[]; hasMore: boolean; total: number; page: number }>("/media?page=1"),
           apiGet<any[]>("/posts"),
           apiGet<Record<string, string>>("/settings"),
           apiGet<any[]>("/folders").catch(() => []),
+          apiGet<{ count: number }>("/posts/count").catch(() => ({ count: 0 })),
         ]);
+        setMonthPostCount(countData.count ?? 0);
         const items: MediaItem[] = (mediaResp.items ?? []).map((i: any) => ({ ...i, analyzing: false }));
         setMediaHasMore(mediaResp.hasMore ?? false);
         setMediaPage(1);
@@ -1234,11 +1267,22 @@ export default function App() {
     const imageFiles = files.filter((f) => !f.type.startsWith("video/"));
     const videoFiles = files.filter((f) => f.type.startsWith("video/"));
 
-    // Block video uploads — not supported until object storage is set up
     if (videoFiles.length > 0) {
-      setVideoDisabledBanner(true);
-      setTimeout(() => setVideoDisabledBanner(false), 5000);
-      if (imageFiles.length === 0) return;
+      if (!limits.videoUpload) {
+        setUpgradeModalData({ reasons: ["Video Upload"], canContinue: false, onContinue: () => {} });
+        setUpgradeModalOpen(true);
+        if (imageFiles.length === 0) return;
+      } else {
+        setVideoDisabledBanner(true);
+        setTimeout(() => setVideoDisabledBanner(false), 5000);
+        if (imageFiles.length === 0) return;
+      }
+    }
+
+    if (plan === "free" && mediaItems.length >= limits.maxMedia) {
+      setUpgradeModalData({ reasons: [`Media pool limit (${limits.maxMedia} items on Free)`], canContinue: false, onContinue: () => {} });
+      setUpgradeModalOpen(true);
+      return;
     }
 
     // Duplicate detection — skip files whose name+size already exist in the pool
@@ -1319,7 +1363,8 @@ export default function App() {
     // Auto-tag images (using base64 still in state), then upload+persist via /media/upload
     for (const item of imageItems) {
       // analyzeTag while item.dataUrl is still base64 (before Supabase upload)
-      const tag = await analyzeTag(item.dataUrl, allAvailableTags);
+      // Free plan: silently tag as "other" (no AI call)
+      const tag = limits.aiTagging ? await analyzeTag(item.dataUrl, allAvailableTags) : "other";
       setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
       try {
         // Single endpoint: uploads to Supabase Storage AND saves DB record
@@ -1628,6 +1673,11 @@ export default function App() {
   function handleStartSinglePost() { const item = mediaMap[selectedIds[0]]; if (item) openSinglePost(item); }
   async function handleGenerateSingleCaption(mode: "fresh" | "rephrase" | "shorter" | "longer" | "variations" = "fresh") {
     if (!singlePostItem) return;
+    if (!limits.aiCaptions) {
+      setUpgradeModalData({ reasons: ["AI Caption Generation"], canContinue: false, onContinue: () => {} });
+      setUpgradeModalOpen(true);
+      return;
+    }
     setSingleGenerating(true); setSingleError(null); setSingleCaptionOptions(null); setSingleCaptionIdx(null);
     try {
       const prevCaption = singleCaption || undefined;
@@ -1635,12 +1685,36 @@ export default function App() {
       setSingleCaptionOptions(opts);
       setSingleCaptionIdx(0);
       setSingleCaption(opts[0]);
+      setPostUsedAICaption(true);
     }
     catch (err) { setSingleError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); }
     finally { setSingleGenerating(false); }
   }
+  function showUpgradeGate(usedAICaption: boolean, usedAITagging: boolean, usedVideo: boolean, currentCount: number, proceed: () => void) {
+    const reasons: string[] = [];
+    if (currentCount >= limits.maxPostsPerMonth) reasons.push(`Monthly post limit reached (${limits.maxPostsPerMonth} posts/month on Free)`);
+    if (usedAICaption) reasons.push("AI Caption Generation");
+    if (usedAITagging) reasons.push("AI Auto-Tagging");
+    if (usedVideo) reasons.push("Video in post");
+    const canContinue = !usedAICaption && !usedAITagging && !usedVideo && currentCount < limits.maxPostsPerMonth;
+    if (reasons.length > 0) {
+      setUpgradeModalData({ reasons, canContinue, onContinue: proceed });
+      setUpgradeModalOpen(true);
+      return false;
+    }
+    return true;
+  }
+
   async function handleApproveSinglePost() {
     if (!singlePostItem || approveLoading) return;
+    const usedAITagging = !!(singlePostItem.tag && singlePostItem.tag !== "other");
+    const usedVideo = isVideo(singlePostItem.dataUrl);
+    if (plan === "free") {
+      let latestCount = monthPostCount;
+      try { const r = await apiGet<{ count: number }>("/posts/count"); latestCount = r.count ?? monthPostCount; } catch {}
+      const canProceed = showUpgradeGate(postUsedAICaption, usedAITagging, usedVideo, latestCount, () => handleApproveSinglePost());
+      if (!canProceed) return;
+    }
     setApproveLoading(true);
     try {
       const finalCaption = singleEditing ? singleEditText : singleCaption;
@@ -1651,8 +1725,11 @@ export default function App() {
         scheduledDate: effectiveDate, scheduledTime: singleScheduleTime || appSettings.defaultScheduleTime,
         mediaIds: [singlePostItem.id], createdAt: new Date().toISOString(),
         timezone: userTimezone,
+        usedAICaption: postUsedAICaption, usedAITagging, usedVideo,
       };
       setApprovedPosts((prev) => [post, ...prev]);
+      setMonthPostCount((c) => c + 1);
+      setPostUsedAICaption(false);
       await markItemsUsed([singlePostItem.id]);
       setSinglePostItem(null);
       try { await apiPost("/posts", post); } catch { showGlobalToast("Couldn't save post — please try again"); }
@@ -1665,6 +1742,11 @@ export default function App() {
   // ── Caption – 3-option system ──
   async function handleGetCaptionOptions(mode: "fresh" | "variations") {
     if (!carouselItems.length) return;
+    if (!limits.aiCaptions) {
+      setUpgradeModalData({ reasons: ["AI Caption Generation"], canContinue: false, onContinue: () => {} });
+      setUpgradeModalOpen(true);
+      return;
+    }
     generationIdRef.current += 1;
     const thisGen = generationIdRef.current;
     setGeneratingCaptions(true); setCaptionError(null); setIsEditingCaption(false);
@@ -1677,6 +1759,7 @@ export default function App() {
       setCaptionSelectedIdx(null);
       setCaptionOptionsExpanded(true);
       if (mode === "fresh") setCarouselCaption("");
+      setPostUsedAICaption(true);
     } catch (err) { if (generationIdRef.current === thisGen) { setCaptionError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); } }
     finally { if (generationIdRef.current === thisGen) setGeneratingCaptions(false); }
   }
@@ -1691,6 +1774,14 @@ export default function App() {
   // ── Approve carousel ──
   async function handleApproveCarousel() {
     if (approveLoading) return;
+    const usedAITagging = carouselItems.some((i) => i.tag && i.tag !== "other");
+    const usedVideo = carouselItems.some((i) => isVideo(i.dataUrl));
+    if (plan === "free" && !editingPost) {
+      let latestCount = monthPostCount;
+      try { const r = await apiGet<{ count: number }>("/posts/count"); latestCount = r.count ?? monthPostCount; } catch {}
+      const canProceed = showUpgradeGate(postUsedAICaption, usedAITagging, usedVideo, latestCount, () => handleApproveCarousel());
+      if (!canProceed) return;
+    }
     setApproveLoading(true);
     try {
       const finalCaption = isEditingCaption ? editingCaption : carouselCaption;
@@ -1704,6 +1795,7 @@ export default function App() {
         scheduledTime: scheduleTime || appSettings.defaultScheduleTime,
         mediaIds: carouselIds, createdAt: new Date().toISOString(),
         timezone: userTimezone,
+        usedAICaption: postUsedAICaption, usedAITagging, usedVideo,
       };
       if (editingPost) {
         const remaining = approvedPosts.filter((p) => p.id !== editingPost.id);
@@ -1716,6 +1808,8 @@ export default function App() {
       } else {
         await markItemsUsed(carouselIds);
         setApprovedPosts((prev) => [post, ...prev]);
+        setMonthPostCount((c) => c + 1);
+        setPostUsedAICaption(false);
         try { await apiPost("/posts", post); } catch { showGlobalToast("Couldn't save post — please try again"); }
       }
       setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
@@ -2053,7 +2147,9 @@ export default function App() {
                       Select
                     </button>
                   )}
-                  <button onClick={() => fileInputRef.current?.click()} className={mutedBtn}>+ Upload</button>
+                  <button onClick={() => fileInputRef.current?.click()} className={mutedBtn}>
+                    + Upload{plan === "free" && mediaItems.length >= limits.maxMedia && <DiamondBadge />}
+                  </button>
                 </div>
               )}
               {bulkMode && (
@@ -2781,7 +2877,7 @@ export default function App() {
                 ) : !carouselCaption ? (
                   <button onClick={() => handleGetCaptionOptions("fresh")}
                     className="w-full py-3 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors">
-                    ✨ Generate 3 Caption Options
+                    ✨ Generate 3 Caption Options{!limits.aiCaptions && <DiamondBadge />}
                   </button>
                 ) : null}
               </div>
@@ -2963,7 +3059,7 @@ export default function App() {
               ) : !singleCaption ? (
                 <button onClick={() => handleGenerateSingleCaption("fresh")}
                   className="w-full py-3 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors">
-                  ✨ Generate 3 Caption Options
+                  ✨ Generate 3 Caption Options{!limits.aiCaptions && <DiamondBadge />}
                 </button>
               ) : null}
             </div>
@@ -3122,7 +3218,7 @@ export default function App() {
                 </div>
                 <button onClick={() => setCreatePostModal(true)}
                   className="px-5 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold hover:bg-[hsl(263,70%,58%)] transition-colors">
-                  + Create Post
+                  + Create Post{plan === "free" && monthPostCount >= limits.maxPostsPerMonth && <DiamondBadge />}
                 </button>
               </div>
             ) : calendarView === "week" ? (
@@ -3298,6 +3394,45 @@ export default function App() {
             <div>
               <h1 className="text-xl font-bold">Settings</h1>
               <p className={`${dimText} text-sm`}>Configure your workflow preferences.</p>
+            </div>
+
+            {/* Plan & Usage */}
+            <div className={`${card} p-5 space-y-4`}>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold">🏷️ Your Plan</p>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${plan === "free" ? "bg-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]" : "bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,70%)]"}`}>
+                  {PLAN_LABELS[plan]}
+                </span>
+              </div>
+              {plan === "free" && (
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className={dimText}>Posts this month</span>
+                      <span className={`font-medium ${monthPostCount >= limits.maxPostsPerMonth ? "text-red-400" : "text-[hsl(220,10%,70%)]"}`}>{monthPostCount} / {limits.maxPostsPerMonth}</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-[hsl(220,13%,18%)] overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${monthPostCount >= limits.maxPostsPerMonth ? "bg-red-500" : "bg-[hsl(263,70%,60%)]"}`} style={{ width: `${Math.min(100, (monthPostCount / limits.maxPostsPerMonth) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className={dimText}>Media pool</span>
+                      <span className={`font-medium ${mediaItems.length >= limits.maxMedia ? "text-red-400" : "text-[hsl(220,10%,70%)]"}`}>{mediaItems.length} / {limits.maxMedia}</span>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-[hsl(220,13%,18%)] overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${mediaItems.length >= limits.maxMedia ? "bg-red-500" : "bg-[hsl(263,70%,60%)]"}`} style={{ width: `${Math.min(100, (mediaItems.length / limits.maxMedia) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <p className={`text-xs ${dimText}`}>
+                    Free plan: {limits.maxPostsPerMonth} posts/month · {limits.maxMedia} media items · 1 account
+                  </p>
+                  <button onClick={() => { setUpgradeModalData({ reasons: [], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
+                    className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)/15] border border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)] text-sm font-medium hover:bg-[hsl(263,70%,65%)/25] transition-colors">
+                    💎 View Pro plans
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Instagram profile */}
@@ -4049,6 +4184,75 @@ export default function App() {
                 className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold transition-colors">
                 Yes, Delete
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── UPGRADE MODAL ── */}
+      {upgradeModalOpen && upgradeModalData !== null && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setUpgradeModalOpen(false)}>
+          <div className="absolute inset-0 bg-black/70" />
+          <div className="relative bg-[hsl(220,14%,11%)] border border-[hsl(220,13%,20%)] rounded-t-3xl w-full max-w-lg pb-10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-[hsl(220,13%,18%)]">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold">Unlock with Pro 💎</h2>
+                <button onClick={() => setUpgradeModalOpen(false)} className={`${dimText} hover:text-white text-xl`}>✕</button>
+              </div>
+              <p className={`text-sm ${dimText}`}>This action requires a paid plan</p>
+            </div>
+            <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              {/* Blocked reasons */}
+              {upgradeModalData.reasons.length > 0 && (
+                <div className={`rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8] p-4 space-y-2`}>
+                  <p className={`text-xs font-semibold uppercase tracking-wider ${dimText}`}>Features requiring Pro</p>
+                  {upgradeModalData.reasons.map((r) => (
+                    <div key={r} className="flex items-center gap-2.5 text-sm text-[hsl(220,10%,75%)]">
+                      <span className="text-[hsl(263,70%,65%)] flex-shrink-0">💎</span>
+                      <span>{r}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {/* Plan comparison table */}
+              <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
+                {(["free", "pro", "agency"] as const).map((tier) => {
+                  const tl = PLAN_LIMITS[tier];
+                  const isCurrent = tier === plan;
+                  return (
+                    <div key={tier} className={`rounded-xl border p-3 space-y-2 ${isCurrent ? "border-[hsl(220,13%,30%)] bg-[hsl(220,14%,15%)]" : tier === "pro" ? "border-[hsl(263,70%,65%)/40] bg-[hsl(263,70%,65%)/8]" : "border-[hsl(220,13%,20%)]"}`}>
+                      <p className={`font-bold text-xs ${tier === "pro" ? "text-[hsl(263,70%,70%)]" : "text-[hsl(220,10%,70%)]"}`}>
+                        {tier === "free" ? "Free" : tier === "pro" ? "Pro 💎" : "Agency 💎"}
+                      </p>
+                      {tier === "pro" && <p className="text-[hsl(263,70%,70%)] font-semibold">€9.99/mo</p>}
+                      {tier === "agency" && <p className="text-[hsl(220,10%,60%)]">€29.99/mo</p>}
+                      <div className={`space-y-1 ${dimText}`}>
+                        <p>{tl.maxPostsPerMonth === Infinity ? "∞ posts" : `${tl.maxPostsPerMonth} posts/mo`}</p>
+                        <p>{tl.maxMedia === Infinity ? "∞ media" : `${tl.maxMedia} media`}</p>
+                        <p>{tl.aiCaptions ? "✓ AI Captions" : "✗ AI Captions"}</p>
+                        <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
+                        <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
+                        {tier === "agency" && <p>✓ Multi-account</p>}
+                      </div>
+                      {isCurrent && <p className="text-[10px] text-[hsl(220,10%,45%)] font-medium">Current</p>}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* CTA buttons */}
+              <div className="space-y-2 pt-1">
+                <button onClick={() => { setUpgradeModalOpen(false); showGlobalToast("Upgrade coming soon — stay tuned! 🚀"); }}
+                  className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-sm transition-colors">
+                  Upgrade to Pro — €9.99/month
+                </button>
+                {upgradeModalData.canContinue && (
+                  <button onClick={() => { setUpgradeModalOpen(false); upgradeModalData.onContinue(); }}
+                    className={`w-full py-2.5 rounded-xl border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] text-sm font-medium transition-colors`}>
+                    Continue on Free
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>

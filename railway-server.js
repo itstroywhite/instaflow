@@ -120,6 +120,9 @@ async function ensureTables() {
     ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS media_ids TEXT;
     ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'approved';
     ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS used_ai_caption BOOLEAN DEFAULT FALSE;
+    ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS used_ai_tagging BOOLEAN DEFAULT FALSE;
+    ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS used_video BOOLEAN DEFAULT FALSE;
 
     CREATE TABLE IF NOT EXISTS media_folders (
       id TEXT PRIMARY KEY,
@@ -362,7 +365,8 @@ app.get("/api/posts", requireAuth, async (req, res) => {
   await withTables(async () => {
     if (userPostsCache[userId]) { res.json(userPostsCache[userId]); return; }
     const result = await pool.query(
-      `SELECT id, day, caption, tags_summary, slide_count, scheduled_date, scheduled_time, media_ids, status, created_at
+      `SELECT id, day, caption, tags_summary, slide_count, scheduled_date, scheduled_time, media_ids, status, created_at,
+              used_ai_caption, used_ai_tagging, used_video
        FROM approved_posts
        WHERE user_id = $1
        ORDER BY created_at DESC`,
@@ -376,27 +380,52 @@ app.get("/api/posts", requireAuth, async (req, res) => {
       mediaIds: r.media_ids ? JSON.parse(r.media_ids) : [],
       status: r.status ?? "approved",
       createdAt: r.created_at,
+      usedAICaption: r.used_ai_caption ?? false,
+      usedAITagging: r.used_ai_tagging ?? false,
+      usedVideo: r.used_video ?? false,
     }));
     res.json(userPostsCache[userId]);
   }, res);
 });
 
+app.get("/api/posts/count", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  await withTables(async () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const result = await pool.query(
+      `SELECT COUNT(*) AS count FROM approved_posts
+       WHERE user_id = $1 AND (status IS NULL OR status != 'draft')
+         AND EXTRACT(YEAR FROM created_at) = $2
+         AND EXTRACT(MONTH FROM created_at) = $3`,
+      [userId, year, month]
+    );
+    res.json({ count: parseInt(result.rows[0].count, 10) });
+  }, res);
+});
+
 app.post("/api/posts", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const { id, day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status } = req.body;
+  const { id, day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status,
+          usedAICaption, usedAITagging, usedVideo } = req.body;
   await withTables(async () => {
     await pool.query(
-      `INSERT INTO approved_posts (id, day, caption, tags_summary, slide_count, scheduled_date, scheduled_time, media_ids, status, user_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO approved_posts (id, day, caption, tags_summary, slide_count, scheduled_date, scheduled_time, media_ids, status, user_id, used_ai_caption, used_ai_tagging, used_video)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT (id) DO UPDATE SET
          day = EXCLUDED.day, caption = EXCLUDED.caption, tags_summary = EXCLUDED.tags_summary,
          slide_count = EXCLUDED.slide_count, scheduled_date = EXCLUDED.scheduled_date,
          scheduled_time = EXCLUDED.scheduled_time, media_ids = EXCLUDED.media_ids,
-         status = EXCLUDED.status`,
+         status = EXCLUDED.status,
+         used_ai_caption = EXCLUDED.used_ai_caption,
+         used_ai_tagging = EXCLUDED.used_ai_tagging,
+         used_video = EXCLUDED.used_video`,
       [id, day, caption ?? "", tagsSummary ?? "", String(slideCount ?? 1),
        scheduledDate ?? null, scheduledTime ?? null,
        mediaIds ? JSON.stringify(mediaIds) : null,
-       status ?? "approved", userId]
+       status ?? "approved", userId,
+       usedAICaption ?? false, usedAITagging ?? false, usedVideo ?? false]
     );
     invalidatePosts(userId);
     res.json({ ok: true });
@@ -405,19 +434,23 @@ app.post("/api/posts", requireAuth, async (req, res) => {
 
 app.put("/api/posts/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const { day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status } = req.body;
+  const { day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status,
+          usedAICaption, usedAITagging, usedVideo } = req.body;
   await withTables(async () => {
     await pool.query(
       `UPDATE approved_posts SET
          day = $1, caption = $2, tags_summary = $3,
          slide_count = $4, scheduled_date = $5,
          scheduled_time = $6, media_ids = $7,
-         status = $8
-       WHERE id = $9 AND user_id = $10`,
+         status = $8,
+         used_ai_caption = $9, used_ai_tagging = $10, used_video = $11
+       WHERE id = $12 AND user_id = $13`,
       [day, caption ?? "", tagsSummary ?? "", String(slideCount ?? 1),
        scheduledDate ?? null, scheduledTime ?? null,
        mediaIds ? JSON.stringify(mediaIds) : null,
-       status ?? "approved", req.params.id, userId]
+       status ?? "approved",
+       usedAICaption ?? false, usedAITagging ?? false, usedVideo ?? false,
+       req.params.id, userId]
     );
     invalidatePosts(userId);
     res.json({ ok: true });
