@@ -845,6 +845,7 @@ export default function App() {
   const [mediaLoading, setMediaLoading] = useState(true);
   const [mediaPage, setMediaPage] = useState(1);
   const [mediaHasMore, setMediaHasMore] = useState(false);
+  const [mediaTotal, setMediaTotal] = useState(0);
   const [mediaLoadingMore, setMediaLoadingMore] = useState(false);
   const [videoDisabledBanner, setVideoDisabledBanner] = useState(false);
   const [approvedPosts, setApprovedPosts] = useState<ApprovedPost[]>([]);
@@ -1071,6 +1072,7 @@ export default function App() {
         const items: MediaItem[] = (mediaResp.items ?? []).map((i: any) => ({ ...i, analyzing: false }));
         setMediaHasMore(mediaResp.hasMore ?? false);
         setMediaPage(1);
+        setMediaTotal(mediaResp.total ?? items.length);
         const mediaIdsInPosts = new Set(posts.flatMap((p: any) => p.mediaIds ?? []));
         const toUnmark = items.filter((m) => m.used && !mediaIdsInPosts.has(m.id));
         if (toUnmark.length > 0) {
@@ -1279,7 +1281,7 @@ export default function App() {
       }
     }
 
-    if (plan === "free" && mediaItems.length >= limits.maxMedia) {
+    if (plan === "free" && mediaTotal >= limits.maxMedia) {
       setUpgradeModalData({ reasons: [`Media pool limit (${limits.maxMedia} items on Free)`], canContinue: false, onContinue: () => {} });
       setUpgradeModalOpen(true);
       return;
@@ -1374,6 +1376,7 @@ export default function App() {
         if (storedUrl !== item.dataUrl) {
           setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
         }
+        setMediaTotal((t) => t + 1);
       } catch (err) { console.error("Failed to save media", err); showGlobalToast("Upload failed — please try again"); }
     }
   }
@@ -1382,6 +1385,7 @@ export default function App() {
     setMediaItems((prev) => prev.filter((m) => m.id !== id));
     setCarouselIds((prev) => prev.filter((cid) => cid !== id));
     setViewerItem(null);
+    setMediaTotal((t) => Math.max(0, t - 1));
     try { await apiDelete(`/media/${id}`); } catch { showGlobalToast("Couldn't delete — please try again"); }
   }
 
@@ -2148,7 +2152,7 @@ export default function App() {
                     </button>
                   )}
                   <button onClick={() => fileInputRef.current?.click()} className={mutedBtn}>
-                    + Upload{plan === "free" && mediaItems.length >= limits.maxMedia && <DiamondBadge />}
+                    + Upload{plan === "free" && mediaTotal >= limits.maxMedia && <DiamondBadge />}
                   </button>
                 </div>
               )}
@@ -2335,7 +2339,7 @@ export default function App() {
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75">
                               {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" preload="none" /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                              {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
+                              {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="text-[hsl(263,70%,65%)]">💎</span>}</span>}
                             </div>
                           ))}
                         </div>
@@ -2472,7 +2476,9 @@ export default function App() {
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
                             className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
-                            {item.tag ? `${tagIcon(item.tag)} ${tagLabel(item.tag)}` : "＋ Tag"}
+                            {item.tag ? (
+                              <>{tagIcon(item.tag)} {tagLabel(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
+                            ) : "＋ Tag"}
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
@@ -3418,10 +3424,10 @@ export default function App() {
                   <div>
                     <div className="flex justify-between text-xs mb-1">
                       <span className={dimText}>Media pool</span>
-                      <span className={`font-medium ${mediaItems.length >= limits.maxMedia ? "text-red-400" : "text-[hsl(220,10%,70%)]"}`}>{mediaItems.length} / {limits.maxMedia}</span>
+                      <span className={`font-medium ${mediaTotal >= limits.maxMedia ? "text-red-400" : "text-[hsl(220,10%,70%)]"}`}>{mediaTotal} / {limits.maxMedia}</span>
                     </div>
                     <div className="w-full h-1.5 rounded-full bg-[hsl(220,13%,18%)] overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${mediaItems.length >= limits.maxMedia ? "bg-red-500" : "bg-[hsl(263,70%,60%)]"}`} style={{ width: `${Math.min(100, (mediaItems.length / limits.maxMedia) * 100)}%` }} />
+                      <div className={`h-full rounded-full transition-all ${mediaTotal >= limits.maxMedia ? "bg-red-500" : "bg-[hsl(263,70%,60%)]"}`} style={{ width: `${Math.min(100, (mediaTotal / limits.maxMedia) * 100)}%` }} />
                     </div>
                   </div>
                   <p className={`text-xs ${dimText}`}>
@@ -4233,7 +4239,8 @@ export default function App() {
                         <p>{tl.aiCaptions ? "✓ AI Captions" : "✗ AI Captions"}</p>
                         <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
                         <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
-                        {tier === "agency" && <p>✓ Multi-account</p>}
+                        {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics (soon)</p></>}
+                        {tier !== "agency" && <p>✗ Analytics</p>}
                       </div>
                       {isCurrent && <p className="text-[10px] text-[hsl(220,10%,45%)] font-medium">Current</p>}
                     </div>
