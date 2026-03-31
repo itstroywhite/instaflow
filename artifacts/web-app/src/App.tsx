@@ -3,6 +3,10 @@ import { Heart } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
+// 🧪 TESTING ONLY — change to "pro" or "agency" to test different plans
+// Change back to "free" before production release
+const USER_PLAN: "free" | "pro" | "agency" = "free";
+
 // ─── Supabase client ──────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
@@ -697,7 +701,6 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
 }
 
 // ─── Freemium Plan Config ──────────────────────────────────────────────────────
-const USER_PLAN: "free" | "pro" | "agency" = "free"; // TODO: read from DB per user
 const PLAN_LIMITS = {
   free:   { maxPostsPerMonth: 7, maxMedia: 30, maxFolders: 1, aiCaptions: false, aiTagging: false, videoUpload: false },
   pro:    { maxPostsPerMonth: Infinity, maxMedia: Infinity, maxFolders: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
