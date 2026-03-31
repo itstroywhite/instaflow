@@ -1016,7 +1016,7 @@ export default function App() {
 
   // Fullscreen viewer
   const [viewerItem, setViewerItem] = useState<MediaItem | null>(null);
-  const [viewerFavorites, setViewerFavorites] = useState<Set<string>>(new Set());
+  const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
   const viewerVideoRef = useRef<HTMLVideoElement>(null);
 
   // Edit-from tracking (Fix 8)
@@ -1188,11 +1188,12 @@ export default function App() {
     if (usedFilter === "used") items = items.filter((m) => m.used);
     else items = items.filter((m) => !m.used && !folderItemIds.has(m.id));
     if (activeFilters.length > 0) items = items.filter((m) => m.tag && activeFilters.includes(m.tag));
+    if (filterFavoritesOnly) items = items.filter((m) => m.isFavorite);
     if (poolSort === "oldest") items.sort((a, b) => (a.createdAt ?? "") < (b.createdAt ?? "") ? -1 : 1);
     else if (poolSort === "name") items.sort((a, b) => a.name.localeCompare(b.name));
     else items.sort((a, b) => (a.createdAt ?? "") > (b.createdAt ?? "") ? -1 : 1);
     return items;
-  }, [mediaItems, activeFilters, poolSort, usedFilter, folderItemIds]);
+  }, [mediaItems, activeFilters, filterFavoritesOnly, poolSort, usedFilter, folderItemIds]);
 
   const tagsInActivePool = allAvailableTags;
 
@@ -1774,6 +1775,20 @@ export default function App() {
     catch (err) { setSingleError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); }
     finally { setSingleGenerating(false); }
   }
+  async function toggleFavorite(itemId: string) {
+    if (plan === "free") { openProGate("Favorites & Heart Filter"); return; }
+    const current = mediaItems.find((m) => m.id === itemId);
+    if (!current) return;
+    const newVal = !current.isFavorite;
+    setMediaItems((prev) => prev.map((m) => m.id === itemId ? { ...m, isFavorite: newVal } : m));
+    try {
+      await apiPatch(`/media/${itemId}/favorite`, {});
+    } catch {
+      setMediaItems((prev) => prev.map((m) => m.id === itemId ? { ...m, isFavorite: !newVal } : m));
+      showGlobalToast("Couldn't update favorite — please try again");
+    }
+  }
+
   function handleCreatePostClick() {
     if (plan === "free" && monthPostCount >= limits.maxPostsPerMonth) {
       openProGate(`Monthly post limit — ${limits.maxPostsPerMonth} posts/month on Free`);
@@ -2311,6 +2326,13 @@ export default function App() {
                         </div>
                       )}
                     </div>
+                    <button onClick={() => {
+                        if (plan === "free") { openProGate("Favorites & Heart Filter"); return; }
+                        setFilterFavoritesOnly((v) => !v); setFilterDropdownOpen(false);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${filterFavoritesOnly ? "bg-red-500/15 text-red-300 border-red-500/30" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      ❤️{plan === "free" && <DiamondBadge />}
+                    </button>
                     <div className="relative ml-auto">
                       <button onClick={() => { setSortDropdownOpen((o) => !o); setFilterDropdownOpen(false); }}
                         className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
@@ -2585,6 +2607,14 @@ export default function App() {
                             {item.tag ? (
                               <>{tagIcon(item.tag)} {tagLabel(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
                             ) : "＋ Tag"}
+                          </button>
+                        )}
+                        {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
+                            style={{ top: 6, right: 6, width: 20, height: 20, textShadow: "0 1px 3px rgba(0,0,0,0.7)", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))" }}
+                            className="absolute flex items-center justify-center text-base leading-none">
+                            {item.isFavorite ? "❤️" : "🤍"}
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
@@ -3935,7 +3965,7 @@ export default function App() {
 
       {/* ── FULLSCREEN VIEWER — iOS Photos style ── */}
       {viewerItem && (() => {
-        const isFav = viewerFavorites.has(viewerItem.id);
+        const isFav = !!(mediaItems.find((m) => m.id === viewerItem.id)?.isFavorite);
         const dateStr = viewerItem.createdAt
           ? new Date(viewerItem.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
           : "";
@@ -4012,9 +4042,9 @@ export default function App() {
                     <span className="text-[10px] text-white/60">Carousel</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => setViewerFavorites((prev) => { const next = new Set(prev); isFav ? next.delete(viewerItem.id) : next.add(viewerItem.id); return next; })}>
-                    <span className="text-xl">{isFav ? "⭐" : "☆"}</span>
-                    <span className={`text-[10px] ${isFav ? "text-amber-400" : "text-white/60"}`}>Favorite</span>
+                    onClick={() => toggleFavorite(viewerItem.id)}>
+                    <span className="text-xl">{isFav ? "❤️" : "🤍"}</span>
+                    <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                     onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
@@ -4382,6 +4412,7 @@ export default function App() {
                         <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
                         <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
                         <p>{tl.maxFolders === Infinity ? "✓ Unlimited folders" : "✗ Up to 1 folder"}</p>
+                        <p>{tier === "free" ? "✗ Favorites & Heart Filter" : "✓ Favorites & Heart Filter"}</p>
                         {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics Dashboard</p></>}
                         {tier !== "agency" && <p>✗ Analytics Dashboard</p>}
                       </div>

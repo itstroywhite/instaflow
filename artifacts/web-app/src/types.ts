@@ -12,6 +12,7 @@ export interface MediaItem {
   fileSize?: number;
   fileHash?: string;
   dimensions?: string;
+  isFavorite?: boolean;
 }
 
 export interface ApprovedPost {

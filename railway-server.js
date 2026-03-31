@@ -135,6 +135,7 @@ async function ensureTables() {
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS file_hash TEXT;
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS file_size INTEGER;
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS dimensions TEXT;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT false;
   `);
 }
 
@@ -230,7 +231,7 @@ app.get("/api/media", requireAuth, async (req, res) => {
   await withTables(async () => {
     if (!userMediaCache[userId]) {
       const result = await pool.query(
-        `SELECT id, name, tag, url, folder_id, used, created_at
+        `SELECT id, name, tag, url, folder_id, used, created_at, is_favorite
          FROM media_items
          WHERE user_id = $1
          ORDER BY created_at DESC`,
@@ -241,6 +242,7 @@ app.get("/api/media", requireAuth, async (req, res) => {
         dataUrl: r.url ?? "",
         folderId: r.folder_id ?? null,
         used: r.used ?? false, createdAt: r.created_at,
+        isFavorite: r.is_favorite ?? false,
       }));
     }
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
@@ -370,6 +372,22 @@ app.patch("/api/media/:id", requireAuth, async (req, res) => {
     }
     invalidateMedia(userId);
     res.json({ ok: true });
+  }, res);
+});
+
+app.patch("/api/media/:id/favorite", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  const { id } = req.params;
+  await withTables(async () => {
+    const result = await pool.query(
+      `UPDATE media_items SET is_favorite = NOT is_favorite
+       WHERE id = $1 AND user_id = $2
+       RETURNING id, is_favorite`,
+      [id, userId]
+    );
+    if (result.rowCount === 0) return res.status(404).json({ error: "Not found" });
+    invalidateMedia(userId);
+    res.json({ id: result.rows[0].id, isFavorite: result.rows[0].is_favorite });
   }, res);
 });
 
