@@ -2052,12 +2052,8 @@ export default function App() {
       setCaptionError(null); setIsEditingCaption(false); setEditingPost(null);
       setScheduleDate(todayStr()); setScheduleTime(nowTimeStr());
       setDailyBadge(false); setDailyBanner(false); setScreen("carousel"); setTodayBuildMode(true);
-      setGeneratingCaptions(true);
-      const tags = ordered.map((id) => mediaMap[id]?.tag ?? "other");
-      const options = await generate3Captions(tags, appSettings.captionSettings, true, "fresh");
-      setCaptionOptions(options); setCaptionSelectedIdx(null); setCaptionOptionsExpanded(true);
     } catch (err) { setAiError(err instanceof Error ? err.message : "AI error"); }
-    finally { setAiGenerating(false); setGeneratingCaptions(false); }
+    finally { setAiGenerating(false); }
   }
 
   async function handleAIGenerateSingle() {
@@ -2071,7 +2067,6 @@ export default function App() {
       setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleCaptionOptionsExpanded(false);
       setSingleCaption("");
       setScreen("single");
-      await generateSingleCaption([best.tag ?? "other"], appSettings.captionSettings, undefined, (partial) => setSingleCaption(partial));
     } catch (err) { setAiError(err instanceof Error ? err.message : "AI error"); setSinglePostItem(null); setScreen("pool"); }
     finally { setAiGenerating(false); }
   }
@@ -2609,7 +2604,7 @@ export default function App() {
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
                             className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
                             {item.tag ? (
-                              <>{tagIcon(item.tag)} {tagLabel(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
+                              <>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
                             ) : "＋ Tag"}
                           </button>
                         )}
@@ -2618,7 +2613,7 @@ export default function App() {
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
                             style={{ top: 6, right: 6, filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }}
                             className="absolute flex items-center justify-center">
-                            <Heart className="w-5 h-5" stroke={item.isFavorite ? "#ef4444" : "white"} fill={item.isFavorite ? "#ef4444" : "none"} />
+                            <Heart className="w-4 h-4" stroke={item.isFavorite ? "#ef4444" : "white"} fill={item.isFavorite ? "#ef4444" : "none"} />
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
@@ -2941,8 +2936,8 @@ export default function App() {
                   <button onClick={() => { setEditingCaption(carouselCaption); setIsEditingCaption(true); }} className={`text-xs px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] flex-shrink-0`}>✏️</button>
                 </div>
                 <div className="flex gap-2 mt-2.5 flex-wrap">
-                  <button onClick={() => handleGetCaptionOptions("variations")} disabled={generatingCaptions} className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40">{generatingCaptions ? "…" : "↺ Variations"}</button>
-                  <button onClick={() => handleGetCaptionOptions("fresh")} disabled={generatingCaptions} className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40`}>🆕 New Caption</button>
+                  <button onClick={() => handleGetCaptionOptions("variations")} disabled={generatingCaptions} className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40 flex items-center gap-1">{generatingCaptions ? "…" : "↺ Variations"}{!limits.aiCaptions && <DiamondBadge />}</button>
+                  <button onClick={() => handleGetCaptionOptions("fresh")} disabled={generatingCaptions} className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 flex items-center gap-1`}>🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}</button>
                 </div>
               </div>
             )}
@@ -3234,12 +3229,12 @@ export default function App() {
                 </div>
                 <div className="flex gap-2 mt-2.5 flex-wrap">
                   <button onClick={() => handleGenerateSingleCaption("variations")} disabled={singleGenerating}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40">
-                    {singleGenerating ? "…" : "↺ Variations"}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40 flex items-center gap-1">
+                    {singleGenerating ? "…" : "↺ Variations"}{!limits.aiCaptions && <DiamondBadge />}
                   </button>
                   <button onClick={() => handleGenerateSingleCaption("fresh")} disabled={singleGenerating}
-                    className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40`}>
-                    🆕 New Caption
+                    className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 flex items-center gap-1`}>
+                    🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}
                   </button>
                 </div>
               </div>
@@ -4051,8 +4046,11 @@ export default function App() {
                     <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
-                    <Tag className="w-5 h-5" stroke="white" fill="none" />
+                    onClick={() => { if (plan === "free") { openProGate("AI Tagging"); return; } const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
+                    <div className="relative">
+                      <Tag className="w-5 h-5" stroke="white" fill="none" />
+                      {plan === "free" && <span className="absolute -top-1 -right-2 text-[hsl(263,70%,65%)] text-[8px]">💎</span>}
+                    </div>
                     <span className="text-[10px] text-white/60">Tag</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
@@ -4310,9 +4308,15 @@ export default function App() {
               <p className={`text-sm ${dimText} leading-relaxed`}>Any unsaved changes to this post will be lost.</p>
             </div>
             <div className="space-y-2">
-              <button onClick={() => setDiscardConfirm(false)}
-                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
-                No, keep editing
+              <button onClick={() => {
+                setDiscardConfirm(false);
+                const fn = discardAction;
+                setDiscardAction(null);
+                setDiscardSaveDraftAction(null);
+                if (fn) fn();
+              }}
+                className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
+                Yes, Discard
               </button>
               {discardSaveDraftAction && (
                 <button onClick={() => {
@@ -4326,15 +4330,9 @@ export default function App() {
                   💾 Save as Draft
                 </button>
               )}
-              <button onClick={() => {
-                setDiscardConfirm(false);
-                const fn = discardAction;
-                setDiscardAction(null);
-                setDiscardSaveDraftAction(null);
-                if (fn) fn();
-              }}
-                className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold transition-colors">
-                Yes, Discard
+              <button onClick={() => setDiscardConfirm(false)}
+                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                No, keep editing
               </button>
             </div>
           </div>
@@ -4862,20 +4860,28 @@ export default function App() {
           <div className="absolute inset-0 bg-black/60" />
           <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-center pb-1">Add to <span className="text-[hsl(263,70%,70%)]">{openFolder.name}</span></p>
+            <button onClick={() => { setFolderAddSourceSheet(false); folderCameraInputRef.current?.click(); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+              <span className="text-2xl">📷</span>
+              <div className="text-left">
+                <p className="text-sm font-semibold">Take Photo</p>
+                <p className={`text-xs ${dimText}`}>Use your camera to take a new photo</p>
+              </div>
+            </button>
+            <button onClick={() => { setFolderAddSourceSheet(false); folderFileInputRef.current?.click(); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+              <span className="text-2xl">🖼</span>
+              <div className="text-left">
+                <p className="text-sm font-semibold">Choose from Library</p>
+                <p className={`text-xs ${dimText}`}>Upload from your photo library</p>
+              </div>
+            </button>
             <button onClick={() => { setFolderAddSourceSheet(false); setFolderAddMode(true); }}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
               <span className="text-2xl">📁</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">From Pool</p>
                 <p className={`text-xs ${dimText}`}>Choose from already uploaded media</p>
-              </div>
-            </button>
-            <button onClick={() => { setFolderAddSourceSheet(false); folderCameraInputRef.current?.click(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
-              <span className="text-2xl">📷</span>
-              <div className="text-left">
-                <p className="text-sm font-semibold">From Camera Roll</p>
-                <p className={`text-xs ${dimText}`}>Upload new photos or videos</p>
               </div>
             </button>
             <button onClick={() => setFolderAddSourceSheet(false)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
@@ -4934,7 +4940,7 @@ export default function App() {
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files, true); e.target.value = ""; }} />
       <input ref={addMoreLibraryRef} type="file" accept="image/*" multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
-      <input ref={folderCameraInputRef} type="file" accept="image/*" multiple className="hidden"
+      <input ref={folderCameraInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
