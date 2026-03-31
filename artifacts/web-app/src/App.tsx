@@ -1671,14 +1671,14 @@ export default function App() {
   }
 
   function attemptCancelSingle(onDiscard: () => void) {
-    const hasChanges = !!(singleCaption || singleEditing);
+    const hasChanges = !!(singleCaption);
     if (hasChanges) {
       setDiscardAction(() => onDiscard);
       setDiscardSaveDraftAction(() => async () => {
         if (!singlePostItem) return;
         const draft: ApprovedPost = {
           id: generateId(), day: singleScheduleDate || todayStr(),
-          caption: singleEditing ? singleEditText : (singleCaption || ""),
+          caption: singleCaption || "",
           tagsSummary: tagIcon(singlePostItem.tag ?? "other"), slideCount: 1,
           scheduledDate: singleScheduleDate || null,
           scheduledTime: singleScheduleTime || null,
@@ -1828,7 +1828,7 @@ export default function App() {
     }
     setApproveLoading(true);
     try {
-      const finalCaption = singleEditing ? singleEditText : singleCaption;
+      const finalCaption = singleCaption;
       const effectiveDate = singleScheduleDate || todayStr();
       const post: ApprovedPost = {
         id: generateId(), day: effectiveDate, caption: finalCaption,
@@ -1895,7 +1895,7 @@ export default function App() {
     }
     setApproveLoading(true);
     try {
-      const finalCaption = isEditingCaption ? editingCaption : carouselCaption;
+      const finalCaption = carouselCaption;
       const tags = carouselItems.map((i) => i.tag ?? "other");
       const effectiveDate = scheduleDate || todayStr();
       const postId = editingPost ? editingPost.id : generateId();
@@ -1935,7 +1935,7 @@ export default function App() {
     if (draftLoading) return;
     setDraftLoading(true);
     try {
-      const finalCaption = isEditingCaption ? editingCaption : (carouselCaption ?? "");
+      const finalCaption = carouselCaption ?? "";
       const tags = carouselItems.map((i) => i.tag ?? "other");
       const postId = editingPost ? editingPost.id : generateId();
       const draft: ApprovedPost = {
@@ -2929,112 +2929,60 @@ export default function App() {
             </div>
 
             {/* 3. SELECTED CAPTION DISPLAY (Fix 6) */}
-            {carouselItems.length > 0 && carouselCaption && !isEditingCaption && (
-              <div className={`${card} p-4`}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-[hsl(220,10%,85%)] leading-relaxed whitespace-pre-wrap flex-1">{carouselCaption}</p>
-                  <button onClick={() => { setEditingCaption(carouselCaption); setIsEditingCaption(true); }} className={`text-xs px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] flex-shrink-0`}>✏️</button>
-                </div>
-                <div className="flex gap-2 mt-2.5 flex-wrap">
-                  <button onClick={() => handleGetCaptionOptions("variations")} disabled={generatingCaptions} className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40 flex items-center gap-1">{generatingCaptions ? "…" : "↺ Variations"}{!limits.aiCaptions && <DiamondBadge />}</button>
-                  <button onClick={() => handleGetCaptionOptions("fresh")} disabled={generatingCaptions} className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 flex items-center gap-1`}>🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}</button>
-                </div>
-              </div>
-            )}
-            {carouselItems.length > 0 && isEditingCaption && (
-              <div className={`${card} p-4 space-y-2`}>
-                <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Edit Caption</p>
-                <textarea value={editingCaption} onChange={(e) => setEditingCaption(e.target.value)} rows={4} autoFocus
-                  className="w-full bg-[hsl(220,14%,9%)] border border-[hsl(263,70%,65%)/40] rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/70]" />
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => setIsEditingCaption(false)} className={mutedBtn}>Cancel</button>
-                  <button onClick={() => { setCarouselCaption(editingCaption); setIsEditingCaption(false); }} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white">Save</button>
-                </div>
-              </div>
-            )}
-
-            {/* 4. CAPTION OPTIONS (Fix 6) */}
+            {/* Caption card — unified textarea + generate + pills */}
             {carouselItems.length > 0 && (
               <div className={`${card} p-5 space-y-3`}>
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => captionOptions && !generatingCaptions && setCaptionOptionsExpanded((v) => !v)}
-                    className="flex items-center gap-2 group"
-                    disabled={!captionOptions || generatingCaptions}>
-                    <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption Options</span>
-                    {captionOptions && !generatingCaptions && (
-                      <span className={`text-[hsl(220,10%,45%)] text-xs transition-transform duration-200 ${captionOptionsExpanded ? "rotate-180" : "rotate-0"}`} style={{ display: "inline-block" }}>▾</span>
-                    )}
-                  </button>
-                  {captionOptions && !generatingCaptions && (
-                    <button onClick={() => handleGetCaptionOptions("fresh")}
-                      className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
-                      🆕 New
-                    </button>
-                  )}
-                </div>
-                {/* User ideas input */}
-                <div>
-                  <label className={`block text-[10px] font-medium ${dimText} mb-1 uppercase tracking-wider`}>Your ideas (optional)</label>
-                  <textarea
-                    value={captionUserIdeas}
-                    onChange={(e) => setCaptionUserIdeas(e.target.value)}
-                    placeholder="e.g. mention the rooftop, reference the music, add something about tonight…"
-                    rows={2}
-                    className={`w-full bg-[hsl(220,14%,9%)] border ${border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2 text-xs text-[hsl(220,10%,80%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
-                  />
-                </div>
+                <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
+                <textarea
+                  value={carouselCaption}
+                  onChange={(e) => setCarouselCaption(e.target.value)}
+                  placeholder="Write your caption…"
+                  rows={4}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${carouselCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
+                />
+                <button
+                  onClick={() => handleGetCaptionOptions("fresh")}
+                  disabled={generatingCaptions}
+                  className="w-full py-2.5 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                  {generatingCaptions ? "✨ Generating…" : "✨ Generate 3 Captions"}{!limits.aiCaptions && <DiamondBadge />}
+                </button>
+                {generatingCaptions && (
+                  <button onClick={cancelAIGeneration} className="w-full text-xs text-center text-red-400 hover:text-red-300 transition-colors">✕ Cancel generation</button>
+                )}
                 {captionError && (
                   <div className="flex items-center justify-between gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                     <span>⚠️ Couldn't generate captions. Please try again.</span>
                     <button onClick={() => handleGetCaptionOptions("fresh")} className="flex-shrink-0 px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium">↺ Try Again</button>
                   </div>
                 )}
-                {generatingCaptions ? (
-                  <div className="flex flex-col items-center gap-3 py-4">
-                    <p className={`text-sm ${dimText} animate-pulse`}>✨ Generating 3 caption options…</p>
-                    <button onClick={cancelAIGeneration} className="text-xs px-3 py-1.5 rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">✕ Cancel</button>
-                  </div>
-                ) : captionOptions ? (
-                  captionOptionsExpanded ? (
-                    <div className="space-y-2">
-                      <p className={`text-xs ${dimText}`}>Tap a style to use it as your caption:</p>
+                {captionOptions && !generatingCaptions && (
+                  <div className="space-y-2">
+                    <p className={`text-[10px] ${dimText} uppercase tracking-wider font-medium`}>Tap a style to fill your caption:</p>
+                    <div className="space-y-1.5">
                       {captionOptions.map((opt, i) => {
                         const labels = ["Minimal / cool", "Bold / confident", "Poetic / aesthetic"];
                         const selected = captionSelectedIdx === i;
                         return (
-                          <button key={i} onClick={() => handleSelectCaptionOption(i)}
-                            className={`w-full text-left p-3 rounded-xl border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]`}`}>
-                            <div className="flex items-start gap-2.5">
-                              <span className={`mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                                {selected && <span className="text-white text-[10px] font-bold">✓</span>}
-                              </span>
-                              <div>
-                                <p className={`text-[10px] font-medium mb-1 ${selected ? "text-[hsl(263,70%,70%)]" : dimText}`}>{labels[i]}</p>
-                                <p className={`text-sm leading-relaxed whitespace-pre-wrap ${selected ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{opt}</p>
-                              </div>
-                            </div>
+                          <button key={i} onClick={() => { setCaptionSelectedIdx(i); setCarouselCaption(opt); }}
+                            className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]`}`}>
+                            <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60 mr-1.5">{labels[i]}:</span>
+                            <span className={`text-xs ${selected ? "text-[hsl(220,10%,90%)]" : dimText}`}>{opt.split('\n')[0].slice(0, 70)}{(opt.split('\n')[0].length > 70 || opt.includes('\n')) ? "…" : ""}</span>
                           </button>
                         );
                       })}
                     </div>
-                  ) : (
-                    <button onClick={() => setCaptionOptionsExpanded(true)}
-                      className="w-full text-left p-3 rounded-xl border border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)] hover:border-[hsl(220,13%,35%)] transition-colors">
-                      {captionSelectedIdx !== null ? (
-                        <p className={`text-sm leading-snug whitespace-pre-wrap text-[hsl(220,10%,75%)] line-clamp-2`}>{captionOptions[captionSelectedIdx]}</p>
-                      ) : (
-                        <p className={`text-sm ${dimText}`}>3 options ready — tap to choose</p>
-                      )}
-                      <p className={`text-[10px] mt-1 text-[hsl(263,70%,65%)]`}>{captionSelectedIdx !== null ? "Tap to change" : "Tap to view options"} ›</p>
-                    </button>
-                  )
-                ) : !carouselCaption ? (
-                  <button onClick={() => handleGetCaptionOptions("fresh")}
-                    className="w-full py-3 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors">
-                    ✨ Generate 3 Caption Options{!limits.aiCaptions && <DiamondBadge />}
-                  </button>
-                ) : null}
+                    <div className="flex gap-4 pt-0.5">
+                      <button onClick={() => handleGetCaptionOptions("variations")} disabled={generatingCaptions}
+                        className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                        ↺ Variations{!limits.aiCaptions && <DiamondBadge />}
+                      </button>
+                      <button onClick={() => handleGetCaptionOptions("fresh")} disabled={generatingCaptions}
+                        className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                        🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3053,10 +3001,12 @@ export default function App() {
                   </div>
                 </div>
                 <button onClick={handleApproveCarousel}
-                  disabled={approveLoading || !(isEditingCaption ? editingCaption : carouselCaption) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
+                  disabled={approveLoading || !carouselCaption.trim() || !!(scheduleDate && scheduleTime && new Date(`${scheduleDate}T${scheduleTime}`) < new Date()) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
                   className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
                   {approveLoading ? "⏳ Saving…" : editingPost && editingPost.status !== "draft" ? "✓ Update Post" : "✓ Approve & Schedule"}
                 </button>
+                {!carouselCaption.trim() && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please add a caption before scheduling</p>}
+                {carouselCaption.trim() && !!(scheduleDate && scheduleTime && new Date(`${scheduleDate}T${scheduleTime}`) < new Date()) && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please select a future date and time</p>}
                 <button onClick={handleSaveDraft}
                   disabled={draftLoading || carouselItems.length === 0}
                   className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}>
@@ -3140,119 +3090,57 @@ export default function App() {
               </div>
             </div>
 
-            {/* 3. CAPTION OPTIONS card — identical structure to Carousel */}
+            {/* 3. CAPTION — unified textarea + generate + pills */}
             <div className={`${card} p-5 space-y-3`}>
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => singleCaptionOptions && !singleGenerating && setSingleCaptionOptionsExpanded((v) => !v)}
-                  className="flex items-center gap-2"
-                  disabled={!singleCaptionOptions || singleGenerating}>
-                  <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption Options</span>
-                  {singleCaptionOptions && !singleGenerating && (
-                    <span className={`text-[hsl(220,10%,45%)] text-xs transition-transform duration-200 ${singleCaptionOptionsExpanded ? "rotate-180" : "rotate-0"}`} style={{ display: "inline-block" }}>▾</span>
-                  )}
-                </button>
-                {singleCaptionOptions && !singleGenerating && (
-                  <button onClick={() => handleGenerateSingleCaption("fresh")}
-                    className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
-                    🆕 New
-                  </button>
-                )}
-              </div>
-              {/* User ideas */}
-              <div>
-                <label className={`block text-[10px] font-medium ${dimText} mb-1 uppercase tracking-wider`}>Your ideas (optional)</label>
-                <textarea value={singleUserIdeas} onChange={(e) => setSingleUserIdeas(e.target.value)}
-                  placeholder="e.g. summer vibes, mention the event, keep it chill…"
-                  rows={2}
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2 text-xs text-[hsl(220,10%,80%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`} />
-              </div>
+              <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
+              <textarea
+                value={singleCaption}
+                onChange={(e) => setSingleCaption(e.target.value)}
+                placeholder="Write your caption…"
+                rows={4}
+                className={`w-full bg-[hsl(220,14%,9%)] border ${singleCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
+              />
+              <button
+                onClick={() => handleGenerateSingleCaption("fresh")}
+                disabled={singleGenerating}
+                className="w-full py-2.5 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                {singleGenerating ? "✨ Generating…" : "✨ Generate 3 Captions"}{!limits.aiCaptions && <DiamondBadge />}
+              </button>
               {singleError && (
                 <div className="flex items-center justify-between gap-2 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
                   <span>⚠️ {singleError}</span>
                   <button onClick={() => handleGenerateSingleCaption("fresh")} className="flex-shrink-0 px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-medium">↺ Try Again</button>
                 </div>
               )}
-              {singleGenerating ? (
-                <div className="flex flex-col items-center gap-3 py-4">
-                  <p className={`text-sm ${dimText} animate-pulse`}>✨ Generating 3 caption options…</p>
-                </div>
-              ) : singleCaptionOptions ? (
-                singleCaptionOptionsExpanded ? (
-                  <div className="space-y-2">
-                    <p className={`text-xs ${dimText}`}>Tap a style to use it as your caption:</p>
+              {singleCaptionOptions && !singleGenerating && (
+                <div className="space-y-2">
+                  <p className={`text-[10px] ${dimText} uppercase tracking-wider font-medium`}>Tap a style to fill your caption:</p>
+                  <div className="space-y-1.5">
                     {singleCaptionOptions.map((opt, i) => {
                       const labels = ["Minimal / cool", "Bold / confident", "Poetic / aesthetic"];
                       const selected = singleCaptionIdx === i;
                       return (
                         <button key={i} onClick={() => { setSingleCaptionIdx(i); setSingleCaption(opt); }}
-                          className={`w-full text-left p-3 rounded-xl border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : "border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]"}`}>
-                          <div className="flex items-start gap-2.5">
-                            <span className={`mt-0.5 w-5 h-5 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${selected ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                              {selected && <span className="text-white text-[10px] font-bold">✓</span>}
-                            </span>
-                            <div>
-                              <p className={`text-[10px] font-medium mb-1 ${selected ? "text-[hsl(263,70%,70%)]" : dimText}`}>{labels[i]}</p>
-                              <p className={`text-sm leading-relaxed whitespace-pre-wrap ${selected ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{opt}</p>
-                            </div>
-                          </div>
+                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]`}`}>
+                          <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60 mr-1.5">{labels[i]}:</span>
+                          <span className={`text-xs ${selected ? "text-[hsl(220,10%,90%)]" : dimText}`}>{opt.split('\n')[0].slice(0, 70)}{(opt.split('\n')[0].length > 70 || opt.includes('\n')) ? "…" : ""}</span>
                         </button>
                       );
                     })}
                   </div>
-                ) : (
-                  <button onClick={() => setSingleCaptionOptionsExpanded(true)}
-                    className="w-full text-left p-3 rounded-xl border border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)] hover:border-[hsl(220,13%,35%)] transition-colors">
-                    {singleCaptionIdx !== null ? (
-                      <p className="text-sm leading-snug whitespace-pre-wrap text-[hsl(220,10%,75%)] line-clamp-2">{singleCaptionOptions[singleCaptionIdx]}</p>
-                    ) : (
-                      <p className={`text-sm ${dimText}`}>3 options ready — tap to choose</p>
-                    )}
-                    <p className="text-[10px] mt-1 text-[hsl(263,70%,65%)]">{singleCaptionIdx !== null ? "Tap to change" : "Tap to view options"} ›</p>
-                  </button>
-                )
-              ) : !singleCaption ? (
-                <button onClick={() => handleGenerateSingleCaption("fresh")}
-                  className="w-full py-3 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors">
-                  ✨ Generate 3 Caption Options{!limits.aiCaptions && <DiamondBadge />}
-                </button>
-              ) : null}
+                  <div className="flex gap-4 pt-0.5">
+                    <button onClick={() => handleGenerateSingleCaption("variations")} disabled={singleGenerating}
+                      className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                      ↺ Variations{!limits.aiCaptions && <DiamondBadge />}
+                    </button>
+                    <button onClick={() => handleGenerateSingleCaption("fresh")} disabled={singleGenerating}
+                      className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                      🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-            {/* 4. SELECTED CAPTION DISPLAY */}
-            {singleCaption && !singleEditing && (
-              <div className={`${card} p-4`}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm text-[hsl(220,10%,85%)] leading-relaxed whitespace-pre-wrap flex-1">{singleCaption}</p>
-                  <button onClick={() => { setSingleEditText(singleCaption); setSingleEditing(true); }}
-                    className={`text-xs px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] flex-shrink-0`}>✏️</button>
-                </div>
-                <div className="flex gap-2 mt-2.5 flex-wrap">
-                  <button onClick={() => handleGenerateSingleCaption("variations")} disabled={singleGenerating}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40 flex items-center gap-1">
-                    {singleGenerating ? "…" : "↺ Variations"}{!limits.aiCaptions && <DiamondBadge />}
-                  </button>
-                  <button onClick={() => handleGenerateSingleCaption("fresh")} disabled={singleGenerating}
-                    className={`text-xs px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 flex items-center gap-1`}>
-                    🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Caption edit mode */}
-            {singleEditing && (
-              <div className={`${card} p-4 space-y-2`}>
-                <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Edit Caption</p>
-                <textarea value={singleEditText} onChange={(e) => setSingleEditText(e.target.value)} rows={4} autoFocus
-                  className="w-full bg-[hsl(220,14%,9%)] border border-[hsl(263,70%,65%)/40] rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/70]" />
-                <div className="flex gap-2 justify-end">
-                  <button onClick={() => setSingleEditing(false)} className={mutedBtn}>Cancel</button>
-                  <button onClick={() => { setSingleCaption(singleEditText); setSingleEditing(false); }}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white">Save</button>
-                </div>
-              </div>
-            )}
 
             {/* 5. SCHEDULE + APPROVE — mirrors Carousel */}
             <div className={`${card} p-5 space-y-3`}>
@@ -3268,16 +3156,18 @@ export default function App() {
                 </div>
               </div>
               <button onClick={handleApproveSinglePost}
-                disabled={approveLoading || !(singleEditing ? singleEditText : singleCaption)}
+                disabled={approveLoading || !singleCaption.trim() || !!(singleScheduleDate && singleScheduleTime && new Date(`${singleScheduleDate}T${singleScheduleTime}`) < new Date())}
                 className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
                 {approveLoading ? "⏳ Saving…" : "✓ Approve & Schedule"}
               </button>
+              {!singleCaption.trim() && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please add a caption before scheduling</p>}
+              {singleCaption.trim() && !!(singleScheduleDate && singleScheduleTime && new Date(`${singleScheduleDate}T${singleScheduleTime}`) < new Date()) && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please select a future date and time</p>}
               <button
                 onClick={async () => {
                   if (!singlePostItem) return;
                   const draft: ApprovedPost = {
                     id: generateId(), day: singleScheduleDate || todayStr(),
-                    caption: singleEditing ? singleEditText : (singleCaption || ""),
+                    caption: singleCaption || "",
                     tagsSummary: tagIcon(singlePostItem.tag ?? "other"), slideCount: 1,
                     scheduledDate: singleScheduleDate || null,
                     scheduledTime: singleScheduleTime || null,
