@@ -1692,6 +1692,10 @@ export default function App() {
     setGlobalToast(msg);
     globalToastTimer.current = setTimeout(() => setGlobalToast(null), 3500);
   }
+  function openProGate(feature: string) {
+    setUpgradeModalData({ reasons: [feature], canContinue: false, onContinue: () => {} });
+    setUpgradeModalOpen(true);
+  }
   function handleSingleNewMedia() {
     const unused = mediaItems.filter((m) => !m.used && !m.analyzing);
     if (!unused.length) return;
@@ -2700,7 +2704,7 @@ export default function App() {
                             <div className="absolute inset-0 flex items-center justify-center"><div className="w-14 h-14 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center"><span className="text-white text-2xl ml-1">▶</span></div></div>
                           </div>
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
-                    {currentSlide.tag && <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)}`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}</span>}
+                    {currentSlide.tag && <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
                     <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">{carouselIndex + 1} / {carouselItems.length}</span>
                     {carouselIndex > 0 && <button onClick={() => setCarouselIndex((i) => i - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">‹</button>}
                     {carouselIndex < carouselItems.length - 1 && <button onClick={() => setCarouselIndex((i) => i + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">›</button>}
@@ -2975,8 +2979,8 @@ export default function App() {
                   ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
                   : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
                 {singlePostItem.tag && (
-                  <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
-                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}
+                  <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm flex items-center gap-1 ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
+                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}{plan === "free" && singlePostItem.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}
                   </span>
                 )}
                 {/* ↻ New File pill + 1/1 counter — top right */}
@@ -3506,46 +3510,53 @@ export default function App() {
               {/* Caption Prompt */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className={`text-xs font-medium ${dimText}`}>Caption Prompt</label>
-                  <button onClick={() => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: DEFAULT_CAPTION_PROMPT } }))}
+                  <label className={`text-xs font-medium ${dimText} flex items-center gap-1`}>Caption Prompt{plan === "free" && <DiamondBadge />}</label>
+                  <button onClick={() => { if (plan === "free") { openProGate("Caption prompt"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: DEFAULT_CAPTION_PROMPT } })); }}
                     className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>↺ Reset</button>
                 </div>
                 <textarea
                   rows={5}
+                  readOnly={plan === "free"}
+                  onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
                   value={appSettings.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
-                  onChange={(e) => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } }))}
-                  className={`w-full ${inputCls} resize-none text-xs leading-relaxed`}
+                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
+                  className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
                 <p className={`text-[10px] ${dimText} mt-1`}>This is the base instruction sent to the AI for every caption.</p>
               </div>
 
               <div>
-                <p className={`text-xs ${dimText} mb-1.5`}>Tone</p>
+                <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Tone{plan === "free" && <DiamondBadge />}</p>
                 <input value={appSettings.captionSettings.tone}
-                  onChange={(e) => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } }))}
-                  placeholder="e.g. cool, modern, lowercase" className={`w-full ${inputCls} mb-2`} />
+                  readOnly={plan === "free"}
+                  onClick={plan === "free" ? () => openProGate("Caption tone") : undefined}
+                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } })); }}
+                  placeholder="e.g. cool, modern, lowercase" className={`w-full ${inputCls} mb-2 ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
                 <div className="flex flex-wrap gap-1.5">
                   {SUGGESTED_TONES.map((t) => {
                     const active = appSettings.captionSettings.tone.includes(t);
                     return <button key={t}
-                      onClick={() => setAppSettings((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
-                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
+                      disabled={plan === "free"}
+                      onClick={plan === "free" ? () => openProGate("Caption tone") : () => setAppSettings((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
                   })}
                 </div>
               </div>
               <div>
-                <p className={`text-xs ${dimText} mb-1.5`}>Preferred hashtags</p>
-                <div className="flex gap-2 mb-2">
-                  <input value={newHashtagInput} onChange={(e) => setNewHashtagInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, ""))}
-                    onKeyDown={(e) => { if (e.key === "Enter") { const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } } }}
-                    placeholder="Add hashtag…" className={`flex-1 ${inputCls}`} />
-                  <button onClick={() => { const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Preferred hashtags{plan === "free" && <DiamondBadge />}</p>
+                <div className="flex gap-2 mb-2" onClick={plan === "free" ? () => openProGate("Preferred hashtags") : undefined}>
+                  <input value={newHashtagInput}
+                    readOnly={plan === "free"}
+                    onChange={(e) => { if (plan === "free") return; setNewHashtagInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "")); }}
+                    onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                    placeholder="Add hashtag…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
+                  <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                     className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white">Add</button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {SUGGESTED_HASHTAGS.filter((h) => !appSettings.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
-                    <button key={h} onClick={() => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
-                      className={`text-xs px-2 py-1 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>+ #{h}</button>
+                    <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
+                      className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>+ #{h}</button>
                   ))}
                 </div>
                 {appSettings.captionSettings.hashtags.length > 0 && (
@@ -3553,7 +3564,7 @@ export default function App() {
                     {appSettings.captionSettings.hashtags.map((h) => (
                       <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] flex items-center gap-1">
                         #{h}
-                        <button onClick={() => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } }))}
+                        <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
                           className="text-[hsl(263,70%,50%)] hover:text-red-400 text-[10px]">✕</button>
                       </span>
                     ))}
@@ -3561,13 +3572,15 @@ export default function App() {
                 )}
               </div>
               <div>
-                <p className={`text-xs ${dimText} mb-1.5`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span></p>
+                <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
                 <textarea
                   rows={2}
+                  readOnly={plan === "free"}
+                  onClick={plan === "free" ? () => openProGate("Additional caption instructions") : undefined}
                   value={appSettings.captionSettings.customInstructions ?? ""}
-                  onChange={(e) => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } }))}
+                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
                   placeholder="e.g. Always mention the city. Avoid the word 'journey'."
-                  className={`w-full ${inputCls} resize-none`}
+                  className={`w-full ${inputCls} resize-none ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
               </div>
             </div>
@@ -3576,9 +3589,9 @@ export default function App() {
             <div className={`${card} p-5 space-y-4`}>
               <p className="text-sm font-semibold">🏷️ Manage Tags</p>
               <div>
-                <p className={`text-xs ${dimText} mb-1.5`}>Add custom tag — type a word and pick an emoji</p>
+                <p className={`text-xs ${dimText} mb-1.5`}>Add custom tag — type a word and pick an emoji{plan === "free" && <DiamondBadge />}</p>
                 {/* Emoji preview row */}
-                {newTagInput.trim() && (
+                {newTagInput.trim() && plan !== "free" && (
                   <div className="mb-2 p-2.5 rounded-xl border border-[hsl(263,70%,65%)/25] bg-[hsl(263,70%,65%)/8] flex items-center gap-3 flex-wrap">
                     <span className="text-sm font-medium text-[hsl(220,10%,85%)]">
                       <span className="text-xl mr-1">{tagInputEmoji}</span>
@@ -3594,30 +3607,37 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                <div className="flex gap-2">
+                <div className="flex gap-2" onClick={plan === "free" ? () => openProGate("Custom tags") : undefined}>
                   <input value={newTagInput}
+                    readOnly={plan === "free"}
                     onChange={(e) => {
+                      if (plan === "free") return;
                       const val = e.target.value;
                       setNewTagInput(val);
                       const suggested = suggestEmoji(val);
                       setTagInputEmoji(suggested);
                     }}
-                    onKeyDown={(e) => { if (e.key === "Enter") addCustomTag(); }}
-                    placeholder="e.g. Beach, Gym, Party…" className={`flex-1 ${inputCls}`} />
-                  <button onClick={addCustomTag} disabled={!newTagInput.trim()}
+                    onKeyDown={(e) => { if (e.key === "Enter" && plan !== "free") addCustomTag(); }}
+                    placeholder="e.g. Beach, Gym, Party…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-40 cursor-pointer" : ""}`} />
+                  <button onClick={() => { if (plan === "free") { openProGate("Custom tags"); return; } addCustomTag(); }} disabled={plan !== "free" && !newTagInput.trim()}
                     className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white disabled:opacity-40">Add</button>
                 </div>
-                {newTagInput.trim() && (
+                {newTagInput.trim() && plan !== "free" && (
                   <p className={`text-[10px] ${dimText} mt-1`}>Will be saved as: <span className="text-[hsl(220,10%,70%)]">{tagInputEmoji} {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}</span></p>
                 )}
               </div>
               <div>
-                <p className={`text-xs ${dimText} mb-1.5`}>Active tags</p>
+                <p className={`text-xs ${dimText} mb-1.5`}>Active tags{plan === "free" && <DiamondBadge />}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allAvailableTags.map((tag) => (
                     <span key={tag} className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${tagColor(tag, appSettings.customTags)}`}>
                       {tagIcon(tag)} {tagLabel(tag)}
-                      <button onClick={() => BASE_TAGS.includes(tag) ? setAppSettings((s) => ({ ...s, hiddenBaseTags: [...s.hiddenBaseTags, tag] })) : setAppSettings((s) => ({ ...s, customTags: s.customTags.filter((t) => t !== tag) }))}
+                      <button onClick={() => {
+                        if (plan === "free") { openProGate("Managing active tags"); return; }
+                        BASE_TAGS.includes(tag)
+                          ? setAppSettings((s) => ({ ...s, hiddenBaseTags: [...s.hiddenBaseTags, tag] }))
+                          : setAppSettings((s) => ({ ...s, customTags: s.customTags.filter((t) => t !== tag) }));
+                      }}
                         className="opacity-60 hover:opacity-100 hover:text-red-400 text-[10px]">✕</button>
                     </span>
                   ))}
@@ -3669,31 +3689,34 @@ export default function App() {
 
               {/* Slide Order Rules */}
               <div>
-                <p className={`text-xs font-medium ${dimText} mb-2`}>Slide order</p>
-                <div className="space-y-2">
+                <p className={`text-xs font-medium ${dimText} mb-2`}>Slide order{plan === "free" && <DiamondBadge />}</p>
+                <div className="space-y-2" onClick={plan === "free" ? () => openProGate("Slide order") : undefined}>
                   {([
                     { rule: "tag-sequence" as const, icon: "🔢", label: "Follow tag sequence", desc: "Define the exact order by tag" },
                     { rule: "ai-free" as const, icon: "🤖", label: "AI chooses freely", desc: "AI picks the best order" },
                   ]).map(({ rule, icon, label, desc }) => {
                     const active = appSettings.slideOrderRule === rule;
                     return (
-                      <button key={rule} onClick={() => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all
-                          ${active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                          {active && <span className="text-white text-[8px] font-bold">✓</span>}
+                      <button key={rule}
+                        disabled={plan === "free"}
+                        onClick={plan === "free" ? undefined : () => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                          plan === "free" ? `${border} opacity-50 cursor-not-allowed` :
+                          active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
+                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
+                          {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
                         </div>
                         <span className="text-sm">{icon}</span>
                         <div>
-                          <p className={`text-xs font-medium ${active ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
+                          <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
                           <p className={`text-[10px] ${dimText}`}>{desc}</p>
                         </div>
                       </button>
                     );
                   })}
                 </div>
-                {/* Tag sequence editor */}
-                {appSettings.slideOrderRule === "tag-sequence" && (
+                {/* Tag sequence editor — hidden for free plan */}
+                {appSettings.slideOrderRule === "tag-sequence" && plan !== "free" && (
                   <div className="mt-3 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
                     <p className={`text-[10px] font-medium ${dimText}`}>Drag tags to define order (first = first slide):</p>
                     <div className="flex flex-wrap gap-1.5">
@@ -3728,13 +3751,14 @@ export default function App() {
 
               {/* Preferred tags */}
               <div>
-                <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[hsl(220,10%,35%)]">— AI prioritizes these</span></p>
+                <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[hsl(220,10%,35%)]">— AI prioritizes these</span>{plan === "free" && <DiamondBadge />}</p>
                 <div className="flex flex-wrap gap-2">
                   {allAvailableTags.map((tag) => {
                     const active = appSettings.preferredTags.includes(tag);
                     return <button key={tag}
-                      onClick={() => setAppSettings((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${active ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      disabled={plan === "free"}
+                      onClick={plan === "free" ? () => openProGate("Preferred content tags") : () => setAppSettings((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
                       {tagIcon(tag)} {tagLabel(tag)}
                     </button>;
                   })}
@@ -3743,13 +3767,15 @@ export default function App() {
 
               {/* Custom AI instructions */}
               <div>
-                <p className={`text-xs font-medium ${dimText} mb-1.5`}>Custom AI instructions <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span></p>
+                <p className={`text-xs font-medium ${dimText} mb-1.5`}>Custom AI instructions <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
                 <textarea
+                  readOnly={plan === "free"}
+                  onClick={plan === "free" ? () => openProGate("Custom AI instructions") : undefined}
                   value={appSettings.aiCustomPreferences}
-                  onChange={(e) => setAppSettings((s) => ({ ...s, aiCustomPreferences: e.target.value }))}
+                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
                   rows={2}
                   placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50]`}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
               </div>
             </div>
@@ -4599,15 +4625,35 @@ export default function App() {
               </div>
               <button onClick={closeTagPicker} className={`${dimText} hover:text-white text-xl`}>✕</button>
             </div>
+            {plan === "free" && (
+              <div className="mb-4 p-3 rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8]">
+                <p className="text-xs font-semibold text-[hsl(263,70%,75%)]">💎 AI Tagging &amp; manual tag editing is a Pro feature.</p>
+                <p className={`text-xs ${dimText} mt-0.5`}>Upgrade to Pro to tag your media correctly.</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
               {allAvailableTags.map((tag) => (
-                <button key={tag} onClick={() => handleTagChange(tagPickerItem.id, tag)}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${tagPickerItem.tag === tag ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`}`}>
+                <button key={tag}
+                  disabled={plan === "free"}
+                  onClick={plan === "free" ? undefined : () => handleTagChange(tagPickerItem.id, tag)}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                    plan === "free"
+                      ? `${border} opacity-40 cursor-not-allowed`
+                      : tagPickerItem.tag === tag
+                        ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
+                        : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
+                  }`}>
                   <span className="text-base">{tagIcon(tag)}</span><span>{tagLabel(tag)}</span>
-                  {tagPickerItem.tag === tag && <span className="ml-auto text-xs">✓</span>}
+                  {tagPickerItem.tag === tag && plan !== "free" && <span className="ml-auto text-xs">✓</span>}
                 </button>
               ))}
             </div>
+            {plan === "free" && (
+              <button onClick={() => { closeTagPicker(); openProGate("AI Tagging & manual tag editing"); }}
+                className="mt-4 w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold">
+                Upgrade to Pro 💎
+              </button>
+            )}
           </div>
         </div>
       )}
