@@ -677,9 +677,9 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
 // ─── Freemium Plan Config ──────────────────────────────────────────────────────
 const USER_PLAN: "free" | "pro" | "agency" = "free"; // TODO: read from DB per user
 const PLAN_LIMITS = {
-  free:   { maxPostsPerMonth: 7, maxMedia: 30, aiCaptions: false, aiTagging: false, videoUpload: false },
-  pro:    { maxPostsPerMonth: Infinity, maxMedia: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
-  agency: { maxPostsPerMonth: Infinity, maxMedia: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
+  free:   { maxPostsPerMonth: 7, maxMedia: 30, maxFolders: 1, aiCaptions: false, aiTagging: false, videoUpload: false },
+  pro:    { maxPostsPerMonth: Infinity, maxMedia: Infinity, maxFolders: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
+  agency: { maxPostsPerMonth: Infinity, maxMedia: Infinity, maxFolders: Infinity, aiCaptions: true, aiTagging: true, videoUpload: true },
 };
 const PLAN_LABELS: Record<"free" | "pro" | "agency", string> = { free: "Free", pro: "Pro 💎", agency: "Agency 💎" };
 
@@ -1281,10 +1281,22 @@ export default function App() {
       }
     }
 
-    if (plan === "free" && mediaTotal >= limits.maxMedia) {
-      setUpgradeModalData({ reasons: [`Media pool limit (${limits.maxMedia} items on Free)`], canContinue: false, onContinue: () => {} });
-      setUpgradeModalOpen(true);
-      return;
+    if (plan === "free") {
+      const currentCount = await refreshMediaTotal();
+      const slotsRemaining = limits.maxMedia - currentCount;
+      if (slotsRemaining <= 0) {
+        setUpgradeModalData({ reasons: [`Media pool limit (${limits.maxMedia} items on Free)`], canContinue: false, onContinue: () => {} });
+        setUpgradeModalOpen(true);
+        return;
+      }
+      if (imageFiles.length > slotsRemaining) {
+        setUpgradeModalData({
+          reasons: [`You can only upload ${slotsRemaining} more file(s). Select fewer files or upgrade to Pro.`],
+          canContinue: false, onContinue: () => {},
+        });
+        setUpgradeModalOpen(true);
+        return;
+      }
     }
 
     // Duplicate detection — skip files whose name+size already exist in the pool
@@ -1379,6 +1391,18 @@ export default function App() {
         setMediaTotal((t) => t + 1);
       } catch (err) { console.error("Failed to save media", err); showGlobalToast("Upload failed — please try again"); }
     }
+    // Re-sync count from server after all uploads so mediaTotal always reflects DB truth
+    refreshMediaTotal();
+  }
+
+  async function refreshMediaTotal(): Promise<number> {
+    try {
+      const r = await apiGet<{ total: number }>("/media/count");
+      setMediaTotal(r.total);
+      return r.total;
+    } catch {
+      return mediaTotal;
+    }
   }
 
   async function handleDeleteMedia(id: string) {
@@ -1386,7 +1410,10 @@ export default function App() {
     setCarouselIds((prev) => prev.filter((cid) => cid !== id));
     setViewerItem(null);
     setMediaTotal((t) => Math.max(0, t - 1));
-    try { await apiDelete(`/media/${id}`); } catch { showGlobalToast("Couldn't delete — please try again"); }
+    try {
+      await apiDelete(`/media/${id}`);
+      refreshMediaTotal();
+    } catch { showGlobalToast("Couldn't delete — please try again"); }
   }
 
   async function markItemsUsed(ids: string[]) {
@@ -2151,8 +2178,8 @@ export default function App() {
                       Select
                     </button>
                   )}
-                  <button onClick={() => fileInputRef.current?.click()} className={mutedBtn}>
-                    + Upload{plan === "free" && mediaTotal >= limits.maxMedia && <DiamondBadge />}
+                  <button onClick={() => fileInputRef.current?.click()} className={`${mutedBtn} flex flex-row items-center gap-1 whitespace-nowrap`}>
+                    <span>+ Upload</span>{plan === "free" && mediaTotal >= limits.maxMedia && <DiamondBadge />}
                   </button>
                 </div>
               )}
@@ -2393,9 +2420,16 @@ export default function App() {
                 {!openFolder && usedFilter === "active" && !bulkMode && !selectionMode && (
                   <div className="flex items-center justify-between">
                     <span className={`text-xs ${dimText}`}>{filteredSortedMedia.length} item{filteredSortedMedia.length !== 1 ? "s" : ""}</span>
-                    <button onClick={() => setCreateFolderOpen(true)}
+                    <button onClick={() => {
+                      if (plan === "free" && folders.length >= limits.maxFolders) {
+                        setUpgradeModalData({ reasons: [`Folder limit (${limits.maxFolders} folder on Free)`], canContinue: false, onContinue: () => {} });
+                        setUpgradeModalOpen(true);
+                      } else {
+                        setCreateFolderOpen(true);
+                      }
+                    }}
                       className={`text-xs flex items-center gap-1 px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
-                      📁 + New Folder
+                      📁 + New Folder{plan === "free" && <DiamondBadge />}
                     </button>
                   </div>
                 )}
@@ -4239,8 +4273,9 @@ export default function App() {
                         <p>{tl.aiCaptions ? "✓ AI Captions" : "✗ AI Captions"}</p>
                         <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
                         <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
-                        {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics (soon)</p></>}
-                        {tier !== "agency" && <p>✗ Analytics</p>}
+                        <p>{tl.maxFolders === Infinity ? "✓ ∞ folders" : `✗ ${tl.maxFolders} folder max`}</p>
+                        {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics Dashboard</p></>}
+                        {tier !== "agency" && <p>✗ Analytics Dashboard</p>}
                       </div>
                       {isCurrent && <p className="text-[10px] text-[hsl(220,10%,45%)] font-medium">Current</p>}
                     </div>
@@ -4433,9 +4468,17 @@ export default function App() {
                 ))}
               </div>
             )}
-            <button onClick={() => { setFolderPickerOpen(false); setCreateFolderOpen(true); }}
-              className={`w-full py-2.5 rounded-xl border-2 border-dashed border-[hsl(220,13%,25%)] hover:border-[hsl(263,70%,65%)/50] text-sm ${dimText} hover:text-white transition-colors`}>
-              + New Folder
+            <button onClick={() => {
+              setFolderPickerOpen(false);
+              if (plan === "free" && folders.length >= limits.maxFolders) {
+                setUpgradeModalData({ reasons: [`Folder limit (${limits.maxFolders} folder on Free)`], canContinue: false, onContinue: () => {} });
+                setUpgradeModalOpen(true);
+              } else {
+                setCreateFolderOpen(true);
+              }
+            }}
+              className={`w-full py-2.5 rounded-xl border-2 border-dashed border-[hsl(220,13%,25%)] hover:border-[hsl(263,70%,65%)/50] text-sm ${dimText} hover:text-white transition-colors flex items-center justify-center gap-1.5`}>
+              + New Folder{plan === "free" && <DiamondBadge />}
             </button>
             <button onClick={() => setFolderPickerOpen(false)} className={`w-full py-2 text-sm ${dimText} hover:text-white`}>Cancel</button>
           </div>

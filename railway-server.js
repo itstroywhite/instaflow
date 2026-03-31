@@ -171,6 +171,17 @@ app.get("/api/healthz", (_req, res) => {
 
 // ── Media ────────────────────────────────────────────────────────────────────
 
+app.get("/api/media/count", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  await withTables(async () => {
+    const result = await pool.query(
+      "SELECT COUNT(*) AS total FROM media_items WHERE user_id = $1",
+      [userId]
+    );
+    res.json({ total: parseInt(result.rows[0].total, 10) });
+  }, res);
+});
+
 app.get("/api/media", requireAuth, async (req, res) => {
   const userId = req.userId;
   await withTables(async () => {
