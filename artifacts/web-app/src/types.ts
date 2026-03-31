@@ -10,6 +10,8 @@ export interface MediaItem {
   used?: boolean;
   createdAt?: string;
   fileSize?: number;
+  fileHash?: string;
+  dimensions?: string;
 }
 
 export interface ApprovedPost {

@@ -217,8 +217,29 @@ async function apiPost(path: string, body: object) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers, body: JSON.stringify(body) });
   handle401(res.status);
-  if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    const err: any = new Error(`POST ${path} failed: ${res.status}`);
+    err.status = res.status;
+    try { err.data = await res.json(); } catch {}
+    throw err;
+  }
   return res.json();
+}
+async function computeFileHash(file: File): Promise<string> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
+    return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch { return ""; }
+}
+async function getImageDimensions(file: File): Promise<string> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => { resolve(`${img.naturalWidth}x${img.naturalHeight}`); URL.revokeObjectURL(url); };
+    img.onerror = () => { resolve(""); URL.revokeObjectURL(url); };
+    img.src = url;
+  });
 }
 async function apiPatch(path: string, body: object) {
   const headers = await authHeaders();
@@ -1299,29 +1320,39 @@ export default function App() {
       }
     }
 
-    // Duplicate detection — skip files whose name+size already exist in the pool
-    const duplicateFiles = imageFiles.filter((f) =>
-      mediaItems.some((m) => m.name === f.name && (!m.fileSize || m.fileSize === f.size))
-    );
-    const newImageFiles = imageFiles.filter((f) =>
-      !mediaItems.some((m) => m.name === f.name && (!m.fileSize || m.fileSize === f.size))
+    // Compute SHA-256 hashes for all image files in parallel (cross-device dedup)
+    const imageFileHashes = await Promise.all(imageFiles.map(computeFileHash));
+    // Duplicate detection — hash match OR name+size match
+    const newImageFilesWithMeta = imageFiles
+      .map((f, i) => ({ file: f, hash: imageFileHashes[i] }))
+      .filter(({ file, hash }) =>
+        !mediaItems.some((m) =>
+          (hash && m.fileHash && m.fileHash === hash) ||
+          (m.name === file.name && (!m.fileSize || m.fileSize === file.size))
+        )
+      );
+    const duplicateFiles = imageFiles.filter((f, i) =>
+      !newImageFilesWithMeta.some(({ file }) => file === f)
     );
     if (duplicateFiles.length > 0) {
-      const names = duplicateFiles.map((f) => f.name);
-      setDuplicatesBanner(names);
+      if (newImageFilesWithMeta.length === 0) {
+        showGlobalToast("All selected files already exist in your pool");
+        return;
+      }
+      setDuplicatesBanner(duplicateFiles.map((f) => f.name));
       setTimeout(() => setDuplicatesBanner([]), 5000);
-      if (newImageFiles.length === 0) return;
     }
 
-    // Process images in parallel (fast)
-    const imageItems = await Promise.all(newImageFiles.map((f) => new Promise<MediaItem>((resolve) => {
+    // Process images in parallel (fast) — compute dimensions alongside compression
+    const imageItems = await Promise.all(newImageFilesWithMeta.map(({ file, hash }) => new Promise<MediaItem>((resolve) => {
+      const dimsPromise = getImageDimensions(file);
       const reader = new FileReader();
       reader.onload = async (e) => {
         const raw = e.target?.result as string;
-        const dataUrl = await compressImage(raw);
-        resolve({ id: generateId(), name: f.name, tag: null, analyzing: true, dataUrl, used: false, fileSize: f.size });
+        const [dataUrl, dimensions] = await Promise.all([compressImage(raw), dimsPromise]);
+        resolve({ id: generateId(), name: file.name, tag: null, analyzing: true, dataUrl, used: false, fileSize: file.size, fileHash: hash, dimensions });
       };
-      reader.readAsDataURL(f);
+      reader.readAsDataURL(file);
     })));
 
     // Process videos sequentially one-by-one (heavy, avoid memory crash)
@@ -1382,14 +1413,27 @@ export default function App() {
       setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
       try {
         // Single endpoint: uploads to Supabase Storage AND saves DB record
-        const saved = await apiPost("/media/upload", { id: item.id, name: item.name, dataUrl: item.dataUrl, tag });
+        const saved = await apiPost("/media/upload", {
+          id: item.id, name: item.name, dataUrl: item.dataUrl, tag,
+          fileHash: item.fileHash ?? "", fileSize: item.fileSize ?? 0, dimensions: item.dimensions ?? "",
+        });
         const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
         // Swap local base64 for the persisted Supabase URL in state
         if (storedUrl !== item.dataUrl) {
           setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
         }
         setMediaTotal((t) => t + 1);
-      } catch (err) { console.error("Failed to save media", err); showGlobalToast("Upload failed — please try again"); }
+      } catch (err: any) {
+        if (err?.status === 409) {
+          // Server-side duplicate detected — remove the optimistically added item and notify
+          showGlobalToast(err?.data?.message ?? "This file already exists in your pool");
+          setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
+          setCarouselIds((prev) => prev.filter((cid) => cid !== item.id));
+          continue;
+        }
+        console.error("Failed to save media", err);
+        showGlobalToast("Upload failed — please try again");
+      }
     }
     // Re-sync count from server after all uploads so mediaTotal always reflects DB truth
     refreshMediaTotal();
@@ -1435,6 +1479,11 @@ export default function App() {
   async function handleCreateFolder(name: string, initialIds?: string[]) {
     const trimmed = name.trim();
     if (!trimmed) { setFolderNameError(true); return; }
+    if (plan === "free" && folders.length >= limits.maxFolders) {
+      setCreateFolderOpen(false);
+      openProGate("Folder limit — upgrade to Pro to create more folders");
+      return;
+    }
     const folder: MediaFolder = { id: generateId(), name: trimmed, mediaIds: initialIds ?? [], createdAt: new Date().toISOString() };
     // Close form immediately so UX feels snappy
     setCreateFolderOpen(false);
@@ -2214,9 +2263,12 @@ export default function App() {
                 {usedFilter === "active" ? (
                   <div className="flex items-center gap-2">
                     <div className="relative">
-                      <button onClick={() => { setFilterDropdownOpen((o) => !o); setSortDropdownOpen(false); }}
+                      <button onClick={() => {
+                        if (plan === "free") { openProGate("Filter by Tag"); return; }
+                        setFilterDropdownOpen((o) => !o); setSortDropdownOpen(false);
+                      }}
                         className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${activeFilters.length > 0 ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                        🏷️ {activeFilters.length > 0 ? `Filtered (${activeFilters.length})` : "Filter by Tag"} ▾
+                        🏷️ {activeFilters.length > 0 ? `Filtered (${activeFilters.length})` : "Filter by Tag"}{plan === "free" && <DiamondBadge />} ▾
                       </button>
                       {filterDropdownOpen && (
                         <div className={`absolute top-9 left-0 z-20 w-52 rounded-xl border ${border} bg-[hsl(220,14%,13%)] shadow-xl py-1`}>

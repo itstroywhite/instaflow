@@ -131,13 +131,56 @@ async function ensureTables() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE media_folders ADD COLUMN IF NOT EXISTS user_id TEXT NOT NULL DEFAULT '';
+
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS file_hash TEXT;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS file_size INTEGER;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS dimensions TEXT;
   `);
+}
+
+// One-time startup dedup: removes exact hash duplicates (keeps oldest), then falls back to size+dims.
+async function cleanupDuplicates() {
+  try {
+    // Delete duplicates by file_hash (keep oldest created_at per user+hash)
+    const hashDups = await pool.query(`
+      DELETE FROM media_items
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, file_hash ORDER BY created_at ASC) AS rn
+          FROM media_items
+          WHERE file_hash IS NOT NULL AND file_hash <> ''
+        ) ranked
+        WHERE rn > 1
+      )
+      RETURNING id
+    `);
+    if (hashDups.rowCount > 0) console.log(`[cleanup] Removed ${hashDups.rowCount} hash-duplicate media items`);
+
+    // Delete duplicates by file_size + dimensions (keep oldest per user+size+dims)
+    const dimDups = await pool.query(`
+      DELETE FROM media_items
+      WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, file_size, dimensions ORDER BY created_at ASC) AS rn
+          FROM media_items
+          WHERE (file_hash IS NULL OR file_hash = '')
+            AND file_size IS NOT NULL AND file_size > 0
+            AND dimensions IS NOT NULL AND dimensions <> ''
+        ) ranked
+        WHERE rn > 1
+      )
+      RETURNING id
+    `);
+    if (dimDups.rowCount > 0) console.log(`[cleanup] Removed ${dimDups.rowCount} size+dims-duplicate media items`);
+  } catch (err) {
+    console.error("[cleanup] Duplicate cleanup error:", err.message);
+  }
 }
 
 let tablesReady = false;
 async function withTables(fn, res) {
   try {
-    if (!tablesReady) { await ensureTables(); tablesReady = true; }
+    if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); }
     await fn();
   } catch (err) {
     if (err?.code === "ECONNREFUSED" || err?.code === "ECONNRESET" || err?.code === "57P03") {
@@ -211,12 +254,39 @@ app.get("/api/media", requireAuth, async (req, res) => {
 
 app.post("/api/media/upload", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const { id, name, dataUrl, tag, folderId } = req.body;
+  const { id, name, dataUrl, tag, folderId, fileHash, fileSize, dimensions } = req.body;
   if (!id || !name || !dataUrl) {
     return res.status(400).json({ error: "id, name, and dataUrl are required" });
   }
   if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
     return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
+  }
+
+  // ── Duplicate detection (server-side) ──────────────────────────────────────
+  // Ensures cross-device uploads of the same file are caught even when the
+  // client's in-memory state doesn't know about it yet.
+  let isDuplicate = false;
+  try {
+    if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); }
+    if (fileHash && typeof fileHash === "string" && fileHash.length > 0) {
+      const dupCheck = await pool.query(
+        `SELECT id FROM media_items WHERE user_id = $1 AND file_hash = $2 LIMIT 1`,
+        [userId, fileHash]
+      );
+      if (dupCheck.rowCount > 0) isDuplicate = true;
+    } else if (fileSize > 0 && dimensions) {
+      const dupCheck = await pool.query(
+        `SELECT id FROM media_items WHERE user_id = $1 AND file_size = $2 AND dimensions = $3 LIMIT 1`,
+        [userId, fileSize, dimensions]
+      );
+      if (dupCheck.rowCount > 0) isDuplicate = true;
+    }
+    if (isDuplicate) {
+      return res.status(409).json({ message: "This file already exists in your pool" });
+    }
+  } catch (err) {
+    console.error("[media/upload] Duplicate check error:", err.message);
+    // Don't block the upload if the dedup check fails — just proceed
   }
 
   const comma = dataUrl.indexOf(",");
@@ -257,10 +327,11 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
   await withTables(async () => {
     const storeUrl = publicUrl ?? dataUrl;
     await pool.query(
-      `INSERT INTO media_items (id, name, tag, url, folder_id, used, user_id)
-       VALUES ($1,$2,$3,$4,$5,FALSE,$6)
+      `INSERT INTO media_items (id, name, tag, url, folder_id, used, user_id, file_hash, file_size, dimensions)
+       VALUES ($1,$2,$3,$4,$5,FALSE,$6,$7,$8,$9)
        ON CONFLICT (id) DO NOTHING`,
-      [id, name, tag ?? null, storeUrl, folderId ?? null, userId]
+      [id, name, tag ?? null, storeUrl, folderId ?? null, userId,
+       fileHash || null, fileSize || null, dimensions || null]
     );
     invalidateMedia(userId);
     const createdAt = new Date().toISOString();
