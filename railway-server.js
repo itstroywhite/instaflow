@@ -136,6 +136,18 @@ async function ensureTables() {
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS file_size INTEGER;
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS dimensions TEXT;
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT false;
+
+    CREATE TABLE IF NOT EXISTS profiles (
+      user_id TEXT PRIMARY KEY,
+      display_name TEXT,
+      instagram_username TEXT,
+      caption_style TEXT DEFAULT 'minimal',
+      language TEXT DEFAULT 'en',
+      plan TEXT DEFAULT 'free',
+      avatar_url TEXT,
+      onboarding_complete BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 }
 
@@ -842,6 +854,35 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
     res.status(502).json({ error: "Failed to analyze image", tag: "other" });
   }
 });
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+app.get("/api/profile", requireAuth, (req, res) => withTables(async () => {
+  const { rows } = await pool.query("SELECT * FROM profiles WHERE user_id = $1", [req.userId]);
+  if (rows.length === 0) {
+    const { rows: created } = await pool.query(
+      "INSERT INTO profiles (user_id) VALUES ($1) RETURNING *", [req.userId]
+    );
+    return res.json(created[0]);
+  }
+  res.json(rows[0]);
+}, res));
+
+app.post("/api/profile", requireAuth, (req, res) => withTables(async () => {
+  const { display_name, instagram_username, caption_style, language, avatar_url } = req.body;
+  const { rows } = await pool.query(`
+    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, avatar_url)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    ON CONFLICT (user_id) DO UPDATE SET
+      display_name = EXCLUDED.display_name,
+      instagram_username = EXCLUDED.instagram_username,
+      caption_style = EXCLUDED.caption_style,
+      language = EXCLUDED.language,
+      avatar_url = EXCLUDED.avatar_url
+    RETURNING *
+  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", avatar_url ?? null]);
+  res.json(rows[0]);
+}, res));
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 

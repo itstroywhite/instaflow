@@ -846,7 +846,7 @@ function LoginScreen() {
 }
 
 // ─── App ─────────────────────────────────────────────────────────────────────
-type Screen = "pool" | "carousel" | "calendar" | "settings" | "single";
+type Screen = "pool" | "carousel" | "calendar" | "settings" | "single" | "profile";
 const LAST_TAB_KEY = "instaflow_last_tab";
 
 export default function App() {
@@ -878,7 +878,7 @@ export default function App() {
 
   const [screen, setScreen] = useState<Screen>(() => {
     const saved = localStorage.getItem(LAST_TAB_KEY) as Screen | null;
-    return (saved && ["pool","carousel","calendar","settings"].includes(saved)) ? saved : "pool";
+    return (saved && ["pool","carousel","calendar","settings","profile"].includes(saved)) ? saved : "pool";
   });
 
   // Pool controls
@@ -1062,6 +1062,23 @@ export default function App() {
   const [globalToast, setGlobalToast] = useState<string | null>(null);
   const globalToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Profile
+  const [profile, setProfile] = useState<{ display_name: string | null; instagram_username: string | null; caption_style: string; language: string; plan: string; avatar_url: string | null } | null>(null);
+  const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [profileInstagram, setProfileInstagram] = useState("");
+  const [profileCaptionStyle, setProfileCaptionStyle] = useState("minimal");
+  const [profileLanguage, setProfileLanguage] = useState("en");
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [profileNewPassword, setProfileNewPassword] = useState("");
+  const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
+  const [profilePasswordSaving, setProfilePasswordSaving] = useState(false);
+  const [profilePasswordMsg, setProfilePasswordMsg] = useState<string | null>(null);
+  const [profileBillingPeriod, setProfileBillingPeriod] = useState<"monthly" | "yearly">("monthly");
+  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
 
   useEffect(() => {
@@ -1130,6 +1147,102 @@ export default function App() {
     }
     loadAll();
   }, []);
+
+  // ── Profile fetch + handlers ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!session) return;
+    apiGet<any>("/profile").then((p) => {
+      setProfile(p);
+      setProfileDisplayName(p.display_name ?? "");
+      setProfileInstagram(p.instagram_username ?? "");
+      setProfileCaptionStyle(p.caption_style ?? "minimal");
+      setProfileLanguage(p.language ?? "en");
+      setProfileAvatarUrl(p.avatar_url ?? null);
+    }).catch(() => {});
+  }, [session]);
+
+  async function handleSaveProfile() {
+    setProfileSaving(true);
+    try {
+      const saved = await apiPost("/profile", {
+        display_name: profileDisplayName || null,
+        instagram_username: profileInstagram || null,
+        caption_style: profileCaptionStyle,
+        language: profileLanguage,
+        avatar_url: profileAvatarUrl,
+      });
+      setProfile(saved);
+      setProfileSaved(true);
+      showGlobalToast("Profile saved!");
+      setTimeout(() => setProfileSaved(false), 2000);
+    } catch { showGlobalToast("Failed to save profile"); }
+    finally { setProfileSaving(false); }
+  }
+
+  async function handleChangePassword() {
+    if (!supabase) return;
+    if (profileNewPassword !== profileConfirmPassword) {
+      setProfilePasswordMsg("Passwords don't match");
+      return;
+    }
+    if (profileNewPassword.length < 6) {
+      setProfilePasswordMsg("Password must be at least 6 characters");
+      return;
+    }
+    setProfilePasswordSaving(true);
+    setProfilePasswordMsg(null);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: profileNewPassword });
+      if (error) throw error;
+      setProfilePasswordMsg("✓ Password updated");
+      setProfileNewPassword("");
+      setProfileConfirmPassword("");
+    } catch (err: any) {
+      setProfilePasswordMsg(err?.message ?? "Failed to update password");
+    } finally { setProfilePasswordSaving(false); }
+  }
+
+  async function handleForgotPassword() {
+    if (!supabase || !session?.user?.email) return;
+    try {
+      await supabase.auth.resetPasswordForEmail(session.user.email, {
+        redirectTo: "https://instaflow-web-app.vercel.app/reset-password",
+      });
+      showGlobalToast("Password reset email sent!");
+    } catch { showGlobalToast("Failed to send reset email"); }
+  }
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !supabase) return;
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `${session?.user?.id}/avatar.${ext}`;
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = data.publicUrl + `?t=${Date.now()}`;
+      setProfileAvatarUrl(url);
+      await apiPost("/profile", {
+        display_name: profileDisplayName || null,
+        instagram_username: profileInstagram || null,
+        caption_style: profileCaptionStyle,
+        language: profileLanguage,
+        avatar_url: url,
+      });
+      showGlobalToast("Avatar updated!");
+    } catch { showGlobalToast("Failed to upload avatar"); }
+    e.target.value = "";
+  }
+
+  async function handleDeleteAccount() {
+    if (!supabase) return;
+    try {
+      await supabase.auth.signOut();
+      showGlobalToast("Account deleted. Goodbye!");
+    } catch { showGlobalToast("Failed to delete account"); }
+    setDeleteAccountConfirm(false);
+  }
 
   async function loadMoreMedia() {
     if (mediaLoadingMore || !mediaHasMore) return;
@@ -2189,6 +2302,13 @@ export default function App() {
               {s === "pool" ? "🗂 Pool" : s === "carousel" ? "📸 Today" : s === "calendar" ? "📅 Cal" : "⚙️"}
             </button>
           ))}
+          {/* Avatar / Profile button */}
+          <button onClick={() => goToScreen("profile")}
+            className={`w-7 h-7 rounded-full overflow-hidden flex items-center justify-center border-2 transition-all ${screen === "profile" ? "border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,26%)]"} bg-[hsl(220,14%,14%)] text-[11px] font-bold text-white ml-0.5`}>
+            {profileAvatarUrl
+              ? <img src={profileAvatarUrl} className="w-full h-full object-cover" />
+              : (session?.user?.email?.[0]?.toUpperCase() ?? "?")}
+          </button>
           <div className="relative ml-1">
             <button onClick={() => { setPlusMenuOpen((o) => !o); cancelSelection(); }}
               className={`relative w-8 h-8 rounded-lg bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-bold text-lg flex items-center justify-center ${aiGenerating ? "animate-pulse" : ""}`}>
@@ -4822,6 +4942,216 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ── PROFILE SCREEN ── */}
+      {screen === "profile" && (
+        <div className="flex-1 overflow-y-auto pb-10">
+          {/* Header */}
+          <div className="flex flex-col items-center pt-8 pb-6 px-4">
+            <button onClick={() => avatarInputRef.current?.click()} className="relative">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center">
+                {profileAvatarUrl
+                  ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
+                  : <span className="text-3xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
+                }
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">📷</div>
+            </button>
+            <p className="mt-4 text-lg font-semibold text-[hsl(220,10%,90%)]">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
+            <p className={`text-sm ${dimText} mt-0.5`}>{session?.user?.email}</p>
+            <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold border ${
+              plan === "agency" ? "text-amber-300 bg-amber-500/20 border-amber-500/30"
+              : plan === "pro" ? "text-purple-300 bg-purple-500/20 border-purple-500/30"
+              : "text-zinc-300 bg-zinc-500/20 border-zinc-500/30"
+            }`}>{plan === "agency" ? "AGENCY" : plan === "pro" ? "PRO" : "FREE"}</span>
+          </div>
+
+          <div className="px-4 space-y-4">
+            {/* Section 1 — Usage Overview */}
+            <div className={`${card} p-5 space-y-4`}>
+              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Usage Overview</p>
+              {[
+                { label: "Posts this month", value: monthPostCount, max: limits.maxPostsPerMonth },
+                { label: "Media in pool", value: mediaItems.length, max: limits.maxMedia },
+                { label: "Folders", value: folders.length, max: limits.maxFolders },
+                { label: "Drafts", value: approvedPosts.filter((p) => p.status === "draft").length, max: 3 },
+              ].map(({ label, value, max }) => (
+                <div key={label} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm ${dimText}`}>{label}</span>
+                    <span className="text-sm text-[hsl(220,10%,75%)]">{value} / {max === Infinity ? "∞" : max}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-[hsl(220,14%,16%)] overflow-hidden">
+                    <div className="h-full rounded-full bg-[hsl(263,70%,65%)] transition-all"
+                      style={{ width: max === Infinity ? "4%" : `${Math.min(100, (value / max) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Section 2 — Plan & Billing */}
+            <div className={`${card} p-5 space-y-4`}>
+              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Plan & Billing</p>
+              {/* Period toggle */}
+              <div className="flex items-center gap-2">
+                <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                  {(["monthly","yearly"] as const).map((p) => (
+                    <button key={p} onClick={() => setProfileBillingPeriod(p)}
+                      className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[hsl(263,70%,65%)] text-white" : dimText}`}>
+                      {p}
+                    </button>
+                  ))}
+                </div>
+                {profileBillingPeriod === "yearly" && (
+                  <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Save 20%</span>
+                )}
+              </div>
+              {/* Plan cards */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { name: "Free", key: "free", price: "€0", yearlyPrice: "€0" },
+                  { name: "Pro", key: "pro", price: "€9.99/mo", yearlyPrice: "€7.99/mo" },
+                  { name: "Agency", key: "agency", price: "€29.99/mo", yearlyPrice: "€23.99/mo" },
+                ].map((tier) => {
+                  const isCurrent = tier.key === plan;
+                  return (
+                    <div key={tier.key} className={`p-3 rounded-xl border text-center ${isCurrent ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)]`}`}>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,85%)]">{tier.name}</p>
+                      <p className={`text-[11px] mt-1 ${dimText}`}>{profileBillingPeriod === "yearly" ? tier.yearlyPrice : tier.price}</p>
+                      {isCurrent && <p className="text-[9px] mt-1.5 text-[hsl(263,70%,70%)] font-medium">Current</p>}
+                    </div>
+                  );
+                })}
+              </div>
+              {profileBillingPeriod === "yearly" && (
+                <p className={`text-[10px] ${dimText} text-center`}>Pro billed €95.88/yr · Agency billed €287.88/yr</p>
+              )}
+              <div className={`space-y-2 text-sm ${dimText} pt-1`}>
+                <div className="flex justify-between"><span>Next billing date</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
+                <div className="flex justify-between"><span>Payment method</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
+              </div>
+              <p className={`text-xs ${dimText} text-center`}>No payments yet</p>
+              <button onClick={() => setUpgradeModalOpen(true)}
+                className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white">
+                Upgrade Plan
+              </button>
+              {plan !== "free" && (
+                <button onClick={() => showGlobalToast("Plan cancellation coming soon!")}
+                  className={`w-full py-2 rounded-xl text-sm border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
+                  Cancel Plan
+                </button>
+              )}
+            </div>
+
+            {/* Section 3 — Account Settings */}
+            <div className={`${card} p-5 space-y-4`}>
+              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Account Settings</p>
+              <div className="space-y-1.5">
+                <label className={`text-xs ${dimText}`}>Display Name</label>
+                <div className="flex gap-2">
+                  <input value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)}
+                    placeholder="Your name"
+                    className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
+                  <button onClick={handleSaveProfile} disabled={profileSaving}
+                    className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
+                    {profileSaving ? "…" : "Save"}
+                  </button>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className={`text-xs ${dimText}`}>Instagram Username</label>
+                <div className="flex gap-2">
+                  <input value={profileInstagram} onChange={(e) => setProfileInstagram(e.target.value)}
+                    placeholder="@yourusername"
+                    className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
+                  <button onClick={handleSaveProfile} disabled={profileSaving}
+                    className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
+                    {profileSaving ? "…" : "Save"}
+                  </button>
+                </div>
+              </div>
+              {/* Change Password */}
+              <div className="pt-2 border-t border-[hsl(220,13%,20%)] space-y-2">
+                <p className={`text-xs ${dimText}`}>Change Password</p>
+                <input type="password" value={profileNewPassword} onChange={(e) => setProfileNewPassword(e.target.value)}
+                  placeholder="New password"
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                <input type="password" value={profileConfirmPassword} onChange={(e) => setProfileConfirmPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                {profilePasswordMsg && (
+                  <p className={`text-xs ${profilePasswordMsg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{profilePasswordMsg}</p>
+                )}
+                <button onClick={handleChangePassword} disabled={profilePasswordSaving || !profileNewPassword}
+                  className={`w-full py-2 rounded-xl border ${border} text-sm ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-50`}>
+                  {profilePasswordSaving ? "Updating…" : "Update Password"}
+                </button>
+              </div>
+              {/* Forgot Password */}
+              <button onClick={handleForgotPassword} className={`text-sm ${dimText} hover:text-white transition-colors`}>
+                Send Password Reset Email →
+              </button>
+            </div>
+
+            {/* Section 4 — Preferences */}
+            <div className={`${card} p-5 space-y-4`}>
+              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Preferences</p>
+              <div className="space-y-1.5">
+                <label className={`text-xs ${dimText}`}>Default Caption Style</label>
+                <select value={profileCaptionStyle} onChange={(e) => setProfileCaptionStyle(e.target.value)}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                  <option value="minimal">Minimal / Cool</option>
+                  <option value="bold">Bold / Confident</option>
+                  <option value="poetic">Poetic / Aesthetic</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className={`text-xs ${dimText}`}>Language</label>
+                <select value={profileLanguage} onChange={(e) => setProfileLanguage(e.target.value)}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                  <option value="en">English</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </div>
+              <button onClick={handleSaveProfile} disabled={profileSaving}
+                className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-medium disabled:opacity-50">
+                {profileSaving ? "Saving…" : profileSaved ? "✓ Saved!" : "Save Preferences"}
+              </button>
+            </div>
+
+            {/* Section 5 — Danger Zone */}
+            <div className={`${card} p-5 space-y-3`}>
+              <p className="text-xs font-semibold text-red-400/80 uppercase tracking-wider">Danger Zone</p>
+              <button onClick={() => supabase?.auth.signOut()}
+                className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                Sign Out
+              </button>
+              <button onClick={() => setDeleteAccountConfirm(true)}
+                className="w-full py-2.5 rounded-xl text-sm font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DELETE ACCOUNT CONFIRM ── */}
+      {deleteAccountConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setDeleteAccountConfirm(false)} />
+          <div className={`relative w-full max-w-sm ${card} p-6 space-y-4`}>
+            <p className="text-base font-semibold text-red-400">Delete Account?</p>
+            <p className={`text-sm ${dimText}`}>This will sign you out. All your data stored on this device will remain until cleared. This action cannot be undone.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeleteAccountConfirm(false)} className={mutedBtn + " flex-1"}>Cancel</button>
+              <button onClick={handleDeleteAccount} className="flex-1 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── AVATAR UPLOAD INPUT ── */}
+      <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
       {/* Hidden inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
