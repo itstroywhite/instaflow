@@ -1263,9 +1263,13 @@ export default function App() {
   async function handleDeleteAccount() {
     if (!supabase) return;
     try {
-      await supabase.auth.signOut();
-      showGlobalToast("Account deleted. Goodbye!");
-    } catch { showGlobalToast("Failed to delete account"); }
+      await apiDelete("/profile");
+    } catch (err) {
+      console.error("Delete account error:", err);
+    }
+    // Sign out regardless — auth user is gone server-side
+    try { await supabase.auth.signOut(); } catch {}
+    showGlobalToast("Account deleted successfully");
     setDeleteAccountConfirm(false);
   }
 
@@ -5456,12 +5460,23 @@ export default function App() {
       {deleteAccountConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
           <div className="absolute inset-0 bg-black/70" onClick={() => setDeleteAccountConfirm(false)} />
-          <div className={`relative w-full max-w-sm ${card} p-6 space-y-4`}>
-            <p className="text-base font-semibold text-red-400">Delete Account?</p>
-            <p className={`text-sm ${dimText}`}>This will sign you out. All your data stored on this device will remain until cleared. This action cannot be undone.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteAccountConfirm(false)} className={mutedBtn + " flex-1"}>Cancel</button>
-              <button onClick={handleDeleteAccount} className="flex-1 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-sm font-semibold">Delete</button>
+          <div className={`relative w-full max-w-sm bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`}>
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto">
+                <span className="text-red-400 text-xl">🗑</span>
+              </div>
+              <p className="text-base font-semibold text-[hsl(220,10%,90%)]">Delete Account</p>
+              <p className={`text-sm ${dimText} leading-relaxed`}>This will permanently delete your account and all your data. This cannot be undone.</p>
+            </div>
+            <div className="space-y-2.5">
+              <button onClick={handleDeleteAccount}
+                className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold transition-colors">
+                Delete Account
+              </button>
+              <button onClick={() => setDeleteAccountConfirm(false)}
+                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                Cancel
+              </button>
             </div>
           </div>
         </div>

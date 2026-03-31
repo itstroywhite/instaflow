@@ -925,6 +925,65 @@ app.post("/api/profile", requireAuth, (req, res) => withTables(async () => {
   res.json(rows[0]);
 }, res));
 
+// ── Delete account (full cleanup) ────────────────────────────────────────────
+
+app.delete("/api/profile", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+  try {
+    // 1. Delete Supabase Storage files: media/{userId}/ and avatars/{userId}/
+    if (supabaseUrl && supabaseKey) {
+      for (const bucket of ["media", "avatars"]) {
+        try {
+          const listRes = await fetch(`${supabaseUrl}/storage/v1/object/list/${bucket}`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${supabaseKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ prefix: `${userId}/`, limit: 1000 }),
+          });
+          if (listRes.ok) {
+            const files = await listRes.json();
+            const names = (files || []).map((f) => `${userId}/${f.name}`).filter(Boolean);
+            if (names.length > 0) {
+              await fetch(`${supabaseUrl}/storage/v1/object/${bucket}`, {
+                method: "DELETE",
+                headers: {
+                  "Authorization": `Bearer ${supabaseKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ prefixes: names }),
+              });
+            }
+          }
+        } catch (storageErr) {
+          console.error(`Storage delete error (${bucket}):`, storageErr);
+        }
+      }
+    }
+
+    // 2. Delete all DB records
+    await pool.query("DELETE FROM media_items WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM approved_posts WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM media_folders WHERE user_id = $1", [userId]);
+    await pool.query("DELETE FROM user_settings WHERE user_id = $1", [userId]).catch(() => {});
+    await pool.query("DELETE FROM profiles WHERE user_id = $1", [userId]);
+
+    // 3. Delete from Supabase Auth (requires service role)
+    if (supabaseAdmin) {
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ error: "Failed to delete account", detail: String(err) });
+  }
+});
+
 // ── Avatar upload ─────────────────────────────────────────────────────────────
 
 app.post("/api/profile/avatar", requireAuth, async (req, res) => {
