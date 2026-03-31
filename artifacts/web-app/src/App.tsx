@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Heart } from "lucide-react";
+import { Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
@@ -4028,7 +4028,7 @@ export default function App() {
                 <div className="flex items-center justify-around">
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                     onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
-                    <span className="text-xl">🖼️</span>
+                    <Square className="w-5 h-5" stroke="white" fill="none" />
                     <span className="text-[10px] text-white/60">Single Post</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
@@ -4042,7 +4042,7 @@ export default function App() {
                         goToScreen("pool");
                       }
                     }}>
-                    <span className="text-xl">📸</span>
+                    <LayoutTemplate className="w-5 h-5" stroke="white" fill="none" />
                     <span className="text-[10px] text-white/60">Carousel</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
@@ -4052,12 +4052,12 @@ export default function App() {
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                     onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
-                    <span className="text-xl">🏷️</span>
+                    <Tag className="w-5 h-5" stroke="white" fill="none" />
                     <span className="text-[10px] text-white/60">Tag</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
                     onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
-                    <span className="text-xl">🗑️</span>
+                    <Trash2 className="w-5 h-5" stroke="#ef4444" fill="none" />
                     <span className="text-[10px] text-red-400">Delete</span>
                   </button>
                 </div>
