@@ -149,6 +149,7 @@ async function ensureTables() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Berlin';
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS prevent_duplicates BOOLEAN DEFAULT true;
   `);
 }
 
@@ -532,6 +533,24 @@ app.post("/api/posts", requireAuth, async (req, res) => {
   const { id, day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status,
           usedAICaption, usedAITagging, usedVideo } = req.body;
   await withTables(async () => {
+    // Duplicate media check for Pro/Agency users
+    if (mediaIds && Array.isArray(mediaIds) && mediaIds.length > 0) {
+      const profRow = await pool.query("SELECT plan, prevent_duplicates FROM profiles WHERE user_id = $1", [userId]);
+      const prof = profRow.rows[0];
+      if (prof && prof.plan !== "free" && prof.prevent_duplicates) {
+        const dupCheck = await pool.query(
+          `SELECT p.id FROM approved_posts p
+           WHERE p.user_id = $1 AND p.id != $2
+           AND (p.status = 'draft' OR p.status = 'scheduled')
+           AND p.media_ids IS NOT NULL
+           AND p.media_ids::jsonb ?| $3::text[]`,
+          [userId, id ?? "", mediaIds]
+        );
+        if (dupCheck.rows.length > 0) {
+          return res.status(409).json({ error: "duplicate_media", message: "One or more images are already used in another post or draft. Disable 'Prevent duplicate media' in Settings to allow this." });
+        }
+      }
+    }
     await pool.query(
       `INSERT INTO approved_posts (id, day, caption, tags_summary, slide_count, scheduled_date, scheduled_time, media_ids, status, user_id, used_ai_caption, used_ai_tagging, used_video)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
@@ -559,6 +578,24 @@ app.put("/api/posts/:id", requireAuth, async (req, res) => {
   const { day, caption, tagsSummary, slideCount, scheduledDate, scheduledTime, mediaIds, status,
           usedAICaption, usedAITagging, usedVideo } = req.body;
   await withTables(async () => {
+    // Duplicate media check for Pro/Agency users
+    if (mediaIds && Array.isArray(mediaIds) && mediaIds.length > 0) {
+      const profRow = await pool.query("SELECT plan, prevent_duplicates FROM profiles WHERE user_id = $1", [userId]);
+      const prof = profRow.rows[0];
+      if (prof && prof.plan !== "free" && prof.prevent_duplicates) {
+        const dupCheck = await pool.query(
+          `SELECT p.id FROM approved_posts p
+           WHERE p.user_id = $1 AND p.id != $2
+           AND (p.status = 'draft' OR p.status = 'scheduled')
+           AND p.media_ids IS NOT NULL
+           AND p.media_ids::jsonb ?| $3::text[]`,
+          [userId, req.params.id, mediaIds]
+        );
+        if (dupCheck.rows.length > 0) {
+          return res.status(409).json({ error: "duplicate_media", message: "One or more images are already used in another post or draft. Disable 'Prevent duplicate media' in Settings to allow this." });
+        }
+      }
+    }
     await pool.query(
       `UPDATE approved_posts SET
          day = $1, caption = $2, tags_summary = $3,
@@ -870,19 +907,20 @@ app.get("/api/profile", requireAuth, (req, res) => withTables(async () => {
 }, res));
 
 app.post("/api/profile", requireAuth, (req, res) => withTables(async () => {
-  const { display_name, instagram_username, caption_style, language, timezone, avatar_url } = req.body;
+  const { display_name, instagram_username, caption_style, language, timezone, prevent_duplicates, avatar_url } = req.body;
   const { rows } = await pool.query(`
-    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, timezone, avatar_url)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, timezone, prevent_duplicates, avatar_url)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     ON CONFLICT (user_id) DO UPDATE SET
       display_name = EXCLUDED.display_name,
       instagram_username = EXCLUDED.instagram_username,
       caption_style = EXCLUDED.caption_style,
       language = EXCLUDED.language,
       timezone = EXCLUDED.timezone,
+      prevent_duplicates = EXCLUDED.prevent_duplicates,
       avatar_url = EXCLUDED.avatar_url
     RETURNING *
-  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", timezone ?? "Europe/Berlin", avatar_url ?? null]);
+  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", timezone ?? "Europe/Berlin", prevent_duplicates ?? true, avatar_url ?? null]);
   res.json(rows[0]);
 }, res));
 

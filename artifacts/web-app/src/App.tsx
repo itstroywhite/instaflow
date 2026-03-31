@@ -257,7 +257,12 @@ async function apiPut(path: string, body: object) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { method: "PUT", headers, body: JSON.stringify(body) });
   handle401(res.status);
-  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
+  if (!res.ok) {
+    const err: any = new Error(`PUT ${path} failed: ${res.status}`);
+    err.status = res.status;
+    try { err.data = await res.json(); } catch {}
+    throw err;
+  }
   return res.json();
 }
 async function apiDelete(path: string) {
@@ -1068,6 +1073,7 @@ export default function App() {
   const [profileInstagram, setProfileInstagram] = useState("");
   const [profileLanguage, setProfileLanguage] = useState("en");
   const [profileTimezone, setProfileTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [preventDuplicates, setPreventDuplicates] = useState(true);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -1157,6 +1163,7 @@ export default function App() {
       setProfileInstagram(p.instagram_username ?? "");
       setProfileLanguage(p.language ?? "en");
       setProfileTimezone(p.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
+      setPreventDuplicates(p.prevent_duplicates ?? true);
       setProfileAvatarUrl(p.avatar_url ?? null);
     }).catch(() => {});
   }, [session]);
@@ -1169,6 +1176,7 @@ export default function App() {
         instagram_username: profileInstagram || null,
         language: profileLanguage,
         timezone: profileTimezone,
+        prevent_duplicates: preventDuplicates,
         avatar_url: profileAvatarUrl,
       });
       setProfile(saved);
@@ -1228,6 +1236,7 @@ export default function App() {
         instagram_username: profileInstagram || null,
         language: profileLanguage,
         timezone: profileTimezone,
+        prevent_duplicates: preventDuplicates,
         avatar_url: url,
       });
       showGlobalToast("Avatar updated!");
@@ -1956,7 +1965,15 @@ export default function App() {
       setPostUsedAICaption(false);
       await markItemsUsed([singlePostItem.id]);
       setSinglePostItem(null);
-      try { await apiPost("/posts", post); } catch { showGlobalToast("Couldn't save post — please try again"); }
+      try { await apiPost("/posts", post); } catch (err: any) {
+        if (err?.status === 409 || (err instanceof Error && err.message.includes("duplicate_media"))) {
+          setApprovedPosts((prev) => prev.filter((p) => p.id !== post.id));
+          setMonthPostCount((c) => Math.max(0, c - 1));
+          showGlobalToast("⚠️ Duplicate media — disable 'Prevent duplicates' in Settings");
+          return;
+        }
+        showGlobalToast("Couldn't save post — please try again");
+      }
       goToScreen("calendar");
     } finally {
       setApproveLoading(false);
@@ -2028,13 +2045,27 @@ export default function App() {
           markItemsUsed(carouselIds),
         ]);
         setApprovedPosts((prev) => prev.map((p) => p.id === editingPost.id ? post : p));
-        try { await apiPut(`/posts/${editingPost.id}`, post); } catch { showGlobalToast("Couldn't save post — please try again"); }
+        try { await apiPut(`/posts/${editingPost.id}`, post); } catch (err: any) {
+          if (err?.status === 409 || (err instanceof Error && err.message.includes("duplicate_media"))) {
+            showGlobalToast("⚠️ Duplicate media — disable 'Prevent duplicates' in Settings");
+            return;
+          }
+          showGlobalToast("Couldn't save post — please try again");
+        }
       } else {
         await markItemsUsed(carouselIds);
         setApprovedPosts((prev) => [post, ...prev]);
         setMonthPostCount((c) => c + 1);
         setPostUsedAICaption(false);
-        try { await apiPost("/posts", post); } catch { showGlobalToast("Couldn't save post — please try again"); }
+        try { await apiPost("/posts", post); } catch (err: any) {
+          if (err?.status === 409 || (err instanceof Error && err.message.includes("duplicate_media"))) {
+            setApprovedPosts((prev) => prev.filter((p) => p.id !== post.id));
+            setMonthPostCount((c) => Math.max(0, c - 1));
+            showGlobalToast("⚠️ Duplicate media — disable 'Prevent duplicates' in Settings");
+            return;
+          }
+          showGlobalToast("Couldn't save post — please try again");
+        }
       }
       setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
       setEditingPost(null);
@@ -2046,6 +2077,12 @@ export default function App() {
 
   async function handleSaveDraft() {
     if (draftLoading) return;
+    // BUG1: Free plan draft limit
+    if (plan === "free" && !editingPost && draftPosts.length >= 3) {
+      setUpgradeModalData({ reasons: ["You've reached the 3 draft limit on Free plan. Upgrade to Pro for unlimited drafts."], canContinue: false, onContinue: () => {} });
+      setUpgradeModalOpen(true);
+      return;
+    }
     setDraftLoading(true);
     try {
       const finalCaption = carouselCaption ?? "";
@@ -2064,10 +2101,21 @@ export default function App() {
       };
       if (editingPost) {
         setApprovedPosts((prev) => prev.map((p) => p.id === editingPost.id ? draft : p));
-        try { await apiPut(`/posts/${editingPost.id}`, draft); } catch {}
+        try { await apiPut(`/posts/${editingPost.id}`, draft); } catch (err: any) {
+          if (err?.status === 409 || (err instanceof Error && err.message.includes("duplicate_media"))) {
+            showGlobalToast("⚠️ Duplicate media — disable 'Prevent duplicates' in Settings");
+            return;
+          }
+        }
       } else {
         setApprovedPosts((prev) => [draft, ...prev]);
-        try { await apiPost("/posts", draft); } catch {}
+        try { await apiPost("/posts", draft); } catch (err: any) {
+          if (err?.status === 409 || (err instanceof Error && err.message.includes("duplicate_media"))) {
+            setApprovedPosts((prev) => prev.filter((p) => p.id !== draft.id));
+            showGlobalToast("⚠️ Duplicate media — disable 'Prevent duplicates' in Settings");
+            return;
+          }
+        }
       }
       setCarouselIds([]); setCarouselCaption(""); setCaptionOptions(null); setCaptionSelectedIdx(null);
       setEditingPost(null); setTodayBuildMode(false);
@@ -2153,8 +2201,19 @@ export default function App() {
         }
         picked = result;
       } else {
-        // Free-pick: just take the newest unused items from source
-        picked = [...p].sort((a, b) => (a.createdAt ?? "") > (b.createdAt ?? "") ? -1 : 1).slice(0, targetCount);
+        // BUG2: Pro/Agency with preferred tags — filter by tags first, then fill with recent
+        const usedIds = preventDuplicates && plan !== "free"
+          ? new Set(approvedPosts.filter((ap) => ap.status === "draft" || ap.status === "scheduled").flatMap((ap) => ap.mediaIds ?? []))
+          : new Set<string>();
+        const pool = p.filter((m) => !usedIds.has(m.id));
+        if (plan !== "free" && appSettings.preferredTags.length > 0) {
+          const preferred = pool.filter((m) => m.tag && appSettings.preferredTags.includes(m.tag)).sort((a, b) => (b.createdAt ?? "") > (a.createdAt ?? "") ? 1 : -1);
+          const others = pool.filter((m) => !m.tag || !appSettings.preferredTags.includes(m.tag)).sort((a, b) => (b.createdAt ?? "") > (a.createdAt ?? "") ? 1 : -1);
+          picked = [...preferred, ...others].slice(0, targetCount);
+          if (usedIds.size > 0 && pool.length < p.length) showGlobalToast("Some media was skipped — already used in other posts");
+        } else {
+          picked = [...pool].sort((a, b) => (a.createdAt ?? "") > (b.createdAt ?? "") ? -1 : 1).slice(0, targetCount);
+        }
       }
       if (picked.length < 2) { setAiError("Not enough media in source (need ≥2)."); setAiGenerating(false); return; }
       const ordered = aiRuleBasedEnabled
@@ -2172,8 +2231,21 @@ export default function App() {
   async function handleAIGenerateSingle() {
     setPlusMenuOpen(false); setAiError(null); setAiGenerating(true);
     try {
-      const p = mediaItems.filter((m) => m.tag && !m.analyzing && !m.used);
-      const best = p.find((m) => m.tag === "me") ?? p.find((m) => m.tag && appSettings.preferredTags.includes(m.tag)) ?? p[0];
+      // BUG2: filter out already-used media when preventDuplicates is ON for Pro
+      const usedIds = preventDuplicates && plan !== "free"
+        ? new Set(approvedPosts.filter((p) => p.status === "draft" || p.status === "scheduled").flatMap((p) => p.mediaIds ?? []))
+        : new Set<string>();
+      let p = mediaItems.filter((m) => m.tag && !m.analyzing && !m.used && !usedIds.has(m.id));
+      let best: MediaItem | undefined;
+      if (plan !== "free" && appSettings.preferredTags.length > 0) {
+        // Pro/Agency: preferred tags first, fall back to most recent
+        best = p.find((m) => m.tag === "me" && appSettings.preferredTags.includes("me"))
+          ?? p.find((m) => m.tag && appSettings.preferredTags.includes(m.tag))
+          ?? [...p].sort((a, b) => (b.createdAt ?? "") > (a.createdAt ?? "") ? 1 : -1)[0];
+      } else {
+        // Free or no preferred tags: most recent tagged unused
+        best = [...p].sort((a, b) => (b.createdAt ?? "") > (a.createdAt ?? "") ? 1 : -1)[0];
+      }
       if (!best) { setAiError("No tagged unused media."); setAiGenerating(false); return; }
       setSinglePostItem(best); setSingleEditing(false); setSingleError(null);
       setSingleScheduleDate(todayStr()); setSingleScheduleTime(nowTimeStr());
@@ -3132,7 +3204,7 @@ export default function App() {
                 <button onClick={handleSaveDraft}
                   disabled={draftLoading || carouselItems.length === 0}
                   className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}>
-                  {draftLoading ? "⏳ Saving…" : "💾 Save as Draft"}
+                  {draftLoading ? "⏳ Saving…" : <>💾 Save as Draft{plan === "free" && !editingPost && draftPosts.length >= 3 && <DiamondBadge />}</>}
                 </button>
               </div>
             )}
@@ -3289,6 +3361,11 @@ export default function App() {
               <button
                 onClick={async () => {
                   if (!singlePostItem) return;
+                  if (plan === "free" && draftPosts.length >= 3) {
+                    setUpgradeModalData({ reasons: ["You've reached the 3 draft limit on Free plan. Upgrade to Pro for unlimited drafts."], canContinue: false, onContinue: () => {} });
+                    setUpgradeModalOpen(true);
+                    return;
+                  }
                   const draft: ApprovedPost = {
                     id: generateId(), day: singleScheduleDate || todayStr(),
                     caption: singleCaption || "",
@@ -3300,12 +3377,18 @@ export default function App() {
                     createdAt: new Date().toISOString(),
                   };
                   setApprovedPosts((prev) => [draft, ...prev]);
-                  try { await apiPost("/posts", draft); } catch {}
+                  try { await apiPost("/posts", draft); } catch (err: any) {
+                    if (err?.status === 409 || (err instanceof Error && err.message.includes("duplicate_media"))) {
+                      setApprovedPosts((prev) => prev.filter((p) => p.id !== draft.id));
+                      showGlobalToast("⚠️ Duplicate media — disable 'Prevent duplicates' in Settings");
+                      return;
+                    }
+                  }
                   cancelSinglePost();
                   goToScreen("calendar");
                 }}
                 className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
-                💾 Save as Draft
+                💾 Save as Draft{plan === "free" && draftPosts.length >= 3 && <DiamondBadge />}
               </button>
             </div>
 
@@ -3905,6 +3988,26 @@ export default function App() {
               </div>
             </div>
 
+            {/* Post Safety */}
+            <div className={`${card} p-5 space-y-4`}>
+              <div>
+                <p className="text-sm font-semibold">🛡️ Post Safety</p>
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                    Prevent duplicate media across posts{plan === "free" && <DiamondBadge />}
+                  </p>
+                  <p className={`text-xs ${dimText} mt-0.5 leading-relaxed`}>Avoid using the same photo or video in multiple drafts or scheduled posts</p>
+                </div>
+                <button
+                  onClick={plan === "free" ? () => openProGate("Post Safety — Prevent duplicate media") : () => setPreventDuplicates((v) => !v)}
+                  className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,25%)]"}`}>
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0.5"}`} />
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               {settingsSaved && (
                 <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
@@ -4437,6 +4540,7 @@ export default function App() {
                         <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
                         <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
                         <p>{tl.maxFolders === Infinity ? "✓ Unlimited folders" : "✗ Up to 1 folder"}</p>
+                        <p>{tier === "free" ? "✗ Up to 3 drafts" : "✓ Unlimited drafts"}</p>
                         <p>{tier === "free" ? "✗ Favorites & Heart Filter" : "✓ Favorites & Heart Filter"}</p>
                         {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics Dashboard</p></>}
                         {tier !== "agency" && <p>✗ Analytics Dashboard</p>}
