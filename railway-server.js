@@ -907,10 +907,10 @@ app.get("/api/profile", requireAuth, (req, res) => withTables(async () => {
 }, res));
 
 app.post("/api/profile", requireAuth, (req, res) => withTables(async () => {
-  const { display_name, instagram_username, caption_style, language, timezone, prevent_duplicates, avatar_url } = req.body;
+  const { display_name, instagram_username, caption_style, language, timezone, prevent_duplicates, avatar_url, onboarding_complete } = req.body;
   const { rows } = await pool.query(`
-    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, timezone, prevent_duplicates, avatar_url)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, timezone, prevent_duplicates, avatar_url, onboarding_complete)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     ON CONFLICT (user_id) DO UPDATE SET
       display_name = EXCLUDED.display_name,
       instagram_username = EXCLUDED.instagram_username,
@@ -918,15 +918,68 @@ app.post("/api/profile", requireAuth, (req, res) => withTables(async () => {
       language = EXCLUDED.language,
       timezone = EXCLUDED.timezone,
       prevent_duplicates = EXCLUDED.prevent_duplicates,
-      avatar_url = EXCLUDED.avatar_url
+      avatar_url = EXCLUDED.avatar_url,
+      onboarding_complete = EXCLUDED.onboarding_complete
     RETURNING *
-  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", timezone ?? "Europe/Berlin", prevent_duplicates ?? true, avatar_url ?? null]);
+  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", timezone ?? "Europe/Berlin", prevent_duplicates ?? true, avatar_url ?? null, onboarding_complete ?? false]);
   res.json(rows[0]);
 }, res));
 
+// ── Avatar upload ─────────────────────────────────────────────────────────────
+
+app.post("/api/profile/avatar", requireAuth, async (req, res) => {
+  const { base64, mimeType } = req.body;
+  if (!base64) return res.status(400).json({ error: "base64 required" });
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: "Storage not configured" });
+  try {
+    const buffer = Buffer.from(base64, "base64");
+    const contentType = mimeType || "image/jpeg";
+    const ext = contentType.split("/")[1]?.replace("jpeg", "jpg") || "jpg";
+    const path = `${req.userId}/avatar.${ext}`;
+    const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/avatars/${path}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseKey}`,
+        "Content-Type": contentType,
+        "x-upsert": "true",
+      },
+      body: buffer,
+    });
+    if (!uploadRes.ok) {
+      const errBody = await uploadRes.text();
+      console.error("Avatar upload error:", errBody);
+      return res.status(500).json({ error: "Upload failed", detail: errBody });
+    }
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/avatars/${path}`;
+    // Save to profiles
+    await pool.query(
+      `INSERT INTO profiles (user_id, avatar_url) VALUES ($1, $2)
+       ON CONFLICT (user_id) DO UPDATE SET avatar_url = EXCLUDED.avatar_url`,
+      [req.userId, publicUrl]
+    );
+    res.json({ url: publicUrl });
+  } catch (err) {
+    console.error("Avatar upload exception:", err);
+    res.status(500).json({ error: "Avatar upload failed" });
+  }
+});
+
 // ── Start ─────────────────────────────────────────────────────────────────────
+
+async function ensureAvatarsBucket() {
+  if (!supabaseAdmin) return;
+  try {
+    await supabaseAdmin.storage.createBucket("avatars", { public: true });
+    console.log("avatars bucket ready");
+  } catch (err) {
+    // Bucket may already exist — not an error
+  }
+}
 
 app.listen(PORT, () => {
   console.log(`InstaFlow server running on port ${PORT}`);
   console.log(`Supabase auth: ${supabaseAdmin ? "configured" : "NOT configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY"}`);
+  ensureAvatarsBucket();
 });

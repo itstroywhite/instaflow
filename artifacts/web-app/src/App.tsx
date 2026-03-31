@@ -1075,6 +1075,12 @@ export default function App() {
   const [profileTimezone, setProfileTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [preventDuplicates, setPreventDuplicates] = useState(true);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  // Onboarding
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null);
+  const [onboardingStep, setOnboardingStep] = useState(1);
+  // Email verification
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileNewPassword, setProfileNewPassword] = useState("");
@@ -1157,6 +1163,11 @@ export default function App() {
   // ── Profile fetch + handlers ─────────────────────────────────────────────
   useEffect(() => {
     if (!session) return;
+    // Check email verification
+    supabase?.auth.getUser().then(({ data }) => {
+      setEmailVerified(!!(data?.user?.email_confirmed_at));
+    }).catch(() => setEmailVerified(false));
+    // Load profile
     apiGet<any>("/profile").then((p) => {
       setProfile(p);
       setProfileDisplayName(p.display_name ?? "");
@@ -1165,7 +1176,8 @@ export default function App() {
       setProfileTimezone(p.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
       setPreventDuplicates(p.prevent_duplicates ?? true);
       setProfileAvatarUrl(p.avatar_url ?? null);
-    }).catch(() => {});
+      setOnboardingComplete(p.onboarding_complete ?? false);
+    }).catch(() => { setOnboardingComplete(true); }); // fail-safe: don't block app
   }, [session]);
 
   async function handleSaveProfile() {
@@ -1178,6 +1190,7 @@ export default function App() {
         timezone: profileTimezone,
         prevent_duplicates: preventDuplicates,
         avatar_url: profileAvatarUrl,
+        onboarding_complete: true,
       });
       setProfile(saved);
       setProfileSaved(true);
@@ -1222,26 +1235,29 @@ export default function App() {
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !supabase) return;
+    if (!file) return;
+    setAvatarUploading(true);
     try {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `${session?.user?.id}/avatar.${ext}`;
-      const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, { upsert: true });
-      if (upErr) throw upErr;
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      const url = data.publicUrl + `?t=${Date.now()}`;
-      setProfileAvatarUrl(url);
-      await apiPost("/profile", {
-        display_name: profileDisplayName || null,
-        instagram_username: profileInstagram || null,
-        language: profileLanguage,
-        timezone: profileTimezone,
-        prevent_duplicates: preventDuplicates,
-        avatar_url: url,
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(",")[1]); // strip data:...;base64,
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
       });
+      const { url } = await apiPost("/profile/avatar", { base64, mimeType: file.type }) as any;
+      const urlWithBust = url + `?t=${Date.now()}`;
+      setProfileAvatarUrl(urlWithBust);
       showGlobalToast("Avatar updated!");
-    } catch { showGlobalToast("Failed to upload avatar"); }
-    e.target.value = "";
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+      showGlobalToast("Avatar upload failed — please try again");
+    } finally {
+      setAvatarUploading(false);
+      e.target.value = "";
+    }
   }
 
   async function handleDeleteAccount() {
@@ -1251,6 +1267,21 @@ export default function App() {
       showGlobalToast("Account deleted. Goodbye!");
     } catch { showGlobalToast("Failed to delete account"); }
     setDeleteAccountConfirm(false);
+  }
+
+  async function completeOnboarding() {
+    setOnboardingComplete(true);
+    try {
+      await apiPost("/profile", {
+        display_name: profileDisplayName || null,
+        instagram_username: profileInstagram || null,
+        language: profileLanguage,
+        timezone: profileTimezone,
+        prevent_duplicates: preventDuplicates,
+        avatar_url: profileAvatarUrl,
+        onboarding_complete: true,
+      });
+    } catch {}
   }
 
   async function loadMoreMedia() {
@@ -2361,6 +2392,75 @@ export default function App() {
       {globalToast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-[hsl(220,14%,20%)] text-white text-sm px-5 py-3 rounded-2xl shadow-2xl border border-[hsl(220,13%,30%)] max-w-xs text-center pointer-events-none">
           {globalToast}
+        </div>
+      )}
+
+      {/* ── ONBOARDING OVERLAY ── */}
+      {session && onboardingComplete === false && (
+        <div className="fixed inset-0 z-[200] flex flex-col bg-[hsl(220,14%,8%)]">
+          {/* Skip button */}
+          <div className="flex justify-end px-5 pt-5">
+            <button onClick={completeOnboarding} className="text-sm text-[hsl(220,10%,45%)] hover:text-white transition-colors">Skip</button>
+          </div>
+          {/* Step content */}
+          <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
+            {onboardingStep === 1 && (
+              <>
+                <div className="text-7xl mb-6">👋</div>
+                <h1 className="text-2xl font-bold mb-2">Welcome to InstaFlow</h1>
+                <p className="text-[hsl(263,70%,70%)] text-sm mb-3">Your Instagram content workflow</p>
+                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed">Manage your media, create posts, and schedule them — all in one place.</p>
+              </>
+            )}
+            {onboardingStep === 2 && (
+              <>
+                <div className="text-7xl mb-6">🖼️</div>
+                <h1 className="text-2xl font-bold mb-2">Your Media Pool</h1>
+                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Upload your photos and videos. AI automatically tags and organizes them for you.</p>
+                <div className="w-full max-w-xs bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,20%)] rounded-2xl p-4">
+                  <div className="grid grid-cols-3 gap-2">
+                    {["🌅","🤳","🍕","🎵","🌿","👫"].map((e, i) => (
+                      <div key={i} className="aspect-square rounded-xl bg-[hsl(220,14%,18%)] flex items-center justify-center text-2xl">{e}</div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+            {onboardingStep === 3 && (
+              <>
+                <div className="text-7xl mb-6">📅</div>
+                <h1 className="text-2xl font-bold mb-2">Schedule & Post</h1>
+                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Create single posts or carousels, generate AI captions, and schedule them for the perfect time.</p>
+                <div className="w-full max-w-xs bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,20%)] rounded-2xl p-4 space-y-2">
+                  {[{ label: "Mon 14", emoji: "📸", tag: "Carousel · 6 slides" }, { label: "Wed 16", emoji: "🖼️", tag: "Single post" }, { label: "Fri 18", emoji: "📸", tag: "Carousel · 4 slides" }].map(({ label, emoji, tag }) => (
+                    <div key={label} className="flex items-center gap-3 p-2 rounded-xl bg-[hsl(220,14%,18%)]">
+                      <span className="text-xl">{emoji}</span>
+                      <div className="text-left">
+                        <p className="text-xs font-medium text-[hsl(220,10%,85%)]">{label}</p>
+                        <p className="text-[10px] text-[hsl(220,10%,45%)]">{tag}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          {/* Progress dots + CTA */}
+          <div className="px-8 pb-12 space-y-5">
+            <div className="flex justify-center gap-2">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className={`rounded-full transition-all ${onboardingStep === s ? "w-5 h-2 bg-[hsl(263,70%,65%)]" : "w-2 h-2 bg-[hsl(220,13%,28%)]"}`} />
+              ))}
+            </div>
+            <button
+              onClick={() => {
+                if (onboardingStep < 3) { setOnboardingStep((s) => s + 1); }
+                else { completeOnboarding(); }
+              }}
+              className="w-full py-4 rounded-2xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-base transition-colors">
+              {onboardingStep < 3 ? "Next →" : "Get Started 🚀"}
+            </button>
+          </div>
         </div>
       )}
 
@@ -5065,14 +5165,19 @@ export default function App() {
         <div className="flex-1 overflow-y-auto pb-10">
           {/* Header */}
           <div className="flex flex-col items-center pt-8 pb-6 px-4">
-            <button onClick={() => avatarInputRef.current?.click()} className="relative">
+            <button onClick={() => !avatarUploading && avatarInputRef.current?.click()} className="relative">
               <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center">
                 {profileAvatarUrl
                   ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
                   : <span className="text-3xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
                 }
+                {avatarUploading && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full">
+                    <span className="text-white text-xs animate-pulse">⏳</span>
+                  </div>
+                )}
               </div>
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">📷</div>
+              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">{avatarUploading ? "⏳" : "📷"}</div>
             </button>
             <p className="mt-4 text-lg font-semibold text-[hsl(220,10%,90%)]">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
             <p className={`text-sm ${dimText} mt-0.5`}>{session?.user?.email}</p>
@@ -5163,6 +5268,34 @@ export default function App() {
             {/* Section 3 — Account Settings */}
             <div className={`${card} p-5 space-y-4`}>
               <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Account Settings</p>
+              {/* Email + verification */}
+              <div className="space-y-1.5">
+                <label className={`text-xs ${dimText}`}>Email</label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-[hsl(220,10%,80%)]">{session?.user?.email}</span>
+                  {emailVerified === true && (
+                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">✓ verified</span>
+                  )}
+                  {emailVerified === false && (
+                    <span className="text-xs text-amber-400">⚠️ not verified</span>
+                  )}
+                </div>
+                {emailVerified === false && (
+                  <div className="space-y-2 pt-1">
+                    <p className={`text-xs ${dimText}`}>Check your inbox for a verification email.</p>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await supabase?.auth.resend({ type: "signup", email: session?.user?.email ?? "" });
+                          showGlobalToast("Verification email sent!");
+                        } catch { showGlobalToast("Failed to resend — please try again"); }
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-lg border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 transition-colors`}>
+                      Resend verification email
+                    </button>
+                  </div>
+                )}
+              </div>
               <div className="space-y-1.5">
                 <label className={`text-xs ${dimText}`}>Display Name</label>
                 <div className="flex gap-2">
