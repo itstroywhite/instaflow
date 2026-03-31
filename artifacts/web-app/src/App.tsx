@@ -1063,11 +1063,11 @@ export default function App() {
   const globalToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Profile
-  const [profile, setProfile] = useState<{ display_name: string | null; instagram_username: string | null; caption_style: string; language: string; plan: string; avatar_url: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ display_name: string | null; instagram_username: string | null; caption_style: string; language: string; timezone: string; plan: string; avatar_url: string | null } | null>(null);
   const [profileDisplayName, setProfileDisplayName] = useState("");
   const [profileInstagram, setProfileInstagram] = useState("");
-  const [profileCaptionStyle, setProfileCaptionStyle] = useState("minimal");
   const [profileLanguage, setProfileLanguage] = useState("en");
+  const [profileTimezone, setProfileTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
@@ -1155,8 +1155,8 @@ export default function App() {
       setProfile(p);
       setProfileDisplayName(p.display_name ?? "");
       setProfileInstagram(p.instagram_username ?? "");
-      setProfileCaptionStyle(p.caption_style ?? "minimal");
       setProfileLanguage(p.language ?? "en");
+      setProfileTimezone(p.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
       setProfileAvatarUrl(p.avatar_url ?? null);
     }).catch(() => {});
   }, [session]);
@@ -1167,8 +1167,8 @@ export default function App() {
       const saved = await apiPost("/profile", {
         display_name: profileDisplayName || null,
         instagram_username: profileInstagram || null,
-        caption_style: profileCaptionStyle,
         language: profileLanguage,
+        timezone: profileTimezone,
         avatar_url: profileAvatarUrl,
       });
       setProfile(saved);
@@ -1226,8 +1226,8 @@ export default function App() {
       await apiPost("/profile", {
         display_name: profileDisplayName || null,
         instagram_username: profileInstagram || null,
-        caption_style: profileCaptionStyle,
         language: profileLanguage,
+        timezone: profileTimezone,
         avatar_url: url,
       });
       showGlobalToast("Avatar updated!");
@@ -3056,9 +3056,11 @@ export default function App() {
                 <textarea
                   value={carouselCaption}
                   onChange={(e) => setCarouselCaption(e.target.value)}
+                  onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   placeholder="Write your caption…"
-                  rows={4}
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${carouselCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
+                  rows={1}
+                  style={{ resize: "none", overflow: "hidden" }}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${carouselCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
                 />
                 <button
                   onClick={() => handleGetCaptionOptions("fresh")}
@@ -3216,9 +3218,11 @@ export default function App() {
               <textarea
                 value={singleCaption}
                 onChange={(e) => setSingleCaption(e.target.value)}
+                onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                 placeholder="Write your caption…"
-                rows={4}
-                className={`w-full bg-[hsl(220,14%,9%)] border ${singleCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] resize-none focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
+                rows={1}
+                style={{ resize: "none", overflow: "hidden" }}
+                className={`w-full bg-[hsl(220,14%,9%)] border ${singleCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
               />
               <button
                 onClick={() => handleGenerateSingleCaption("fresh")}
@@ -4003,19 +4007,25 @@ export default function App() {
               {/* Image / Video — with tag badge overlaid top-left */}
               <div className="w-full max-w-sm relative" onClick={(e) => e.stopPropagation()}>
                 {isVideo(viewerItem.dataUrl) ? (
-                  <video
-                    ref={(el) => { (viewerVideoRef as any).current = el; }}
-                    src={viewerItem.dataUrl}
-                    className="w-full max-h-[55vh] object-contain rounded-xl"
-                    controls
-                    playsInline
-                  />
+                  <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
+                    <video
+                      ref={(el) => { (viewerVideoRef as any).current = el; }}
+                      src={viewerItem.dataUrl}
+                      className="w-full h-full object-cover"
+                      controls
+                      playsInline
+                      style={{ display: "block" }}
+                    />
+                  </div>
                 ) : (
-                  <img
-                    src={viewerItem.dataUrl}
-                    alt={viewerItem.name}
-                    className="w-full max-h-[55vh] object-contain rounded-xl"
-                  />
+                  <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
+                    <img
+                      src={viewerItem.dataUrl}
+                      alt={viewerItem.name}
+                      className="w-full h-full object-cover"
+                      style={{ display: "block" }}
+                    />
+                  </div>
                 )}
                 {/* Tag badge — top-left overlay on image */}
                 {viewerItem.tag && (
@@ -4028,7 +4038,7 @@ export default function App() {
               </div>
 
               {/* Action card — rounded-xl below image */}
-              <div className="w-full max-w-sm bg-[hsl(220,14%,12%)] rounded-xl px-4 py-4" onClick={(e) => e.stopPropagation()}>
+              <div className="w-full max-w-sm bg-[hsl(220,14%,12%)] rounded-xl px-4 py-2" onClick={(e) => e.stopPropagation()}>
                 {/* Action buttons: Single Post → Carousel → Favorite → Tag → Delete */}
                 <div className="flex items-center justify-around">
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
@@ -4051,8 +4061,11 @@ export default function App() {
                     <span className="text-[10px] text-white/60">Carousel</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => toggleFavorite(viewerItem.id)}>
-                    <Heart className="w-5 h-5" stroke={isFav ? "#ef4444" : "white"} fill={isFav ? "#ef4444" : "none"} />
+                    onClick={() => { if (plan === "free") { openProGate("Favorites"); return; } toggleFavorite(viewerItem.id); }}>
+                    <div className="relative">
+                      <Heart className="w-5 h-5" stroke={isFav ? "#ef4444" : "white"} fill={isFav ? "#ef4444" : "none"} />
+                      {plan === "free" && <span className="absolute -top-1 -right-2 text-[hsl(263,70%,65%)] text-[8px]">💎</span>}
+                    </div>
                     <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
@@ -5093,18 +5106,9 @@ export default function App() {
               </button>
             </div>
 
-            {/* Section 4 — Preferences */}
+            {/* Section 4 — Regional Settings */}
             <div className={`${card} p-5 space-y-4`}>
-              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Preferences</p>
-              <div className="space-y-1.5">
-                <label className={`text-xs ${dimText}`}>Default Caption Style</label>
-                <select value={profileCaptionStyle} onChange={(e) => setProfileCaptionStyle(e.target.value)}
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
-                  <option value="minimal">Minimal / Cool</option>
-                  <option value="bold">Bold / Confident</option>
-                  <option value="poetic">Poetic / Aesthetic</option>
-                </select>
-              </div>
+              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Regional Settings</p>
               <div className="space-y-1.5">
                 <label className={`text-xs ${dimText}`}>Language</label>
                 <select value={profileLanguage} onChange={(e) => setProfileLanguage(e.target.value)}
@@ -5113,9 +5117,85 @@ export default function App() {
                   <option value="de">Deutsch</option>
                 </select>
               </div>
+              <div className="space-y-1.5">
+                <label className={`text-xs ${dimText}`}>Timezone</label>
+                <select value={profileTimezone} onChange={(e) => setProfileTimezone(e.target.value)}
+                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                  <optgroup label="Europe">
+                    <option value="Europe/London">Europe/London</option>
+                    <option value="Europe/Paris">Europe/Paris</option>
+                    <option value="Europe/Berlin">Europe/Berlin</option>
+                    <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                    <option value="Europe/Brussels">Europe/Brussels</option>
+                    <option value="Europe/Vienna">Europe/Vienna</option>
+                    <option value="Europe/Zurich">Europe/Zurich</option>
+                    <option value="Europe/Rome">Europe/Rome</option>
+                    <option value="Europe/Madrid">Europe/Madrid</option>
+                    <option value="Europe/Lisbon">Europe/Lisbon</option>
+                    <option value="Europe/Stockholm">Europe/Stockholm</option>
+                    <option value="Europe/Oslo">Europe/Oslo</option>
+                    <option value="Europe/Copenhagen">Europe/Copenhagen</option>
+                    <option value="Europe/Helsinki">Europe/Helsinki</option>
+                    <option value="Europe/Warsaw">Europe/Warsaw</option>
+                    <option value="Europe/Prague">Europe/Prague</option>
+                    <option value="Europe/Budapest">Europe/Budapest</option>
+                    <option value="Europe/Athens">Europe/Athens</option>
+                    <option value="Europe/Istanbul">Europe/Istanbul</option>
+                    <option value="Europe/Moscow">Europe/Moscow</option>
+                  </optgroup>
+                  <optgroup label="America">
+                    <option value="America/New_York">America/New_York</option>
+                    <option value="America/Chicago">America/Chicago</option>
+                    <option value="America/Denver">America/Denver</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles</option>
+                    <option value="America/Phoenix">America/Phoenix</option>
+                    <option value="America/Anchorage">America/Anchorage</option>
+                    <option value="America/Toronto">America/Toronto</option>
+                    <option value="America/Vancouver">America/Vancouver</option>
+                    <option value="America/Mexico_City">America/Mexico_City</option>
+                    <option value="America/Bogota">America/Bogota</option>
+                    <option value="America/Lima">America/Lima</option>
+                    <option value="America/Santiago">America/Santiago</option>
+                    <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+                    <option value="America/Buenos_Aires">America/Argentina/Buenos_Aires</option>
+                  </optgroup>
+                  <optgroup label="Asia">
+                    <option value="Asia/Dubai">Asia/Dubai</option>
+                    <option value="Asia/Kolkata">Asia/Kolkata</option>
+                    <option value="Asia/Colombo">Asia/Colombo</option>
+                    <option value="Asia/Dhaka">Asia/Dhaka</option>
+                    <option value="Asia/Bangkok">Asia/Bangkok</option>
+                    <option value="Asia/Singapore">Asia/Singapore</option>
+                    <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
+                    <option value="Asia/Shanghai">Asia/Shanghai</option>
+                    <option value="Asia/Tokyo">Asia/Tokyo</option>
+                    <option value="Asia/Seoul">Asia/Seoul</option>
+                    <option value="Asia/Jerusalem">Asia/Jerusalem</option>
+                    <option value="Asia/Riyadh">Asia/Riyadh</option>
+                    <option value="Asia/Karachi">Asia/Karachi</option>
+                  </optgroup>
+                  <optgroup label="Australia / Pacific">
+                    <option value="Australia/Perth">Australia/Perth</option>
+                    <option value="Australia/Adelaide">Australia/Adelaide</option>
+                    <option value="Australia/Sydney">Australia/Sydney</option>
+                    <option value="Australia/Melbourne">Australia/Melbourne</option>
+                    <option value="Australia/Brisbane">Australia/Brisbane</option>
+                    <option value="Pacific/Auckland">Pacific/Auckland</option>
+                    <option value="Pacific/Honolulu">Pacific/Honolulu</option>
+                    <option value="Pacific/Fiji">Pacific/Fiji</option>
+                  </optgroup>
+                  <optgroup label="Africa">
+                    <option value="Africa/Cairo">Africa/Cairo</option>
+                    <option value="Africa/Johannesburg">Africa/Johannesburg</option>
+                    <option value="Africa/Lagos">Africa/Lagos</option>
+                    <option value="Africa/Nairobi">Africa/Nairobi</option>
+                    <option value="Africa/Casablanca">Africa/Casablanca</option>
+                  </optgroup>
+                </select>
+              </div>
               <button onClick={handleSaveProfile} disabled={profileSaving}
                 className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-medium disabled:opacity-50">
-                {profileSaving ? "Saving…" : profileSaved ? "✓ Saved!" : "Save Preferences"}
+                {profileSaving ? "Saving…" : profileSaved ? "✓ Saved!" : "Save Regional Settings"}
               </button>
             </div>
 

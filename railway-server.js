@@ -148,6 +148,7 @@ async function ensureTables() {
       onboarding_complete BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Berlin';
   `);
 }
 
@@ -869,18 +870,19 @@ app.get("/api/profile", requireAuth, (req, res) => withTables(async () => {
 }, res));
 
 app.post("/api/profile", requireAuth, (req, res) => withTables(async () => {
-  const { display_name, instagram_username, caption_style, language, avatar_url } = req.body;
+  const { display_name, instagram_username, caption_style, language, timezone, avatar_url } = req.body;
   const { rows } = await pool.query(`
-    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, avatar_url)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO profiles (user_id, display_name, instagram_username, caption_style, language, timezone, avatar_url)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
     ON CONFLICT (user_id) DO UPDATE SET
       display_name = EXCLUDED.display_name,
       instagram_username = EXCLUDED.instagram_username,
       caption_style = EXCLUDED.caption_style,
       language = EXCLUDED.language,
+      timezone = EXCLUDED.timezone,
       avatar_url = EXCLUDED.avatar_url
     RETURNING *
-  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", avatar_url ?? null]);
+  `, [req.userId, display_name ?? null, instagram_username ?? null, caption_style ?? "minimal", language ?? "en", timezone ?? "Europe/Berlin", avatar_url ?? null]);
   res.json(rows[0]);
 }, res));
 
