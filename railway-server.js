@@ -476,11 +476,20 @@ app.get("/api/posts/count", requireAuth, async (req, res) => {
     const now = new Date();
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
+    // Count ALL posts (any status) that are scheduled for the current month.
+    // Use scheduled_date when set, fall back to created_at so no post escapes counting.
     const result = await pool.query(
       `SELECT COUNT(*) AS count FROM approved_posts
-       WHERE user_id = $1 AND (status IS NULL OR status != 'draft')
-         AND EXTRACT(YEAR FROM created_at) = $2
-         AND EXTRACT(MONTH FROM created_at) = $3`,
+       WHERE user_id = $1
+         AND (
+           (scheduled_date IS NOT NULL
+            AND EXTRACT(YEAR  FROM scheduled_date::date) = $2
+            AND EXTRACT(MONTH FROM scheduled_date::date) = $3)
+           OR
+           (scheduled_date IS NULL
+            AND EXTRACT(YEAR  FROM created_at) = $2
+            AND EXTRACT(MONTH FROM created_at) = $3)
+         )`,
       [userId, year, month]
     );
     res.json({ count: parseInt(result.rows[0].count, 10) });

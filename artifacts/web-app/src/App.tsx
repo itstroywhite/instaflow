@@ -1774,6 +1774,14 @@ export default function App() {
     catch (err) { setSingleError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); }
     finally { setSingleGenerating(false); }
   }
+  function handleCreatePostClick() {
+    if (plan === "free" && monthPostCount >= limits.maxPostsPerMonth) {
+      openProGate(`Monthly post limit — ${limits.maxPostsPerMonth} posts/month on Free`);
+      return;
+    }
+    setCreatePostModal(true);
+  }
+
   function showUpgradeGate(usedAICaption: boolean, usedAITagging: boolean, usedVideo: boolean, currentCount: number, proceed: () => void) {
     const reasons: string[] = [];
     if (currentCount >= limits.maxPostsPerMonth) reasons.push(`Monthly post limit reached (${limits.maxPostsPerMonth} posts/month on Free)`);
@@ -2096,6 +2104,14 @@ export default function App() {
     const remaining = approvedPosts.filter((p) => p.id !== post.id);
     setApprovedPosts(remaining);
     setDeleteConfirmPost(null);
+    // Decrement monthly counter if this post's scheduled slot is in the current month
+    const now = new Date();
+    const postDate = post.scheduledDate
+      ? new Date(post.scheduledDate + "T12:00:00")
+      : new Date(post.createdAt);
+    if (postDate.getFullYear() === now.getFullYear() && postDate.getMonth() === now.getMonth()) {
+      setMonthPostCount((c) => Math.max(0, c - 1));
+    }
     try { await apiDelete(`/posts/${post.id}`); } catch {}
     await reconcileAfterDelete(remaining, mediaItems);
     // If we deleted the post we were editing, clear state and navigate away
@@ -2485,7 +2501,7 @@ export default function App() {
                       }
                     }}
                       className={`text-xs flex items-center gap-1 px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
-                      📁 + New Folder{plan === "free" && <DiamondBadge />}
+                      📁 + New Folder{plan === "free" && folders.length >= limits.maxFolders && <DiamondBadge />}
                     </button>
                   </div>
                 )}
@@ -2642,16 +2658,30 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Post counter — Free plan only */}
+                  {plan === "free" && (
+                    <div className={`flex items-center justify-between text-xs px-0.5`}>
+                      <span className={monthPostCount >= limits.maxPostsPerMonth ? "text-red-400 font-medium" : dimText}>
+                        {monthPostCount} / {limits.maxPostsPerMonth} posts scheduled this month
+                      </span>
+                      {monthPostCount >= limits.maxPostsPerMonth && (
+                        <span className="text-red-400 font-medium">Limit reached</span>
+                      )}
+                    </div>
+                  )}
+
                   {todayPosts.length === 0 ? (
                     /* Empty state — large centered "+" */
                     <button
-                      onClick={() => setCreatePostModal(true)}
+                      onClick={handleCreatePostClick}
                       className={`w-full ${card} flex flex-col items-center justify-center gap-3 py-16 hover:bg-[hsl(220,14%,14%)] transition-colors group`}>
                       <div className="w-16 h-16 rounded-full border-2 border-dashed border-[hsl(263,70%,65%)/50] group-hover:border-[hsl(263,70%,65%)] flex items-center justify-center transition-colors">
                         <span className="text-3xl font-light text-[hsl(263,70%,65%)]">+</span>
                       </div>
                       <div className="text-center">
-                        <p className="font-semibold text-[hsl(220,10%,85%)]">Create Post</p>
+                        <p className="font-semibold text-[hsl(220,10%,85%)] flex items-center justify-center gap-1">
+                          Create Post{plan === "free" && monthPostCount >= limits.maxPostsPerMonth && <DiamondBadge />}
+                        </p>
                         <p className={`text-xs ${dimText} mt-0.5`}>No posts scheduled for today</p>
                       </div>
                     </button>
@@ -2704,9 +2734,9 @@ export default function App() {
 
                       {/* Smaller "Create Post" below existing posts */}
                       <button
-                        onClick={() => setCreatePostModal(true)}
+                        onClick={handleCreatePostClick}
                         className={`w-full py-3 rounded-xl border border-dashed ${border} ${dimText} hover:border-[hsl(263,70%,65%)/50] hover:text-[hsl(263,70%,70%)] transition-colors flex items-center justify-center gap-2 text-sm font-medium`}>
-                        <span className="text-base">+</span> Create Post
+                        <span className="text-base">+</span> Create Post{plan === "free" && monthPostCount >= limits.maxPostsPerMonth && <DiamondBadge />}
                       </button>
                     </div>
                   )}
@@ -4351,7 +4381,7 @@ export default function App() {
                         <p>{tl.aiCaptions ? "✓ AI Captions" : "✗ AI Captions"}</p>
                         <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
                         <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
-                        <p>{tl.maxFolders === Infinity ? "✓ ∞ folders" : `✗ ${tl.maxFolders} folder max`}</p>
+                        <p>{tl.maxFolders === Infinity ? "✓ Unlimited folders" : "✗ Up to 1 folder"}</p>
                         {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics Dashboard</p></>}
                         {tier !== "agency" && <p>✗ Analytics Dashboard</p>}
                       </div>
