@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { Heart } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
@@ -2331,7 +2332,7 @@ export default function App() {
                         setFilterFavoritesOnly((v) => !v); setFilterDropdownOpen(false);
                       }}
                       className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${filterFavoritesOnly ? "bg-red-500/15 text-red-300 border-red-500/30" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                      ❤️{plan === "free" && <DiamondBadge />}
+                      <Heart className="w-4 h-4" stroke={filterFavoritesOnly ? "#ef4444" : "currentColor"} fill={filterFavoritesOnly ? "#ef4444" : "none"} />{plan === "free" && <DiamondBadge />}
                     </button>
                     <div className="relative ml-auto">
                       <button onClick={() => { setSortDropdownOpen((o) => !o); setFilterDropdownOpen(false); }}
@@ -2612,9 +2613,9 @@ export default function App() {
                         {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                            style={{ top: 6, right: 6, width: 20, height: 20, textShadow: "0 1px 3px rgba(0,0,0,0.7)", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.6))" }}
-                            className="absolute flex items-center justify-center text-base leading-none">
-                            {item.isFavorite ? "❤️" : "🤍"}
+                            style={{ top: 6, right: 6, filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.7))" }}
+                            className="absolute flex items-center justify-center">
+                            <Heart className="w-5 h-5" stroke={item.isFavorite ? "#ef4444" : "white"} fill={item.isFavorite ? "#ef4444" : "none"} />
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
@@ -4043,7 +4044,7 @@ export default function App() {
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
                     onClick={() => toggleFavorite(viewerItem.id)}>
-                    <span className="text-xl">{isFav ? "❤️" : "🤍"}</span>
+                    <Heart className="w-5 h-5" stroke={isFav ? "#ef4444" : "white"} fill={isFav ? "#ef4444" : "none"} />
                     <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
