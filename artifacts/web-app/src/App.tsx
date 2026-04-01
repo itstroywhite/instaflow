@@ -3423,7 +3423,7 @@ export default function App() {
               {/* Hidden file inputs (triggered programmatically from dropdown) */}
               <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-              <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
+              <input ref={singleLibraryRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
                 onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
 
               {/* Bottom bar — single "Choose File" button with dropdown */}
@@ -5552,11 +5552,11 @@ export default function App() {
       <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
       {/* Hidden inputs */}
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+      <input ref={fileInputRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
       <input ref={addMoreCameraRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files, true); e.target.value = ""; }} />
-      <input ref={addMoreLibraryRef} type="file" accept="image/*" multiple className="hidden"
+      <input ref={addMoreLibraryRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
       <input ref={folderCameraInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => {
@@ -5564,7 +5564,7 @@ export default function App() {
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
           e.target.value = "";
         }} />
-      <input ref={folderFileInputRef} type="file" accept="image/*,video/*" multiple className="hidden"
+      <input ref={folderFileInputRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
