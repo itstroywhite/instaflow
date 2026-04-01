@@ -5,7 +5,7 @@ import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaF
 
 // 🧪 TESTING ONLY — change to "pro" or "agency" to test different plans
 // Change back to "free" before production release
-const USER_PLAN: "free" | "pro" | "agency" = "free";
+const USER_PLAN: "free" | "pro" | "agency" = "pro";
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
