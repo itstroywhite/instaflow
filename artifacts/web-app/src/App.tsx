@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
@@ -5184,7 +5184,14 @@ export default function App() {
               <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">{avatarUploading ? "⏳" : "📷"}</div>
             </button>
             <p className="mt-4 text-lg font-semibold text-[hsl(220,10%,90%)]">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
-            <p className={`text-sm ${dimText} mt-0.5`}>{session?.user?.email}</p>
+            <div className={`flex items-center gap-1.5 mt-0.5`}>
+              <p className={`text-sm ${dimText}`}>{session?.user?.email}</p>
+              {emailVerified === true
+                ? <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0" title="Email verified"><Check className="w-2.5 h-2.5 text-white" strokeWidth={3} /></div>
+                : emailVerified === false
+                  ? <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0" title="Email not verified"><AlertCircle className="w-2.5 h-2.5 text-white" strokeWidth={3} /></div>
+                  : null}
+            </div>
             <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold border ${
               plan === "agency" ? "text-amber-300 bg-amber-500/20 border-amber-500/30"
               : plan === "pro" ? "text-purple-300 bg-purple-500/20 border-purple-500/30"
