@@ -137,7 +137,43 @@ function formatDay(dateStr: string) {
 function formatDayShort(dateStr: string) {
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
-function isVideo(dataUrl: string) { return dataUrl.startsWith("data:video/"); }
+function isVideo(dataUrl: string, mediaType?: string | null) {
+  return mediaType === "video" || dataUrl.startsWith("data:video/") || /\.(mp4|mov|avi|webm)(\?|$)/i.test(dataUrl);
+}
+function fmtDuration(secs: number) {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+function captureVideoThumbnail(src: string): Promise<string> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.muted = true; video.playsInline = true; video.preload = "metadata";
+    video.onloadeddata = () => {
+      video.currentTime = 0;
+      video.onseeked = () => {
+        try {
+          const canvas = document.createElement("canvas");
+          canvas.width = 400; canvas.height = 500;
+          const ctx = canvas.getContext("2d");
+          if (ctx) { ctx.drawImage(video, 0, 0, 400, 500); resolve(canvas.toDataURL("image/jpeg", 0.8)); }
+          else resolve("");
+        } catch { resolve(""); }
+      };
+    };
+    video.onerror = () => resolve("");
+    video.src = src;
+  });
+}
+function getVideoDuration(src: string): Promise<number> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => resolve(isFinite(video.duration) ? video.duration : 0);
+    video.onerror = () => resolve(0);
+    video.src = src;
+  });
+}
 
 async function compressImage(dataUrl: string, maxPx = 1200, quality = 0.82): Promise<string> {
   if (dataUrl.startsWith("data:video/")) return dataUrl;
@@ -1305,6 +1341,13 @@ export default function App() {
     finally { setMediaLoadingMore(false); }
   }
 
+  // Sync thumbnail_url from loaded media items into videoPosters (for items already in DB)
+  useEffect(() => {
+    const toSync: Record<string, string> = {};
+    mediaItems.forEach((m) => { if (m.thumbnail_url && !videoPosters[m.id]) toSync[m.id] = m.thumbnail_url; });
+    if (Object.keys(toSync).length > 0) setVideoPosters((prev) => ({ ...prev, ...toSync }));
+  }, [mediaItems]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     function check() {
       const now = new Date();
@@ -1452,16 +1495,10 @@ export default function App() {
     const imageFiles = files.filter((f) => !f.type.startsWith("video/"));
     const videoFiles = files.filter((f) => f.type.startsWith("video/"));
 
-    if (videoFiles.length > 0) {
-      if (!limits.videoUpload) {
-        setUpgradeModalData({ reasons: ["Video Upload"], canContinue: false, onContinue: () => {} });
-        setUpgradeModalOpen(true);
-        if (imageFiles.length === 0) return;
-      } else {
-        setVideoDisabledBanner(true);
-        setTimeout(() => setVideoDisabledBanner(false), 5000);
-        if (imageFiles.length === 0) return;
-      }
+    if (videoFiles.length > 0 && !limits.videoUpload) {
+      setUpgradeModalData({ reasons: ["Video Upload & Playback"], canContinue: false, onContinue: () => {} });
+      setUpgradeModalOpen(true);
+      if (imageFiles.length === 0) return;
     }
 
     if (plan === "free") {
@@ -1517,24 +1554,30 @@ export default function App() {
       reader.readAsDataURL(file);
     })));
 
-    // Process videos sequentially one-by-one (heavy, avoid memory crash)
+    // Process videos sequentially (heavy files — generate thumbnail + duration + upload)
     const videoItems: MediaItem[] = [];
-    if (videoFiles.length > 0) {
+    if (videoFiles.length > 0 && limits.videoUpload) {
       setVideoUploadProgress({ current: 0, total: videoFiles.length });
       for (let i = 0; i < videoFiles.length; i++) {
         setVideoUploadProgress({ current: i + 1, total: videoFiles.length });
         const f = videoFiles[i];
-        const item = await new Promise<MediaItem>((resolve) => {
+        const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
-          reader.onload = (e) => {
-            const dataUrl = e.target?.result as string;
-            resolve({ id: generateId(), name: f.name, tag: null, analyzing: false, dataUrl, used: false });
-          };
+          reader.onload = (e) => resolve(e.target?.result as string);
           reader.readAsDataURL(f);
         });
-        videoItems.push(item);
-        // Add video to state immediately so user sees progress
+        const [thumbUrl, duration] = await Promise.all([
+          captureVideoThumbnail(dataUrl),
+          getVideoDuration(dataUrl),
+        ]);
+        const item: MediaItem = {
+          id: generateId(), name: f.name, tag: "video", analyzing: false,
+          dataUrl, used: false, media_type: "video",
+          thumbnail_url: thumbUrl || undefined, duration: duration || undefined,
+        };
         setMediaItems((prev) => [...prev, item]);
+        if (thumbUrl) setVideoPosters((prev) => ({ ...prev, [item.id]: thumbUrl }));
+        videoItems.push(item);
       }
       setVideoUploadProgress(null);
     }
@@ -1565,7 +1608,28 @@ export default function App() {
       }
     }
 
-    if (videoItems.length > 0) setVideoTagQueue((prev) => [...prev, ...videoItems]);
+    // Upload video items to backend (auto-tagged as 'video', no manual tag queue needed)
+    for (const item of videoItems) {
+      try {
+        const saved = await apiPost("/media/upload", {
+          id: item.id, name: item.name, dataUrl: item.dataUrl,
+          tag: "video", fileHash: "", fileSize: 0, dimensions: "",
+          media_type: "video",
+          thumbnail_url: item.thumbnail_url || "",
+          duration: item.duration || 0,
+        });
+        const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
+        if (storedUrl !== item.dataUrl) {
+          setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
+        }
+        setMediaTotal((t) => t + 1);
+      } catch (err) {
+        console.error("Failed to save video", err);
+        showGlobalToast("Video upload failed — please try again");
+        setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
+        setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
+      }
+    }
 
     // Auto-tag images (using base64 still in state), then upload+persist via /media/upload
     for (const item of imageItems) {
@@ -1787,8 +1851,12 @@ export default function App() {
     setVideoTagQueue((prev) => prev.slice(1));
     setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
     try {
-      // Videos: use legacy /media endpoint (Supabase Storage doesn't accept video in this app)
-      await apiPost("/media", { id: item.id, name: item.name, tag, dataUrl: item.dataUrl, used: false });
+      await apiPost("/media/upload", {
+        id: item.id, name: item.name, dataUrl: item.dataUrl, tag,
+        fileHash: "", fileSize: 0, dimensions: "", media_type: "video",
+        thumbnail_url: item.thumbnail_url || "", duration: item.duration || 0,
+      });
+      setMediaTotal((t) => t + 1);
     } catch (err) { console.error(err); }
   }
 
@@ -1976,7 +2044,7 @@ export default function App() {
   async function handleApproveSinglePost() {
     if (!singlePostItem || approveLoading) return;
     const usedAITagging = !!(singlePostItem.tag && singlePostItem.tag !== "other");
-    const usedVideo = isVideo(singlePostItem.dataUrl);
+    const usedVideo = isVideo(singlePostItem.dataUrl, singlePostItem.media_type);
     if (plan === "free") {
       let latestCount = monthPostCount;
       try { const r = await apiGet<{ count: number }>("/posts/count"); latestCount = r.count ?? monthPostCount; } catch {}
@@ -2051,7 +2119,7 @@ export default function App() {
   async function handleApproveCarousel() {
     if (approveLoading) return;
     const usedAITagging = carouselItems.some((i) => i.tag && i.tag !== "other");
-    const usedVideo = carouselItems.some((i) => isVideo(i.dataUrl));
+    const usedVideo = carouselItems.some((i) => isVideo(i.dataUrl, i.media_type));
     if (plan === "free" && !editingPost) {
       let latestCount = monthPostCount;
       try { const r = await apiGet<{ count: number }>("/posts/count"); latestCount = r.count ?? monthPostCount; } catch {}
@@ -2892,8 +2960,8 @@ export default function App() {
                           ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[hsl(263,70%,65%)]" : ""}
                           ${(openFolder && folderAddMode && folderPendingIds.includes(item.id)) ? "ring-2 ring-emerald-400" : ""}
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
-                        {isVideo(item.dataUrl)
-                          ? <div className="w-full h-full relative">{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)]" />}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span></div>
+                        {isVideo(item.dataUrl, item.media_type)
+                          ? <div className="w-full h-full relative">{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>{item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}</div>
                           : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <LazyImg src={item.dataUrl} alt={item.name} className="object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
@@ -4213,14 +4281,13 @@ export default function App() {
             <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => setViewerItem(null)}>
               {/* Image / Video — with tag badge overlaid top-left */}
               <div className="w-full max-w-sm relative" onClick={(e) => e.stopPropagation()}>
-                {isVideo(viewerItem.dataUrl) ? (
+                {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                   <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
                     <video
                       ref={(el) => { (viewerVideoRef as any).current = el; }}
                       src={viewerItem.dataUrl}
                       className="w-full h-full object-cover"
-                      controls
-                      playsInline
+                      controls autoPlay playsInline
                       style={{ display: "block" }}
                     />
                   </div>
@@ -4236,11 +4303,13 @@ export default function App() {
                 )}
                 {/* Tag badge — top-left overlay on image */}
                 {viewerItem.tag && (
-                  <button
-                    onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
-                    className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none">
-                    {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
-                  </button>
+                  isVideo(viewerItem.dataUrl, viewerItem.media_type)
+                    ? <span className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 leading-none">🎥 Video</span>
+                    : <button
+                        onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
+                        className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none">
+                        {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
+                      </button>
                 )}
               </div>
 
@@ -4642,7 +4711,7 @@ export default function App() {
                         <p>{tl.maxMedia === Infinity ? "∞ media" : `${tl.maxMedia} media`}</p>
                         <p>{tl.aiCaptions ? "✓ AI Captions" : "✗ AI Captions"}</p>
                         <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
-                        <p>{tl.videoUpload ? "✓ Video" : "✗ Video"}</p>
+                        <p>{tl.videoUpload ? "✓ Video Upload & Playback" : "✗ Video Upload & Playback"}</p>
                         <p>{tl.maxFolders === Infinity ? "✓ Unlimited folders" : "✗ Up to 1 folder"}</p>
                         <p>{tier === "free" ? "✗ Up to 3 drafts" : "✓ Unlimited drafts"}</p>
                         <p>{tier === "free" ? "✗ Favorites & Heart Filter" : "✓ Favorites & Heart Filter"}</p>
@@ -5061,17 +5130,7 @@ export default function App() {
         );
       })()}
 
-      {/* ── VIDEO DISABLED BANNER ── */}
-      {videoDisabledBanner && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-[hsl(25,90%,25%)] border-b border-[hsl(25,80%,35%)] px-4 py-3 flex items-center gap-3">
-          <span className="text-lg">🎬</span>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-orange-100">Video upload temporarily disabled</p>
-            <p className="text-xs text-orange-200/80 mt-0.5">Coming in the next version. Only images are supported for now.</p>
-          </div>
-          <button onClick={() => setVideoDisabledBanner(false)} className="text-orange-200/60 hover:text-orange-100 text-lg leading-none">✕</button>
-        </div>
-      )}
+      {/* Video disabled banner removed — video upload is now fully supported for Pro/Agency */}
 
       {/* ── DUPLICATES BANNER ── */}
       {duplicatesBanner.length > 0 && (

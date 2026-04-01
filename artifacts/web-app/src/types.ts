@@ -13,6 +13,9 @@ export interface MediaItem {
   fileHash?: string;
   dimensions?: string;
   isFavorite?: boolean;
+  media_type?: string;
+  duration?: number;
+  thumbnail_url?: string;
 }
 
 export interface ApprovedPost {

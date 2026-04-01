@@ -21,8 +21,8 @@ app.use(cors({
   credentials: true,
 }));
 app.options("*", cors());
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "150mb" }));
+app.use(express.urlencoded({ extended: true, limit: "150mb" }));
 
 // ── Supabase admin client (for auth token verification) ─────────────────────
 
@@ -150,6 +150,10 @@ async function ensureTables() {
     );
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Berlin';
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS prevent_duplicates BOOLEAN DEFAULT true;
+
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS duration FLOAT;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
   `);
 }
 
@@ -245,7 +249,8 @@ app.get("/api/media", requireAuth, async (req, res) => {
   await withTables(async () => {
     if (!userMediaCache[userId]) {
       const result = await pool.query(
-        `SELECT id, name, tag, url, folder_id, used, created_at, is_favorite
+        `SELECT id, name, tag, url, folder_id, used, created_at, is_favorite,
+                media_type, duration, thumbnail_url
          FROM media_items
          WHERE user_id = $1
          ORDER BY created_at DESC`,
@@ -257,6 +262,9 @@ app.get("/api/media", requireAuth, async (req, res) => {
         folderId: r.folder_id ?? null,
         used: r.used ?? false, createdAt: r.created_at,
         isFavorite: r.is_favorite ?? false,
+        media_type: r.media_type ?? "image",
+        duration: r.duration ?? null,
+        thumbnail_url: r.thumbnail_url ?? null,
       }));
     }
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
@@ -270,13 +278,12 @@ app.get("/api/media", requireAuth, async (req, res) => {
 
 app.post("/api/media/upload", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const { id, name, dataUrl, tag, folderId, fileHash, fileSize, dimensions } = req.body;
+  const { id, name, dataUrl, tag, folderId, fileHash, fileSize, dimensions, media_type: reqMediaType, thumbnail_url: reqThumbUrl, duration: reqDuration } = req.body;
   if (!id || !name || !dataUrl) {
     return res.status(400).json({ error: "id, name, and dataUrl are required" });
   }
-  if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
-    return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
-  }
+  // Detect media type: explicit field > MIME prefix in dataUrl
+  const isVideoUpload = reqMediaType === "video" || (typeof dataUrl === "string" && dataUrl.startsWith("data:video/"));
 
   // ── Duplicate detection (server-side) ──────────────────────────────────────
   // Ensures cross-device uploads of the same file are caught even when the
@@ -342,25 +349,27 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
 
   await withTables(async () => {
     const storeUrl = publicUrl ?? dataUrl;
+    const finalMediaType = isVideoUpload ? "video" : "image";
+    const finalTag = isVideoUpload ? "video" : (tag ?? null);
+    // For videos: store thumbnail as base64 in thumbnail_url (thumbnails are small ~20-50KB)
+    const thumbUrl = isVideoUpload ? (reqThumbUrl || null) : null;
+    const dur = isVideoUpload ? (reqDuration || null) : null;
     await pool.query(
-      `INSERT INTO media_items (id, name, tag, url, folder_id, used, user_id, file_hash, file_size, dimensions)
-       VALUES ($1,$2,$3,$4,$5,FALSE,$6,$7,$8,$9)
+      `INSERT INTO media_items (id, name, tag, url, folder_id, used, user_id, file_hash, file_size, dimensions, media_type, thumbnail_url, duration)
+       VALUES ($1,$2,$3,$4,$5,FALSE,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (id) DO NOTHING`,
-      [id, name, tag ?? null, storeUrl, folderId ?? null, userId,
-       fileHash || null, fileSize || null, dimensions || null]
+      [id, name, finalTag, storeUrl, folderId ?? null, userId,
+       fileHash || null, fileSize || null, dimensions || null, finalMediaType, thumbUrl, dur]
     );
     invalidateMedia(userId);
     const createdAt = new Date().toISOString();
-    res.json({ id, name, tag: tag ?? null, dataUrl: storeUrl, folderId: folderId ?? null, createdAt });
+    res.json({ id, name, tag: finalTag, dataUrl: storeUrl, folderId: folderId ?? null, createdAt, media_type: finalMediaType, thumbnail_url: thumbUrl, duration: dur });
   }, res);
 });
 
 app.post("/api/media", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id, name, tag, dataUrl, used } = req.body;
-  if (typeof dataUrl === "string" && dataUrl.startsWith("data:video/")) {
-    return res.status(400).json({ error: "VIDEO_NOT_SUPPORTED" });
-  }
   await withTables(async () => {
     await pool.query(
       `INSERT INTO media_items (id, name, tag, url, used, user_id)
