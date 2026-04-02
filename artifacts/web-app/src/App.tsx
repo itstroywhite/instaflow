@@ -3247,12 +3247,21 @@ export default function App() {
                 {currentSlide ? (
                   <>
                     {isVideo(currentSlide.dataUrl, currentSlide.media_type) ? (
-                      playingVideoId === currentSlide.id
-                        ? <video src={currentSlide.dataUrl} className="w-full h-full object-cover" autoPlay loop muted onClick={() => setPlayingVideoId(null)} />
-                        : <div className="w-full h-full relative cursor-pointer" onClick={() => setPlayingVideoId(currentSlide.id)}>
-                            {videoPosters[currentSlide.id] ? <img src={videoPosters[currentSlide.id]} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-black" />}
-                            <div className="absolute inset-0 flex items-center justify-center"><div className="w-14 h-14 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center"><span className="text-white text-2xl ml-1">▶</span></div></div>
-                          </div>
+                      <video
+                        key={currentSlide.id}
+                        src={currentSlide.dataUrl}
+                        poster={currentSlide.thumbnail_url || (videoPosters[currentSlide.id] ?? undefined)}
+                        className="w-full h-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="auto"
+                        controls
+                        controlsList="nodownload nofullscreen"
+                        data-slide
+                        style={{ display: "block" }}
+                      />
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
                     {currentSlide.tag && <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
                     <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">{carouselIndex + 1} / {carouselItems.length}</span>
@@ -3328,8 +3337,8 @@ export default function App() {
                         opacity: isSelected || isDragging ? 1 : 0.75,
                         cursor: "grab",
                       } as React.CSSProperties}>
-                      {isVideo(item.dataUrl)
-                        ? <>{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)" }} />}<span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 9 }}>▶</span></span></>
+                      {isVideo(item.dataUrl, item.media_type)
+                        ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)" }} />}<span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 9 }}>▶</span></span></>
                         : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                       <button
                         onPointerDown={(e) => e.stopPropagation()}
@@ -3479,7 +3488,20 @@ export default function App() {
               {/* 4:5 viewer */}
               <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }}>
                 {isVideo(singlePostItem.dataUrl, singlePostItem.media_type)
-                  ? <video src={singlePostItem.dataUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                  ? <video
+                      key={singlePostItem.id}
+                      src={singlePostItem.dataUrl}
+                      poster={singlePostItem.thumbnail_url || (videoPosters[singlePostItem.id] ?? undefined)}
+                      className="w-full h-full object-cover"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      preload="auto"
+                      controls
+                      controlsList="nodownload nofullscreen"
+                      style={{ display: "block" }}
+                    />
                   : brokenImages.has(singlePostItem.id)
                     ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
                     : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
