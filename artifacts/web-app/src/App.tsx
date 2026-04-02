@@ -2546,7 +2546,10 @@ export default function App() {
 
       {/* NAV */}
       <nav className={`border-b ${border} px-4 py-2.5 grid grid-cols-3 items-center sticky top-0 z-20 bg-[hsl(220,14%,8%)]`}>
-        <span className="text-base font-bold tracking-tight">InstaFlow</span>
+        <div className="flex flex-col leading-tight tracking-tight font-bold">
+          <span className="text-sm">Insta</span>
+          <span className="text-sm">Flow</span>
+        </div>
         <div className="flex items-center justify-center gap-0.5">
           {(["pool", "carousel", "calendar"] as Screen[]).map((s) => (
             <button key={s} onClick={() => goToScreen(s)}
