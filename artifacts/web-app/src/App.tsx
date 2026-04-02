@@ -2100,11 +2100,36 @@ export default function App() {
     if (viewerSwipeStartX.current === null) return;
     if (viewerRafRef.current !== null) { cancelAnimationFrame(viewerRafRef.current); viewerRafRef.current = null; }
     const d = viewerPendingX.current - viewerSwipeStartX.current;
-    if (d > 50) viewerGoPrev();
-    else if (d < -50) viewerGoNext();
-    else setViewerDelta(0);
-    setViewerDragging(false);
     viewerSwipeStartX.current = null;
+    const W = window.innerWidth;
+    if (d < -60 && viewerNavIdx < viewerNavList.length - 1) {
+      // Animate strip fully to the left (next panel centred), then snap to new arrangement
+      setViewerDelta(-W);
+      setViewerDragging(false);
+      setTimeout(() => {
+        setViewerDragging(true);   // disable transition for instant reposition
+        const next = viewerNavList[viewerNavIdx + 1];
+        setViewerItem(next);
+        setViewerDelta(0);
+        setViewerTagPickerOpen(false);
+        requestAnimationFrame(() => setViewerDragging(false));
+      }, 310);
+    } else if (d > 60 && viewerNavIdx > 0) {
+      // Animate strip fully to the right (prev panel centred), then snap
+      setViewerDelta(W);
+      setViewerDragging(false);
+      setTimeout(() => {
+        setViewerDragging(true);
+        const prev = viewerNavList[viewerNavIdx - 1];
+        setViewerItem(prev);
+        setViewerDelta(0);
+        setViewerTagPickerOpen(false);
+        requestAnimationFrame(() => setViewerDragging(false));
+      }, 310);
+    } else {
+      setViewerDelta(0);
+      setViewerDragging(false);
+    }
   }
 
   // ── Single post ──
@@ -4495,68 +4520,70 @@ export default function App() {
               </div>
             </div>
 
-            {/* Main scrollable area — tap dark background to close */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
-              {/* Swipeable media container */}
-              <div
-                className="w-full max-w-sm relative overflow-hidden rounded-xl"
-                style={{ aspectRatio: "4/5", cursor: viewerDragging ? "grabbing" : "grab", touchAction: "pan-y" }}
-                onClick={(e) => e.stopPropagation()}
-                onTouchStart={(e) => onViewerDragStart(e.touches[0].clientX)}
-                onTouchMove={(e) => onViewerDragMove(e.touches[0].clientX)}
-                onTouchEnd={onViewerDragEnd}
-                onMouseDown={(e) => onViewerDragStart(e.clientX)}
-                onMouseMove={(e) => viewerDragging && onViewerDragMove(e.clientX)}
-                onMouseUp={onViewerDragEnd}
-                onMouseLeave={onViewerDragEnd}
-              >
-                {/* Previous media — slides in from left with current drag delta */}
-                {viewerNavIdx > 0 && (() => {
-                  const prev = viewerNavList[viewerNavIdx - 1];
-                  return (
-                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(-100% + ${viewerDelta}px))`, transition: viewerDragging ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}>
-                      {isVideo(prev.dataUrl, prev.media_type)
-                        ? <video key={prev.id} src={prev.dataUrl} poster={prev.thumbnail_url || (videoPosters[prev.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <img src={prev.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+            {/* Main content — flex column, tap dark bg to close */}
+            <div className="flex-1 flex flex-col justify-center gap-3 pt-20 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
+
+              {/* ── Swipeable strip ── */}
+              {/* Outer: relative wrapper for clip + badge overlays */}
+              <div className="w-full relative" style={{ aspectRatio: "4/5" }} onClick={(e) => e.stopPropagation()}>
+                {/* Clip zone with swipe handlers */}
+                <div
+                  className="absolute inset-0 overflow-hidden rounded-xl"
+                  style={{ cursor: viewerDragging ? "grabbing" : "grab", touchAction: "pan-y" }}
+                  onTouchStart={(e) => onViewerDragStart(e.touches[0].clientX)}
+                  onTouchMove={(e) => { e.stopPropagation(); onViewerDragMove(e.touches[0].clientX); }}
+                  onTouchEnd={onViewerDragEnd}
+                  onMouseDown={(e) => { e.preventDefault(); onViewerDragStart(e.clientX); }}
+                  onMouseMove={(e) => { if (viewerDragging) { e.preventDefault(); onViewerDragMove(e.clientX); } }}
+                  onMouseUp={onViewerDragEnd}
+                  onMouseLeave={onViewerDragEnd}
+                >
+                  {/* 300%-wide flex strip — translateX(-33.333%) shows center panel */}
+                  <div style={{
+                    display: "flex",
+                    width: "300%",
+                    height: "100%",
+                    transform: `translateX(calc(-33.333% + ${viewerDelta}px))`,
+                    transition: viewerDragging ? "none" : "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                  }}>
+                    {/* Prev panel */}
+                    <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
+                      {viewerNavIdx > 0 && (() => {
+                        const prev = viewerNavList[viewerNavIdx - 1];
+                        return isVideo(prev.dataUrl, prev.media_type)
+                          ? <video key={prev.id} src={prev.dataUrl} poster={prev.thumbnail_url || (videoPosters[prev.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          : <img src={prev.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
+                      })()}
                     </div>
-                  );
-                })()}
-                {/* Current media */}
-                <div style={{ position: "absolute", inset: 0, transform: `translateX(${viewerDelta}px)`, transition: viewerDragging ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}>
-                  {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
-                    <video
-                      key={viewerItem.id}
-                      src={viewerItem.dataUrl}
-                      poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      preload="auto"
-                      controls
-                      controlsList="nodownload nofullscreen"
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                  ) : (
-                    <img
-                      src={viewerItem.dataUrl}
-                      alt={viewerItem.name}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                    />
-                  )}
+                    {/* Current panel */}
+                    <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
+                      {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
+                        <video
+                          key={viewerItem.id}
+                          src={viewerItem.dataUrl}
+                          poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
+                          autoPlay muted loop playsInline preload="auto"
+                          controls controlsList="nodownload nofullscreen"
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        />
+                      ) : (
+                        <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      )}
+                    </div>
+                    {/* Next panel */}
+                    <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
+                      {viewerNavIdx < viewerNavList.length - 1 && (() => {
+                        const next = viewerNavList[viewerNavIdx + 1];
+                        return isVideo(next.dataUrl, next.media_type)
+                          ? <video key={next.id} src={next.dataUrl} poster={next.thumbnail_url || (videoPosters[next.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          : <img src={next.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
+                      })()}
+                    </div>
+                  </div>
                 </div>
-                {/* Next media — slides in from right with current drag delta */}
-                {viewerNavIdx < viewerNavList.length - 1 && (() => {
-                  const next = viewerNavList[viewerNavIdx + 1];
-                  return (
-                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(100% + ${viewerDelta}px))`, transition: viewerDragging ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}>
-                      {isVideo(next.dataUrl, next.media_type)
-                        ? <video key={next.id} src={next.dataUrl} poster={next.thumbnail_url || (videoPosters[next.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                        : <img src={next.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
-                    </div>
-                  );
-                })()}
-                {/* Tag badge — top-left overlay */}
+
+                {/* Overlays — positioned over the center panel (not inside the clip/strip) */}
                 {liveTag && (
                   <button
                     style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
@@ -4565,11 +4592,9 @@ export default function App() {
                     {tagIcon(liveTag)} {tagLabel(liveTag)}
                   </button>
                 )}
-                {/* ▶ badge for videos */}
                 {isVideo(viewerItem.dataUrl, viewerItem.media_type) && (
                   <span style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }} className="text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-white/80 border border-white/15 leading-none">▶</span>
                 )}
-                {/* Swipe hint */}
                 {swipeHintVisible && viewerNavList.length > 1 && (
                   <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10, animation: "fadeOut 2s ease forwards" }}>
                     <span className="text-xs text-white/80 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1 whitespace-nowrap">← swipe to browse →</span>
@@ -4577,47 +4602,48 @@ export default function App() {
                 )}
               </div>
 
-              {/* Action card — rounded-xl below image */}
-              <div className="w-full max-w-sm bg-[hsl(220,14%,12%)] rounded-xl px-4 py-2" onClick={(e) => e.stopPropagation()}>
-                {/* Action buttons: Single Post → Carousel → Favorite → Tag → Delete */}
-                <div className="flex items-center justify-around">
-                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
-                    <Square className="w-5 h-5" stroke="white" fill="none" />
-                    <span className="text-[10px] text-white/60">Single Post</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => {
-                      const item = viewerItem; setViewerItem(null);
-                      if (carouselIds.length > 0 && screen === "carousel") {
-                        setCarouselIds((prev) => [...prev.filter((id) => id !== item.id), item.id]);
-                        setTodayBuildMode(true);
-                      } else {
-                        enterSelectionMode("carousel", item.id);
-                        goToScreen("pool");
-                      }
-                    }}>
-                    <LayoutTemplate className="w-5 h-5" stroke="white" fill="none" />
-                    <span className="text-[10px] text-white/60">Carousel</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => { if (plan === "free") { openProGate("Favorites"); return; } toggleFavorite(viewerItem.id); }}>
-                    <div className="relative">
-                      <Heart className="w-5 h-5" stroke={isFav ? "#ef4444" : "white"} fill={isFav ? "#ef4444" : "none"} />
-                      {plan === "free" && <span className="absolute -top-1 -right-2 text-[hsl(263,70%,65%)] text-[8px]">💎</span>}
-                    </div>
-                    <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => setViewerTagPickerOpen(true)}>
-                    <Tag className="w-5 h-5" stroke="white" fill="none" />
-                    <span className="text-[10px] text-white/60">Tag</span>
-                  </button>
-                  <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
-                    onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
-                    <Trash2 className="w-5 h-5" stroke="#ef4444" fill="none" />
-                    <span className="text-[10px] text-red-400">Delete</span>
-                  </button>
+              {/* Action card */}
+              <div className="w-full px-4" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-[hsl(220,14%,12%)] rounded-xl px-4 py-2">
+                  <div className="flex items-center justify-around">
+                    <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                      onClick={() => { const item = viewerItem; setViewerItem(null); openSinglePost(item); }}>
+                      <Square className="w-5 h-5" stroke="white" fill="none" />
+                      <span className="text-[10px] text-white/60">Single Post</span>
+                    </button>
+                    <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                      onClick={() => {
+                        const item = viewerItem; setViewerItem(null);
+                        if (carouselIds.length > 0 && screen === "carousel") {
+                          setCarouselIds((prev) => [...prev.filter((id) => id !== item.id), item.id]);
+                          setTodayBuildMode(true);
+                        } else {
+                          enterSelectionMode("carousel", item.id);
+                          goToScreen("pool");
+                        }
+                      }}>
+                      <LayoutTemplate className="w-5 h-5" stroke="white" fill="none" />
+                      <span className="text-[10px] text-white/60">Carousel</span>
+                    </button>
+                    <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                      onClick={() => { if (plan === "free") { openProGate("Favorites"); return; } toggleFavorite(viewerItem.id); }}>
+                      <div className="relative">
+                        <Heart className="w-5 h-5" stroke={isFav ? "#ef4444" : "white"} fill={isFav ? "#ef4444" : "none"} />
+                        {plan === "free" && <span className="absolute -top-1 -right-2 text-[hsl(263,70%,65%)] text-[8px]">💎</span>}
+                      </div>
+                      <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
+                    </button>
+                    <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                      onClick={() => setViewerTagPickerOpen(true)}>
+                      <Tag className="w-5 h-5" stroke="white" fill="none" />
+                      <span className="text-[10px] text-white/60">Tag</span>
+                    </button>
+                    <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
+                      onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
+                      <Trash2 className="w-5 h-5" stroke="#ef4444" fill="none" />
+                      <span className="text-[10px] text-red-400">Delete</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
