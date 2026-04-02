@@ -146,30 +146,42 @@ function fmtDuration(secs: number) {
   const s = Math.floor(secs % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
-function captureVideoThumbnail(src: string): Promise<string> {
+function captureVideoThumbnail(file: File): Promise<string> {
   return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
     const video = document.createElement("video");
     video.muted = true; video.playsInline = true; video.preload = "metadata";
     let done = false;
-    const finish = (result: string) => { if (!done) { done = true; resolve(result); } };
-    // 8-second safety timeout so video upload never hangs
-    const timeout = setTimeout(() => finish(""), 8000);
+    const finish = (result: string) => {
+      if (!done) { done = true; URL.revokeObjectURL(objectUrl); resolve(result); }
+    };
+    const timeout = setTimeout(() => finish(""), 10000);
     const drawFrame = () => {
       try {
         const canvas = document.createElement("canvas");
-        canvas.width = 400; canvas.height = 500;
+        const w = video.videoWidth || 400;
+        const h = video.videoHeight || 500;
+        canvas.width = w; canvas.height = h;
         const ctx = canvas.getContext("2d");
-        if (ctx) { ctx.drawImage(video, 0, 0, 400, 500); clearTimeout(timeout); finish(canvas.toDataURL("image/jpeg", 0.8)); }
+        if (ctx) { ctx.drawImage(video, 0, 0, w, h); clearTimeout(timeout); finish(canvas.toDataURL("image/jpeg", 0.7)); }
         else { clearTimeout(timeout); finish(""); }
       } catch { clearTimeout(timeout); finish(""); }
     };
-    video.onloadedmetadata = () => {
-      video.currentTime = 0.01;
-      video.onseeked = drawFrame;
-    };
-    video.onloadeddata = drawFrame;
+    video.onloadeddata = () => { video.currentTime = 0.5; };
+    video.onseeked = drawFrame;
+    video.onloadedmetadata = () => { video.currentTime = 0.5; };
     video.onerror = () => { clearTimeout(timeout); finish(""); };
-    video.src = src;
+    video.src = objectUrl;
+  });
+}
+function getVideoDurationFromFile(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => { URL.revokeObjectURL(objectUrl); resolve(isFinite(video.duration) ? video.duration : 0); };
+    video.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(0); };
+    video.src = objectUrl;
   });
 }
 function getVideoDuration(src: string): Promise<number> {
@@ -1593,21 +1605,30 @@ export default function App() {
     })));
 
     // Process videos sequentially (heavy files — generate thumbnail + duration + upload)
+    const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
     const videoItems: MediaItem[] = [];
     if (videoFiles.length > 0 && limits.videoUpload) {
       setVideoUploadProgress({ current: 0, total: videoFiles.length });
       for (let i = 0; i < videoFiles.length; i++) {
         setVideoUploadProgress({ current: i + 1, total: videoFiles.length });
         const f = videoFiles[i];
+        // 50 MB hard cap — reject before reading
+        if (f.size > MAX_VIDEO_BYTES) {
+          showGlobalToast(`Video too large — max 50 MB supported (${f.name})`);
+          continue;
+        }
+        showGlobalToast(`Uploading video (${Math.round(f.size / 1024 / 1024)} MB)…`);
+        // Generate thumbnail + duration from raw File (no base64 needed yet)
+        const [thumbUrl, duration] = await Promise.all([
+          captureVideoThumbnail(f),
+          getVideoDurationFromFile(f),
+        ]);
+        // Only read to base64 after thumbnail is done (avoids double memory peak)
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
           reader.readAsDataURL(f);
         });
-        const [thumbUrl, duration] = await Promise.all([
-          captureVideoThumbnail(dataUrl),
-          getVideoDuration(dataUrl),
-        ]);
         const item: MediaItem = {
           id: generateId(), name: f.name, tag: "video", analyzing: false,
           dataUrl, used: false, media_type: "video",
