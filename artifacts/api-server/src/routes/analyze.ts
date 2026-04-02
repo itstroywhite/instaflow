@@ -3,7 +3,7 @@ import { Router } from "express";
 const router = Router();
 
 const VALID_TAGS = [
-  "me", "outfit", "food", "dj", "vibe", "friends", "location", "outdoor", "night", "other",
+  "me", "outfit", "food", "dj", "vibe", "friends", "location", "city", "outdoor", "night", "other",
 ] as const;
 type Tag = (typeof VALID_TAGS)[number];
 
@@ -95,7 +95,8 @@ CATEGORIES:
 - "food" → Food or beverages are the main subject: meal, coffee, drinks, restaurant plate, dessert, cocktails, snacks. Even if a person is holding it, food is the focus.
 - "dj" → DJ or music performance context: DJ booth, turntables, CDJs, mixer, concert stage, festival performance setup, crowd at a music event.
 - "vibe" → Mood/aesthetic shot with no clear subject: decorative objects, aesthetic flat lay, candles, bottles arranged artfully, artistic blur, bokeh, abstract textures.
-- "location" → A recognizable landmark or iconic place: famous building, monument, skyline, tourist attraction, city view. No prominent person in foreground.
+- "location" → A recognizable landmark or iconic place: famous building, monument, skyline, tourist attraction. No prominent person in foreground.
+- "city" → Urban cityscape or street scene: busy street, architecture, city skyline, urban environment, buildings, street photography (no prominent single person).
 - "outdoor" → Nature or outdoor scenery without a prominent person: hiking trail, beach, forest, park, mountains, sunset/sunrise over landscape, garden.
 - "night" → Nighttime urban photography: city lights at night, light trails, neon signs, dark street scene, nightclub exterior, starry sky.
 - "other" → Anything that does not clearly fit the above.
