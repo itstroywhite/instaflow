@@ -940,6 +940,8 @@ export default function App() {
   // Carousel / caption
   const [carouselIds, setCarouselIds] = useState<string[]>([]);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const carouselCaptionRef = useRef<HTMLTextAreaElement>(null);
+  const singleCaptionRef = useRef<HTMLTextAreaElement>(null);
   const [carouselCaption, setCarouselCaption] = useState("");
   const [captionOptions, setCaptionOptions] = useState<string[] | null>(null);
   const [captionSelectedIdx, setCaptionSelectedIdx] = useState<number | null>(null);
@@ -1036,6 +1038,7 @@ export default function App() {
   // Bulk selection (pool)
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
+  const [isDragSelecting, setIsDragSelecting] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartPos = useRef<{ x: number; y: number } | null>(null);
   const longPressFired = useRef(false);
@@ -1359,6 +1362,20 @@ export default function App() {
     if (Object.keys(toSync).length > 0) setVideoPosters((prev) => ({ ...prev, ...toSync }));
   }, [mediaItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-expand caption textareas when value is set programmatically (e.g. AI generation)
+  useEffect(() => {
+    if (carouselCaptionRef.current) {
+      carouselCaptionRef.current.style.height = "auto";
+      carouselCaptionRef.current.style.height = carouselCaptionRef.current.scrollHeight + "px";
+    }
+  }, [carouselCaption]);
+  useEffect(() => {
+    if (singleCaptionRef.current) {
+      singleCaptionRef.current.style.height = "auto";
+      singleCaptionRef.current.style.height = singleCaptionRef.current.scrollHeight + "px";
+    }
+  }, [singleCaption]);
+
   // Auto-play videos when carousel slide changes
   useEffect(() => {
     const slide = carouselIds[carouselIndex] ? mediaItems.find((m) => m.id === carouselIds[carouselIndex]) : null;
@@ -1629,8 +1646,10 @@ export default function App() {
       }
     }
 
-    // Upload video items to backend (auto-tagged as 'video', no manual tag queue needed)
+    // Upload video items to backend
     for (const item of videoItems) {
+      const fileSizeMB = item.dataUrl ? Math.round(item.dataUrl.length * 0.75 / 1024 / 1024) : 0;
+      if (fileSizeMB > 5) showGlobalToast(`Uploading video (${fileSizeMB} MB)… please wait`);
       try {
         const saved = await apiPost("/media/upload", {
           id: item.id, name: item.name, dataUrl: item.dataUrl,
@@ -1644,6 +1663,7 @@ export default function App() {
           setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
         }
         setMediaTotal((t) => t + 1);
+        if (fileSizeMB > 5) showGlobalToast("Video uploaded successfully");
       } catch (err) {
         console.error("Failed to save video", err);
         showGlobalToast("Video upload failed — please try again");
@@ -2960,13 +2980,17 @@ export default function App() {
                     const isSelected = selectionMode ? selectedIds.includes(item.id) : bulkMode ? bulkSelectedIds.includes(item.id) : false;
                     return (
                       <div key={item.id}
-                        onPointerDown={(e) => { clearLongPress(); startPoolLongPress(item, e, !!(openFolder && !folderAddMode)); }}
+                        onPointerDown={(e) => {
+                          if (bulkMode) { setIsDragSelecting(true); setBulkSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]); return; }
+                          clearLongPress(); startPoolLongPress(item, e, !!(openFolder && !folderAddMode));
+                        }}
+                        onPointerEnter={() => { if (isDragSelecting && bulkMode) setBulkSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]); }}
                         onPointerMove={checkLongPressMove}
-                        onPointerUp={clearLongPress}
-                        onPointerCancel={clearLongPress}
+                        onPointerUp={(e) => { setIsDragSelecting(false); clearLongPress(); }}
+                        onPointerCancel={() => { setIsDragSelecting(false); clearLongPress(); }}
                         onClick={(e) => {
                           if (longPressFired.current) { longPressFired.current = false; return; }
-                          if (bulkMode) { e.stopPropagation(); setBulkSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]); return; }
+                          if (bulkMode) { e.stopPropagation(); return; }
                           if (openFolder && folderAddMode) {
                             e.stopPropagation();
                             setFolderPendingIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
@@ -2980,13 +3004,15 @@ export default function App() {
                           if (selectionMode) { e.stopPropagation(); toggleSelect(item.id); return; }
                           setViewerItem(item);
                         }}
-                        className={`relative rounded-xl overflow-hidden aspect-square cursor-pointer transition-all select-none
+                        style={{ position: "relative", paddingBottom: "100%" }}
+                        className={`rounded-xl overflow-hidden cursor-pointer transition-all select-none
                           ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[hsl(263,70%,65%)]" : ""}
                           ${(openFolder && folderAddMode && folderPendingIds.includes(item.id)) ? "ring-2 ring-emerald-400" : ""}
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
+                        <div style={{ position: "absolute", inset: 0 }}>
                         {isVideo(item.dataUrl, item.media_type)
-                          ? <div className="w-full h-full relative">{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>{item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}</div>
-                          : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <LazyImg src={item.dataUrl} alt={item.name} className="object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                          ? <div style={{ width: "100%", height: "100%", position: "relative" }}>{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>{item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}</div>
+                          : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div> : <LazyImg src={item.dataUrl} alt={item.name} className="object-cover" style={{ width: "100%", height: "100%" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
@@ -3024,6 +3050,7 @@ export default function App() {
                             <span className="text-black text-[9px] font-bold">{bulkSelectedIds.indexOf(item.id) + 1}</span>
                           </div>
                         )}
+                        </div>
                       </div>
                     );
                   });
@@ -3198,7 +3225,7 @@ export default function App() {
               <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }} onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
                 {currentSlide ? (
                   <>
-                    {isVideo(currentSlide.dataUrl) ? (
+                    {isVideo(currentSlide.dataUrl, currentSlide.media_type) ? (
                       playingVideoId === currentSlide.id
                         ? <video src={currentSlide.dataUrl} className="w-full h-full object-cover" autoPlay loop muted onClick={() => setPlayingVideoId(null)} />
                         : <div className="w-full h-full relative cursor-pointer" onClick={() => setPlayingVideoId(currentSlide.id)}>
@@ -3325,12 +3352,13 @@ export default function App() {
               <div className={`${card} p-5 space-y-3`}>
                 <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
                 <textarea
+                  ref={carouselCaptionRef}
                   value={carouselCaption}
                   onChange={(e) => setCarouselCaption(e.target.value)}
                   onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   placeholder="Write your caption…"
                   rows={1}
-                  style={{ resize: "none", overflow: "hidden" }}
+                  style={{ resize: "none", overflow: "hidden", minHeight: 40 }}
                   className={`w-full bg-[hsl(220,14%,9%)] border ${carouselCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
                 />
                 <button
@@ -3489,12 +3517,13 @@ export default function App() {
             <div className={`${card} p-5 space-y-3`}>
               <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
               <textarea
+                ref={singleCaptionRef}
                 value={singleCaption}
                 onChange={(e) => setSingleCaption(e.target.value)}
                 onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                 placeholder="Write your caption…"
                 rows={1}
-                style={{ resize: "none", overflow: "hidden" }}
+                style={{ resize: "none", overflow: "hidden", minHeight: 40 }}
                 className={`w-full bg-[hsl(220,14%,9%)] border ${singleCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
               />
               <button
@@ -4323,29 +4352,16 @@ export default function App() {
               {/* Image / Video — with tag badge overlaid top-left */}
               <div className="w-full max-w-sm relative" onClick={(e) => e.stopPropagation()}>
                 {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
-                  <div className="w-full rounded-xl overflow-hidden relative" style={{ aspectRatio: "4/5" }}
-                    onClick={() => {
-                      setViewerControlsVisible(true);
-                      if (viewerControlsTimerRef.current) clearTimeout(viewerControlsTimerRef.current);
-                      viewerControlsTimerRef.current = setTimeout(() => setViewerControlsVisible(false), 2000);
-                    }}>
+                  <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
                     <video
-                      ref={(el) => { (viewerVideoRef as any).current = el; }}
                       src={viewerItem.dataUrl}
                       className="w-full h-full object-cover"
-                      autoPlay playsInline
+                      controls
+                      controlsList="nodownload"
+                      autoPlay
+                      playsInline
                       style={{ display: "block" }}
-                      onPlay={() => { if (viewerControlsTimerRef.current) clearTimeout(viewerControlsTimerRef.current); viewerControlsTimerRef.current = setTimeout(() => setViewerControlsVisible(false), 2000); }}
                     />
-                    {viewerControlsVisible && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); const v = (viewerVideoRef as any).current; if (v) { if (v.paused) v.play(); else v.pause(); } }}
-                          className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
-                          <Play className="w-6 h-6 fill-white stroke-none ml-1" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
@@ -5098,35 +5114,20 @@ export default function App() {
               </div>
               <button onClick={closeTagPicker} className={`${dimText} hover:text-white text-xl`}>✕</button>
             </div>
-            {plan === "free" && (
-              <div className="mb-4 p-3 rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8]">
-                <p className="text-xs font-semibold text-[hsl(263,70%,75%)]">💎 AI Tagging &amp; manual tag editing is a Pro feature.</p>
-                <p className={`text-xs ${dimText} mt-0.5`}>Upgrade to Pro to tag your media correctly.</p>
-              </div>
-            )}
             <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
               {allAvailableTags.map((tag) => (
                 <button key={tag}
-                  disabled={plan === "free"}
-                  onClick={plan === "free" ? undefined : () => handleTagChange(tagPickerItem.id, tag)}
+                  onClick={() => handleTagChange(tagPickerItem.id, tag)}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    plan === "free"
-                      ? `${border} opacity-40 cursor-not-allowed`
-                      : tagPickerItem.tag === tag
-                        ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
-                        : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
+                    tagPickerItem.tag === tag
+                      ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
+                      : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
                   }`}>
                   <span className="text-base">{tagIcon(tag)}</span><span>{tagLabel(tag)}</span>
-                  {tagPickerItem.tag === tag && plan !== "free" && <span className="ml-auto text-xs">✓</span>}
+                  {tagPickerItem.tag === tag && <span className="ml-auto text-xs">✓</span>}
                 </button>
               ))}
             </div>
-            {plan === "free" && (
-              <button onClick={() => { closeTagPicker(); openProGate("AI Tagging & manual tag editing"); }}
-                className="mt-4 w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold">
-                Upgrade to Pro 💎
-              </button>
-            )}
           </div>
         </div>
       )}
