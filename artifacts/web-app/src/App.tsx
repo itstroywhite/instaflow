@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { AlertCircle, Check, ChevronLeft, ChevronRight, Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
@@ -2545,23 +2545,23 @@ export default function App() {
       )}
 
       {/* NAV */}
-      <nav className={`border-b ${border} px-4 py-3 flex items-center justify-between sticky top-0 z-20 bg-[hsl(220,14%,8%)]`}>
+      <nav className={`border-b ${border} px-4 py-2.5 grid grid-cols-3 items-center sticky top-0 z-20 bg-[hsl(220,14%,8%)]`}>
         <span className="text-base font-bold tracking-tight">📱 InstaFlow</span>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-center gap-0.5">
           {(["pool", "carousel", "calendar"] as Screen[]).map((s) => (
             <button key={s} onClick={() => goToScreen(s)}
               className={`relative px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${screen === s ? activeNavCls : `${dimText} hover:text-[hsl(220,10%,80%)] hover:bg-[hsl(220,14%,14%)]`}`}>
               {s === "pool" ? "🗂 Pool" : s === "carousel" ? "📸 Today" : "📅 Cal"}
             </button>
           ))}
-          {/* Avatar / Profile button */}
+        </div>
+        <div className="flex items-center justify-end gap-3">
+          {/* Profile icon button */}
           <button onClick={() => { setProfileDrawerOpen(true); setPlusMenuOpen(false); }}
-            className={`w-7 h-7 rounded-full overflow-hidden flex items-center justify-center border-2 transition-all ${profileDrawerOpen || profileSubpage ? "border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,26%)]"} bg-[hsl(220,14%,14%)] text-[11px] font-bold text-white ml-0.5`}>
-            {profileAvatarUrl
-              ? <img src={profileAvatarUrl} className="w-full h-full object-cover" />
-              : (session?.user?.email?.[0]?.toUpperCase() ?? "?")}
+            className={`flex items-center justify-center transition-colors ${profileDrawerOpen || profileSubpage ? "text-[hsl(263,70%,70%)]" : "text-[hsl(220,10%,55%)] hover:text-[hsl(220,10%,85%)]"}`}>
+            <CircleUserRound className="w-6 h-6" strokeWidth={1.75} />
           </button>
-          <div className="relative ml-1">
+          <div className="relative">
             <button onClick={() => { setPlusMenuOpen((o) => !o); cancelSelection(); }}
               className={`relative w-8 h-8 rounded-lg bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-bold text-lg flex items-center justify-center ${aiGenerating ? "animate-pulse" : ""}`}>
               {plusMenuOpen ? "✕" : aiGenerating ? "…" : "+"}
@@ -5268,10 +5268,10 @@ export default function App() {
             <div className="flex-1 overflow-y-auto py-2">
               {([
                 { icon: "👤", label: "Profile", sub: "profile" as const },
+                { icon: "🎨", label: "Preferences", sub: "preferences" as const },
                 { icon: "📊", label: "Usage Overview", sub: "usage" as const },
                 { icon: "💳", label: "Plan & Billing", sub: "billing" as const },
                 { icon: "⚙️", label: "Account Settings", sub: "account" as const },
-                { icon: "🎨", label: "Preferences", sub: "preferences" as const },
               ] as { icon: string; label: string; sub: "profile" | "usage" | "billing" | "account" | "preferences" }[]).map(({ icon, label, sub }) => (
                 <button key={sub} onClick={() => { setProfileDrawerOpen(false); setProfileSubpage(sub); }}
                   className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[hsl(220,14%,16%)] transition-colors">
