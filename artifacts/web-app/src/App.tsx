@@ -1092,6 +1092,13 @@ export default function App() {
   const [swipeHintVisible, setSwipeHintVisible] = useState(false);
   const [viewerTagPickerOpen, setViewerTagPickerOpen] = useState(false);
   const viewerSwipeStartX = useRef<number | null>(null);
+  const viewerRafRef = useRef<number | null>(null);
+  const viewerPendingX = useRef(0);
+
+  // Used-section viewer (separate from pool viewer)
+  const [usedViewerItem, setUsedViewerItem] = useState<MediaItem | null>(null);
+  const [usedViewerPost, setUsedViewerPost] = useState<ApprovedPost | null>(null);
+  const [usedViewerRemoveConfirm, setUsedViewerRemoveConfirm] = useState(false);
 
   // Edit-from tracking (Fix 8)
   const [editingFrom, setEditingFrom] = useState<"calendar" | "used">("calendar");
@@ -2010,6 +2017,25 @@ export default function App() {
     cancelSelection(); setScreen("carousel"); setDailyBadge(false); setDailyBanner(false); setTodayBuildMode(true);
   }
 
+  async function handleRemoveFromPost() {
+    if (!usedViewerItem || !usedViewerPost) return;
+    const newMediaIds = (usedViewerPost.mediaIds ?? []).filter(id => id !== usedViewerItem.id);
+    try {
+      await apiPut(`/posts/${usedViewerPost.id}`, {
+        day: usedViewerPost.day, caption: usedViewerPost.caption, tagsSummary: usedViewerPost.tagsSummary ?? "",
+        slideCount: newMediaIds.length, scheduledDate: usedViewerPost.scheduledDate ?? null,
+        scheduledTime: usedViewerPost.scheduledTime ?? null, mediaIds: newMediaIds,
+        status: usedViewerPost.status ?? "approved",
+        usedAICaption: usedViewerPost.usedAICaption ?? false, usedAITagging: usedViewerPost.usedAITagging ?? false,
+        usedVideo: usedViewerPost.usedVideo ?? false,
+      });
+      setApprovedPosts(prev => prev.map(p => p.id === usedViewerPost!.id ? { ...p, mediaIds: newMediaIds } : p));
+      setMediaItems(prev => prev.map(m => m.id === usedViewerItem!.id ? { ...m, used: false } : m));
+      setUsedViewerItem(null); setUsedViewerPost(null); setUsedViewerRemoveConfirm(false);
+      showGlobalToast("Removed from post");
+    } catch { showGlobalToast("Failed to remove — please try again"); }
+  }
+
   function openPostForEdit(post: ApprovedPost, from: "calendar" | "used" = "calendar") {
     setEditingPost(post);
     setEditingFrom(from);
@@ -2056,16 +2082,26 @@ export default function App() {
   }
   function onViewerDragStart(clientX: number) {
     viewerSwipeStartX.current = clientX;
+    viewerPendingX.current = clientX;
     setViewerDragging(true);
   }
   function onViewerDragMove(clientX: number) {
     if (viewerSwipeStartX.current === null) return;
-    setViewerDelta(clientX - viewerSwipeStartX.current);
+    viewerPendingX.current = clientX;
+    if (viewerRafRef.current !== null) return;
+    viewerRafRef.current = requestAnimationFrame(() => {
+      if (viewerSwipeStartX.current !== null) {
+        setViewerDelta(viewerPendingX.current - viewerSwipeStartX.current);
+      }
+      viewerRafRef.current = null;
+    });
   }
   function onViewerDragEnd() {
     if (viewerSwipeStartX.current === null) return;
-    if (viewerDelta > 80) viewerGoPrev();
-    else if (viewerDelta < -80) viewerGoNext();
+    if (viewerRafRef.current !== null) { cancelAnimationFrame(viewerRafRef.current); viewerRafRef.current = null; }
+    const d = viewerPendingX.current - viewerSwipeStartX.current;
+    if (d > 50) viewerGoPrev();
+    else if (d < -50) viewerGoNext();
     else setViewerDelta(0);
     setViewerDragging(false);
     viewerSwipeStartX.current = null;
@@ -2946,7 +2982,7 @@ export default function App() {
                         )}
                         <div className="grid grid-cols-4 gap-1.5">
                           {items.map((item) => (
-                            <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => setViewerItem(item)}>
+                            <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => { setUsedViewerItem(item); setUsedViewerPost(post ?? null); setUsedViewerRemoveConfirm(false); }}>
                               {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                               {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
@@ -4474,11 +4510,11 @@ export default function App() {
                 onMouseUp={onViewerDragEnd}
                 onMouseLeave={onViewerDragEnd}
               >
-                {/* Previous media — peeks in from left while dragging right */}
+                {/* Previous media — slides in from left with current drag delta */}
                 {viewerNavIdx > 0 && (() => {
                   const prev = viewerNavList[viewerNavIdx - 1];
                   return (
-                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(-100% + ${viewerDelta / 3}px))`, transition: viewerDragging ? "none" : "transform 0.3s ease" }}>
+                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(-100% + ${viewerDelta}px))`, transition: viewerDragging ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}>
                       {isVideo(prev.dataUrl, prev.media_type)
                         ? <video key={prev.id} src={prev.dataUrl} poster={prev.thumbnail_url || (videoPosters[prev.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         : <img src={prev.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
@@ -4486,7 +4522,7 @@ export default function App() {
                   );
                 })()}
                 {/* Current media */}
-                <div style={{ position: "absolute", inset: 0, transform: `translateX(${viewerDelta}px)`, transition: viewerDragging ? "none" : "transform 0.3s ease" }}>
+                <div style={{ position: "absolute", inset: 0, transform: `translateX(${viewerDelta}px)`, transition: viewerDragging ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}>
                   {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                     <video
                       key={viewerItem.id}
@@ -4509,11 +4545,11 @@ export default function App() {
                     />
                   )}
                 </div>
-                {/* Next media — peeks in from right while dragging left */}
+                {/* Next media — slides in from right with current drag delta */}
                 {viewerNavIdx < viewerNavList.length - 1 && (() => {
                   const next = viewerNavList[viewerNavIdx + 1];
                   return (
-                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(100% + ${viewerDelta / 3}px))`, transition: viewerDragging ? "none" : "transform 0.3s ease" }}>
+                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(100% + ${viewerDelta}px))`, transition: viewerDragging ? "none" : "transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)" }}>
                       {isVideo(next.dataUrl, next.media_type)
                         ? <video key={next.id} src={next.dataUrl} poster={next.thumbnail_url || (videoPosters[next.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                         : <img src={next.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
@@ -4616,6 +4652,67 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* ── USED MEDIA VIEWER ── */}
+      {usedViewerItem && (() => {
+        const uItem = mediaItems.find(m => m.id === usedViewerItem.id) ?? usedViewerItem;
+        const dateStr = uItem.createdAt ? new Date(uItem.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : "";
+        return (
+          <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+            {/* Top bar */}
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-10 pb-3">
+              <div className="flex items-center gap-2">
+                {uItem.tag && (
+                  <span className={`text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 leading-none flex items-center gap-1 ${tagColor(uItem.tag, appSettings.customTags)}`}>
+                    {tagIcon(uItem.tag)} {tagLabel(uItem.tag)}
+                  </span>
+                )}
+                {dateStr && <span className="text-white/50 text-xs bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">{dateStr}</span>}
+              </div>
+              <button onClick={() => { setUsedViewerItem(null); setUsedViewerPost(null); setUsedViewerRemoveConfirm(false); }}
+                className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none">✕</button>
+            </div>
+
+            {/* Media */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 pt-20 pb-6">
+              <div className="w-full max-w-sm rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
+                {isVideo(uItem.dataUrl, uItem.media_type) ? (
+                  <video key={uItem.id} src={uItem.dataUrl} poster={uItem.thumbnail_url || (videoPosters[uItem.id] ?? undefined)}
+                    autoPlay muted loop playsInline preload="auto" controls controlsList="nodownload nofullscreen"
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                ) : (
+                  <img src={uItem.dataUrl} alt={uItem.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                )}
+              </div>
+
+              {/* Action */}
+              <div className="w-full max-w-sm">
+                {usedViewerPost ? (
+                  !usedViewerRemoveConfirm ? (
+                    <button onClick={() => setUsedViewerRemoveConfirm(true)}
+                      className="w-full py-3 rounded-xl border border-red-500/50 text-red-400 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-red-500/10 transition-colors active:opacity-70">
+                      <Trash2 className="w-4 h-4" /> Remove from Post
+                    </button>
+                  ) : (
+                    <div className="bg-[hsl(220,14%,12%)] rounded-xl p-4 border border-[hsl(220,13%,22%)]">
+                      <p className="text-sm font-semibold text-center mb-1">Remove from post?</p>
+                      <p className={`text-xs ${dimText} text-center mb-4`}>The media stays in your pool.</p>
+                      <div className="flex gap-2">
+                        <button onClick={() => setUsedViewerRemoveConfirm(false)}
+                          className={`flex-1 py-2.5 rounded-xl border ${border} ${dimText} text-sm font-medium`}>Cancel</button>
+                        <button onClick={handleRemoveFromPost}
+                          className="flex-1 py-2.5 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 text-sm font-semibold">Remove from Post</button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <p className={`text-xs ${dimText} text-center`}>This item is marked as used but not linked to a post.</p>
+                )}
+              </div>
+            </div>
           </div>
         );
       })()}
