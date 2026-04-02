@@ -838,7 +838,7 @@ app.post("/api/upload", requireAuth, async (req, res) => {
 
 // ── AI — Image Auto-Tag ───────────────────────────────────────────────────────
 
-const VALID_TAGS = ["me", "outfit", "food", "drinks", "dj", "vibe", "friends", "location", "outdoor", "night", "pet", "animal", "other"];
+const VALID_TAGS = ["me", "outfit", "food", "drinks", "dj", "vibe", "friends", "location", "city", "outdoor", "night", "pet", "animal", "other"];
 
 app.post("/api/analyze", requireAuth, async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
