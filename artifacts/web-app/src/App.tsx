@@ -4376,11 +4376,15 @@ export default function App() {
                   <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
                     <video
                       src={viewerItem.dataUrl}
+                      poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
                       className="w-full h-full object-cover"
-                      controls
-                      controlsList="nodownload"
                       autoPlay
+                      muted
+                      loop
                       playsInline
+                      preload="auto"
+                      controls
+                      controlsList="nodownload nofullscreen"
                       style={{ display: "block" }}
                     />
                   </div>
