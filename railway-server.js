@@ -21,8 +21,8 @@ app.use(cors({
   credentials: true,
 }));
 app.options("*", cors());
-app.use(express.json({ limit: "150mb" }));
-app.use(express.urlencoded({ extended: true, limit: "150mb" }));
+app.use(express.json({ limit: "500mb" }));
+app.use(express.urlencoded({ extended: true, limit: "500mb" }));
 
 // ── Supabase admin client (for auth token verification) ─────────────────────
 
