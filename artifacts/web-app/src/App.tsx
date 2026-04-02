@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
@@ -17,7 +17,7 @@ const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_TAG_LABELS: Record<string, string> = {
   me: "Me", outfit: "Outfit", food: "Food", drinks: "Drinks", dj: "DJ", vibe: "Vibe",
-  friends: "Friends", location: "Location", outdoor: "Outdoor", night: "Night",
+  friends: "Friends", location: "Location", city: "City", outdoor: "Outdoor", night: "Night",
   pet: "Pet", animal: "Animal", other: "Other",
 };
 const BASE_TAG_COLORS: Record<string, string> = {
@@ -29,6 +29,7 @@ const BASE_TAG_COLORS: Record<string, string> = {
   vibe: "bg-sky-500/20 text-sky-300 border-sky-500/30",
   friends: "bg-green-500/20 text-green-300 border-green-500/30",
   location: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+  city: "bg-blue-500/20 text-blue-300 border-blue-500/30",
   outdoor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
   night: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
   pet: "bg-rose-500/20 text-rose-300 border-rose-500/30",
@@ -37,7 +38,7 @@ const BASE_TAG_COLORS: Record<string, string> = {
 };
 const BASE_TAG_ICONS: Record<string, string> = {
   me: "🧍", outfit: "👗", food: "🍽️", drinks: "🍹", dj: "🎧", vibe: "✨",
-  friends: "👥", location: "📍", outdoor: "🌿", night: "🌙",
+  friends: "👥", location: "📍", city: "🏙️", outdoor: "🌿", night: "🌙",
   pet: "🐾", animal: "🦋", other: "📷",
 };
 const BASE_TAGS = Object.keys(BASE_TAG_LABELS);
@@ -1029,6 +1030,8 @@ export default function App() {
   // Fix 3: Video poster frames (mediaId → data URL) and which video is playing
   const [videoPosters, setVideoPosters] = useState<Record<string, string>>({});
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const [viewerControlsVisible, setViewerControlsVisible] = useState(true);
+  const viewerControlsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Bulk selection (pool)
   const [bulkMode, setBulkMode] = useState(false);
@@ -1355,6 +1358,16 @@ export default function App() {
     mediaItems.forEach((m) => { if (m.thumbnail_url && !videoPosters[m.id]) toSync[m.id] = m.thumbnail_url; });
     if (Object.keys(toSync).length > 0) setVideoPosters((prev) => ({ ...prev, ...toSync }));
   }, [mediaItems]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-play videos when carousel slide changes
+  useEffect(() => {
+    const slide = carouselIds[carouselIndex] ? mediaItems.find((m) => m.id === carouselIds[carouselIndex]) : null;
+    if (slide && isVideo(slide.dataUrl, slide.media_type)) {
+      setPlayingVideoId(slide.id);
+    } else {
+      setPlayingVideoId(null);
+    }
+  }, [carouselIndex, carouselIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function check() {
@@ -2833,7 +2846,7 @@ export default function App() {
                         <div className="grid grid-cols-4 gap-1.5">
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75">
-                              {isVideo(item.dataUrl) ? <video src={item.dataUrl} className="w-full h-full object-cover" preload="none" /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                              {isVideo(item.dataUrl, item.media_type) ? <>{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                               {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="text-[hsl(263,70%,65%)]">💎</span>}</span>}
                             </div>
                           ))}
@@ -3111,15 +3124,18 @@ export default function App() {
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
                                   <span className={`text-xs ${dimText}`}>{post.slideCount === 1 ? "Single" : `${post.slideCount} slides`}</span>
                                 </div>
-                                {/* Row 2: tags + scheduled time — own breathing row */}
-                                {(post.tagsSummary || post.scheduledTime) && (
-                                  <div className="flex items-center justify-between gap-2">
-                                    {post.tagsSummary ? <span className="text-base leading-none">{post.tagsSummary}</span> : <span />}
-                                    {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)] flex-shrink-0">🕐 {post.scheduledTime}</span>}
+                                {/* Row 2: tags + video pill + scheduled time */}
+                                {(post.tagsSummary || post.scheduledTime || post.mediaIds?.some((id) => { const m = mediaItems.find((x) => x.id === id); return m && isVideo(m.dataUrl, m.media_type); })) && (
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {post.tagsSummary ? <span className="text-base leading-none">{post.tagsSummary}</span> : null}
+                                    {post.mediaIds?.some((id) => { const m = mediaItems.find((x) => x.id === id); return m && isVideo(m.dataUrl, m.media_type); }) && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(220,14%,22%)] text-white/70 border border-[hsl(220,13%,30%)]">▶ Video</span>
+                                    )}
+                                    {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)] flex-shrink-0 ml-auto">🕐 {post.scheduledTime}</span>}
                                   </div>
                                 )}
                                 {/* Row 3: caption */}
-                                {post.caption && <p className={`text-xs ${dimText} line-clamp-2 leading-relaxed`}>{post.caption}</p>}
+                                {post.caption && <p className={`text-xs ${dimText} leading-relaxed`}>{post.caption}</p>}
                                 {/* Row 4: status badge + edit/delete */}
                                 <div className="flex items-center justify-between pt-0.5">
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
@@ -3413,9 +3429,11 @@ export default function App() {
             <div className={`${card} overflow-hidden`}>
               {/* 4:5 viewer */}
               <div className="relative overflow-hidden rounded-t-xl" style={{ aspectRatio: "4/5" }}>
-                {brokenImages.has(singlePostItem.id)
-                  ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
-                  : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
+                {isVideo(singlePostItem.dataUrl, singlePostItem.media_type)
+                  ? <video src={singlePostItem.dataUrl} className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                  : brokenImages.has(singlePostItem.id)
+                    ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
+                    : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
                 {singlePostItem.tag && (
                   <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm flex items-center gap-1 ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
                     {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}{plan === "free" && singlePostItem.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}
@@ -3729,13 +3747,16 @@ export default function App() {
                                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
                                     <span className={`text-xs ${dimText}`}>{post.slideCount} slide{post.slideCount !== 1 ? "s" : ""}</span>
                                     {post.tagsSummary && <span className="text-sm leading-none">{post.tagsSummary}</span>}
+                                    {post.mediaIds?.some((id) => { const m = mediaItems.find((x) => x.id === id); return m && isVideo(m.dataUrl, m.media_type); }) && (
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(220,14%,22%)] text-white/70 border border-[hsl(220,13%,30%)]">▶ Video</span>
+                                    )}
                                   </div>
                                   <div className="text-right flex-shrink-0">
                                     <div className={`text-xs ${dimText}`}>{formatDayShort(post.scheduledDate ?? post.day)}</div>
                                     {post.scheduledTime && <div className="text-[10px] text-[hsl(220,10%,40%)]">🕐 {post.scheduledTime}</div>}
                                   </div>
                                 </div>
-                                {post.caption && <p className="text-sm text-[hsl(220,10%,75%)] leading-relaxed line-clamp-2">{post.caption}</p>}
+                                {post.caption && <p className="text-sm text-[hsl(220,10%,75%)] leading-relaxed">{post.caption}</p>}
                                 <div className="flex items-center justify-between pt-0.5">
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
                                     {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
@@ -4243,20 +4264,29 @@ export default function App() {
               setBulkSelectedIds(poolItems.map((m) => m.id));
             }} className={`text-xs ${dimText} hover:text-white`}>Select All</button>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             <button onClick={() => { if (bulkSelectedIds.length > 0) setFolderPickerOpen(true); }}
               disabled={bulkSelectedIds.length === 0}
               className={`py-2.5 rounded-xl border ${border} text-xs font-medium flex flex-col items-center gap-1 ${dimText} hover:bg-[hsl(220,14%,18%)] disabled:opacity-40 transition-colors`}>
-              <span className="text-base">📁</span>Add to Folder
+              <FolderPlus className="w-5 h-5" />Folder
             </button>
             <button onClick={handleBulkCreatePost} disabled={bulkSelectedIds.length === 0}
               className={`py-2.5 rounded-xl bg-[hsl(263,70%,65%)/15] border border-[hsl(263,70%,65%)/30] text-xs font-medium flex flex-col items-center gap-1 text-[hsl(263,70%,75%)] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40 transition-colors`}>
-              <span className="text-base">📸</span>
-              {bulkSelectedIds.length === 1 ? "Single Post" : bulkSelectedIds.length >= 2 ? "Carousel" : "Create Post"}
+              <LayoutTemplate className="w-5 h-5" />
+              {bulkSelectedIds.length === 1 ? "Single" : bulkSelectedIds.length >= 2 ? "Carousel" : "Post"}
+            </button>
+            <button
+              onClick={async () => {
+                if (bulkSelectedIds.length === 0) return;
+                await Promise.all(bulkSelectedIds.map((id) => toggleFavorite(id)));
+              }}
+              disabled={bulkSelectedIds.length === 0}
+              className={`py-2.5 rounded-xl border ${border} text-xs font-medium flex flex-col items-center gap-1 ${dimText} hover:bg-[hsl(220,14%,18%)] disabled:opacity-40 transition-colors`}>
+              <Heart className="w-5 h-5" />Favourite
             </button>
             <button onClick={handleBulkDelete} disabled={bulkSelectedIds.length === 0}
               className="py-2.5 rounded-xl border border-red-500/20 text-xs font-medium flex flex-col items-center gap-1 text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors">
-              <span className="text-base">🗑</span>Delete
+              <Trash2 className="w-5 h-5" />Delete
             </button>
           </div>
         </div>
@@ -4293,14 +4323,29 @@ export default function App() {
               {/* Image / Video — with tag badge overlaid top-left */}
               <div className="w-full max-w-sm relative" onClick={(e) => e.stopPropagation()}>
                 {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
-                  <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
+                  <div className="w-full rounded-xl overflow-hidden relative" style={{ aspectRatio: "4/5" }}
+                    onClick={() => {
+                      setViewerControlsVisible(true);
+                      if (viewerControlsTimerRef.current) clearTimeout(viewerControlsTimerRef.current);
+                      viewerControlsTimerRef.current = setTimeout(() => setViewerControlsVisible(false), 2000);
+                    }}>
                     <video
                       ref={(el) => { (viewerVideoRef as any).current = el; }}
                       src={viewerItem.dataUrl}
                       className="w-full h-full object-cover"
-                      controls autoPlay playsInline
+                      autoPlay playsInline
                       style={{ display: "block" }}
+                      onPlay={() => { if (viewerControlsTimerRef.current) clearTimeout(viewerControlsTimerRef.current); viewerControlsTimerRef.current = setTimeout(() => setViewerControlsVisible(false), 2000); }}
                     />
+                    {viewerControlsVisible && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); const v = (viewerVideoRef as any).current; if (v) { if (v.paused) v.play(); else v.pause(); } }}
+                          className="w-14 h-14 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-white">
+                          <Play className="w-6 h-6 fill-white stroke-none ml-1" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
@@ -4312,15 +4357,17 @@ export default function App() {
                     />
                   </div>
                 )}
-                {/* Tag badge — top-left overlay on image */}
+                {/* Tag badge — top-left overlay (always shows content tag) */}
                 {viewerItem.tag && (
-                  isVideo(viewerItem.dataUrl, viewerItem.media_type)
-                    ? <span className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 leading-none">🎥 Video</span>
-                    : <button
-                        onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
-                        className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none">
-                        {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
-                      </button>
+                  <button
+                    onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
+                    className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none flex items-center gap-1">
+                    {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
+                  </button>
+                )}
+                {/* Small ▶ media-type indicator — top-right for videos */}
+                {isVideo(viewerItem.dataUrl, viewerItem.media_type) && (
+                  <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-white/80 border border-white/15 leading-none">▶</span>
                 )}
               </div>
 
