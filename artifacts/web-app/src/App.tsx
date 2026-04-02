@@ -1087,6 +1087,10 @@ export default function App() {
   const [viewerItem, setViewerItem] = useState<MediaItem | null>(null);
   const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
   const viewerVideoRef = useRef<HTMLVideoElement>(null);
+  const [viewerDelta, setViewerDelta] = useState(0);
+  const [viewerDragging, setViewerDragging] = useState(false);
+  const [swipeHintVisible, setSwipeHintVisible] = useState(false);
+  const viewerSwipeStartX = useRef<number | null>(null);
 
   // Edit-from tracking (Fix 8)
   const [editingFrom, setEditingFrom] = useState<"calendar" | "used">("calendar");
@@ -1450,6 +1454,15 @@ export default function App() {
   }, [mediaItems, activeFilters, filterFavoritesOnly, poolSort, usedFilter, folderItemIds]);
 
   const tagsInActivePool = allAvailableTags;
+
+  // Viewer swipe navigation list
+  const [viewerNavList, viewerNavIdx] = useMemo((): [MediaItem[], number] => {
+    if (!viewerItem) return [[], -1];
+    const idx = filteredSortedMedia.findIndex(m => m.id === viewerItem.id);
+    if (idx >= 0) return [filteredSortedMedia, idx];
+    const idx2 = mediaItems.findIndex(m => m.id === viewerItem.id);
+    return [mediaItems, idx2];
+  }, [viewerItem, filteredSortedMedia, mediaItems]);
 
   // Used tab groups
   const usedGroupedByPost = useMemo(() => {
@@ -2009,6 +2022,50 @@ export default function App() {
     setScheduleTime(post.scheduledTime ?? nowTimeStr());
     setCalendarDaySelected(null);
     setScreen("carousel"); setTodayBuildMode(true);
+  }
+
+  // ── Viewer swipe navigation ──
+  useEffect(() => {
+    if (viewerItem && !sessionStorage.getItem("swipeHintShown")) {
+      setSwipeHintVisible(true);
+      sessionStorage.setItem("swipeHintShown", "1");
+      const t = setTimeout(() => setSwipeHintVisible(false), 2000);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!viewerItem]);
+
+  function viewerGoNext() {
+    if (viewerNavList.length === 0) return;
+    const next = viewerNavList[(viewerNavIdx + 1) % viewerNavList.length];
+    setViewerItem(next);
+    setViewerDelta(0);
+    setViewerDragging(false);
+    viewerSwipeStartX.current = null;
+  }
+  function viewerGoPrev() {
+    if (viewerNavList.length === 0) return;
+    const prev = viewerNavList[(viewerNavIdx - 1 + viewerNavList.length) % viewerNavList.length];
+    setViewerItem(prev);
+    setViewerDelta(0);
+    setViewerDragging(false);
+    viewerSwipeStartX.current = null;
+  }
+  function onViewerDragStart(clientX: number) {
+    viewerSwipeStartX.current = clientX;
+    setViewerDragging(true);
+  }
+  function onViewerDragMove(clientX: number) {
+    if (viewerSwipeStartX.current === null) return;
+    setViewerDelta(clientX - viewerSwipeStartX.current);
+  }
+  function onViewerDragEnd() {
+    if (viewerSwipeStartX.current === null) return;
+    if (viewerDelta > 80) viewerGoPrev();
+    else if (viewerDelta < -80) viewerGoNext();
+    else setViewerDelta(0);
+    setViewerDragging(false);
+    viewerSwipeStartX.current = null;
   }
 
   // ── Single post ──
@@ -4384,22 +4441,52 @@ export default function App() {
                   {timeStr && <span className="text-white/50 text-xs">{timeStr}</span>}
                 </div>
               ) : <div />}
-              <button onClick={() => setViewerItem(null)}
-                className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
-                ✕
-              </button>
+              <div className="flex items-center gap-2">
+                {viewerNavList.length > 1 && (
+                  <span className="text-white/60 text-xs bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 tabular-nums">
+                    {viewerNavIdx + 1} / {viewerNavList.length}
+                  </span>
+                )}
+                <button onClick={() => setViewerItem(null)}
+                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Main scrollable area — tap dark background to close */}
             <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => setViewerItem(null)}>
-              {/* Image / Video — with tag badge overlaid top-left */}
-              <div className="w-full max-w-sm relative" onClick={(e) => e.stopPropagation()}>
-                {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
-                  <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
+              {/* Swipeable media container */}
+              <div
+                className="w-full max-w-sm relative overflow-hidden rounded-xl"
+                style={{ aspectRatio: "4/5", cursor: viewerDragging ? "grabbing" : "grab", touchAction: "pan-y" }}
+                onClick={(e) => e.stopPropagation()}
+                onTouchStart={(e) => onViewerDragStart(e.touches[0].clientX)}
+                onTouchMove={(e) => onViewerDragMove(e.touches[0].clientX)}
+                onTouchEnd={onViewerDragEnd}
+                onMouseDown={(e) => onViewerDragStart(e.clientX)}
+                onMouseMove={(e) => viewerDragging && onViewerDragMove(e.clientX)}
+                onMouseUp={onViewerDragEnd}
+                onMouseLeave={onViewerDragEnd}
+              >
+                {/* Previous media — peeks in from left while dragging right */}
+                {viewerNavIdx > 0 && (() => {
+                  const prev = viewerNavList[viewerNavIdx - 1];
+                  return (
+                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(-100% + ${viewerDelta / 3}px))`, transition: viewerDragging ? "none" : "transform 0.3s ease" }}>
+                      {isVideo(prev.dataUrl, prev.media_type)
+                        ? <video key={prev.id} src={prev.dataUrl} poster={prev.thumbnail_url || (videoPosters[prev.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        : <img src={prev.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                    </div>
+                  );
+                })()}
+                {/* Current media */}
+                <div style={{ position: "absolute", inset: 0, transform: `translateX(${viewerDelta}px)`, transition: viewerDragging ? "none" : "transform 0.3s ease" }}>
+                  {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                     <video
+                      key={viewerItem.id}
                       src={viewerItem.dataUrl}
                       poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                      className="w-full h-full object-cover"
                       autoPlay
                       muted
                       loop
@@ -4407,30 +4494,45 @@ export default function App() {
                       preload="auto"
                       controls
                       controlsList="nodownload nofullscreen"
-                      style={{ display: "block" }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
-                  </div>
-                ) : (
-                  <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
+                  ) : (
                     <img
                       src={viewerItem.dataUrl}
                       alt={viewerItem.name}
-                      className="w-full h-full object-cover"
-                      style={{ display: "block" }}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
-                  </div>
-                )}
-                {/* Tag badge — top-left overlay (always shows content tag) */}
+                  )}
+                </div>
+                {/* Next media — peeks in from right while dragging left */}
+                {viewerNavIdx < viewerNavList.length - 1 && (() => {
+                  const next = viewerNavList[viewerNavIdx + 1];
+                  return (
+                    <div style={{ position: "absolute", inset: 0, transform: `translateX(calc(100% + ${viewerDelta / 3}px))`, transition: viewerDragging ? "none" : "transform 0.3s ease" }}>
+                      {isVideo(next.dataUrl, next.media_type)
+                        ? <video key={next.id} src={next.dataUrl} poster={next.thumbnail_url || (videoPosters[next.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                        : <img src={next.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+                    </div>
+                  );
+                })()}
+                {/* Tag badge — top-left overlay */}
                 {viewerItem.tag && (
                   <button
-                    onClick={() => { const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
-                    className="absolute top-2 left-2 text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none flex items-center gap-1">
+                    style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
+                    onClick={(e) => { e.stopPropagation(); const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none flex items-center gap-1">
                     {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
                   </button>
                 )}
-                {/* Small ▶ media-type indicator — top-right for videos */}
+                {/* ▶ badge for videos */}
                 {isVideo(viewerItem.dataUrl, viewerItem.media_type) && (
-                  <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-white/80 border border-white/15 leading-none">▶</span>
+                  <span style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }} className="text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-white/80 border border-white/15 leading-none">▶</span>
+                )}
+                {/* Swipe hint */}
+                {swipeHintVisible && viewerNavList.length > 1 && (
+                  <div style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", zIndex: 10, animation: "fadeOut 2s ease forwards" }}>
+                    <span className="text-xs text-white/80 bg-black/60 backdrop-blur-sm rounded-full px-3 py-1 whitespace-nowrap">← swipe to browse →</span>
+                  </div>
                 )}
               </div>
 
