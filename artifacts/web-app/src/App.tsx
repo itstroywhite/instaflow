@@ -1132,7 +1132,7 @@ export default function App() {
   const [profileBillingPeriod, setProfileBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
-  const [profileSubpage, setProfileSubpage] = useState<null | "profile" | "usage" | "billing" | "account">(null);
+  const [profileSubpage, setProfileSubpage] = useState<null | "profile" | "usage" | "billing" | "account" | "preferences">(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
@@ -2548,10 +2548,10 @@ export default function App() {
       <nav className={`border-b ${border} px-4 py-3 flex items-center justify-between sticky top-0 z-20 bg-[hsl(220,14%,8%)]`}>
         <span className="text-base font-bold tracking-tight">📱 InstaFlow</span>
         <div className="flex items-center gap-1">
-          {(["pool", "carousel", "calendar", "settings"] as Screen[]).map((s) => (
+          {(["pool", "carousel", "calendar"] as Screen[]).map((s) => (
             <button key={s} onClick={() => goToScreen(s)}
               className={`relative px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${screen === s ? activeNavCls : `${dimText} hover:text-[hsl(220,10%,80%)] hover:bg-[hsl(220,14%,14%)]`}`}>
-              {s === "pool" ? "🗂 Pool" : s === "carousel" ? "📸 Today" : s === "calendar" ? "📅 Cal" : "⚙️"}
+              {s === "pool" ? "🗂 Pool" : s === "carousel" ? "📸 Today" : "📅 Cal"}
             </button>
           ))}
           {/* Avatar / Profile button */}
@@ -4183,7 +4183,7 @@ export default function App() {
                 <button
                   onClick={plan === "free" ? () => openProGate("Post Safety — Prevent duplicate media") : () => setPreventDuplicates((v) => !v)}
                   className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,25%)]"}`}>
-                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0.5"}`} />
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0"}`} />
                 </button>
               </div>
             </div>
@@ -5271,7 +5271,8 @@ export default function App() {
                 { icon: "📊", label: "Usage Overview", sub: "usage" as const },
                 { icon: "💳", label: "Plan & Billing", sub: "billing" as const },
                 { icon: "⚙️", label: "Account Settings", sub: "account" as const },
-              ] as { icon: string; label: string; sub: "profile" | "usage" | "billing" | "account" }[]).map(({ icon, label, sub }) => (
+                { icon: "🎨", label: "Preferences", sub: "preferences" as const },
+              ] as { icon: string; label: string; sub: "profile" | "usage" | "billing" | "account" | "preferences" }[]).map(({ icon, label, sub }) => (
                 <button key={sub} onClick={() => { setProfileDrawerOpen(false); setProfileSubpage(sub); }}
                   className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[hsl(220,14%,16%)] transition-colors">
                   <span className="text-base">{icon}</span>
@@ -5304,6 +5305,7 @@ export default function App() {
               {profileSubpage === "profile" ? "Profile"
                 : profileSubpage === "usage" ? "Usage Overview"
                 : profileSubpage === "billing" ? "Plan & Billing"
+                : profileSubpage === "preferences" ? "Preferences"
                 : "Account Settings"}
             </span>
           </div>
@@ -5608,6 +5610,300 @@ export default function App() {
                   className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
                   Sign Out
                 </button>
+              </div>
+            )}
+
+            {/* ── PREFERENCES subpage ── */}
+            {profileSubpage === "preferences" && (
+              <div className="px-4 pt-6 space-y-5">
+
+                {/* Caption Settings */}
+                <div className={`${card} p-5 space-y-4`}>
+                  <p className="text-sm font-semibold">✍️ Caption Settings</p>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className={`text-xs font-medium ${dimText} flex items-center gap-1`}>Caption Prompt{plan === "free" && <DiamondBadge />}</label>
+                      <button onClick={() => { if (plan === "free") { openProGate("Caption prompt"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: DEFAULT_CAPTION_PROMPT } })); }}
+                        className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>↺ Reset</button>
+                    </div>
+                    <textarea
+                      rows={5}
+                      readOnly={plan === "free"}
+                      onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
+                      value={appSettings.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
+                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
+                      className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
+                    />
+                    <p className={`text-[10px] ${dimText} mt-1`}>Base instruction sent to the AI for every caption.</p>
+                  </div>
+
+                  <div>
+                    <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Tone{plan === "free" && <DiamondBadge />}</p>
+                    <input value={appSettings.captionSettings.tone}
+                      readOnly={plan === "free"}
+                      onClick={plan === "free" ? () => openProGate("Caption tone") : undefined}
+                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } })); }}
+                      placeholder="e.g. cool, modern, lowercase" className={`w-full ${inputCls} mb-2 ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
+                    <div className="flex flex-wrap gap-1.5">
+                      {SUGGESTED_TONES.map((t) => {
+                        const active = appSettings.captionSettings.tone.includes(t);
+                        return <button key={t}
+                          disabled={plan === "free"}
+                          onClick={plan === "free" ? () => openProGate("Caption tone") : () => setAppSettings((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
+                          className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Preferred hashtags{plan === "free" && <DiamondBadge />}</p>
+                    <div className="flex gap-2 mb-2" onClick={plan === "free" ? () => openProGate("Preferred hashtags") : undefined}>
+                      <input value={newHashtagInput}
+                        readOnly={plan === "free"}
+                        onChange={(e) => { if (plan === "free") return; setNewHashtagInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "")); }}
+                        onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                        placeholder="Add hashtag…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
+                      <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                        className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white">Add</button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mb-2">
+                      {SUGGESTED_HASHTAGS.filter((h) => !appSettings.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
+                        <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
+                          className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>+ #{h}</button>
+                      ))}
+                    </div>
+                    {appSettings.captionSettings.hashtags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {appSettings.captionSettings.hashtags.map((h) => (
+                          <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] flex items-center gap-1">
+                            #{h}
+                            <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
+                              className="text-[hsl(263,70%,50%)] hover:text-red-400 text-[10px]">✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
+                    <textarea
+                      rows={2}
+                      readOnly={plan === "free"}
+                      onClick={plan === "free" ? () => openProGate("Additional caption instructions") : undefined}
+                      value={appSettings.captionSettings.customInstructions ?? ""}
+                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
+                      placeholder="e.g. Always mention the city. Avoid the word 'journey'."
+                      className={`w-full ${inputCls} resize-none ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
+                    />
+                  </div>
+                </div>
+
+                {/* Carousel Preferences */}
+                <div className={`${card} p-5 space-y-5`}>
+                  <div>
+                    <p className="text-sm font-semibold">🎠 Carousel Preferences</p>
+                    <p className={`text-xs ${dimText} mt-0.5`}>Control how the AI generates and orders carousel slides.</p>
+                  </div>
+
+                  <div>
+                    <p className={`text-xs font-medium ${dimText} mb-2`}>Slide count</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {(["random", 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20] as const).map((opt) => {
+                        const val: number | "random" = opt;
+                        const active = appSettings.carouselSize === val;
+                        return (
+                          <button key={String(opt)}
+                            onClick={() => setAppSettings((s) => ({ ...s, carouselSize: val }))}
+                            className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium ${active ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)] text-white" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                            {opt === "random" ? "🎲 Random" : String(opt)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {appSettings.carouselSize === "random" && (
+                      <p className={`text-[10px] ${dimText} mt-1`}>AI picks 2–12 slides based on available media.</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className={`text-xs font-medium ${dimText} mb-2`}>Slide order{plan === "free" && <DiamondBadge />}</p>
+                    <div className="space-y-2" onClick={plan === "free" ? () => openProGate("Slide order") : undefined}>
+                      {([
+                        { rule: "tag-sequence" as const, icon: "🔢", label: "Follow tag sequence", desc: "Define the exact order by tag" },
+                        { rule: "ai-free" as const, icon: "🤖", label: "AI chooses freely", desc: "AI picks the best order" },
+                      ]).map(({ rule, icon, label, desc }) => {
+                        const active = appSettings.slideOrderRule === rule;
+                        return (
+                          <button key={rule}
+                            disabled={plan === "free"}
+                            onClick={plan === "free" ? undefined : () => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
+                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
+                              {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
+                            </div>
+                            <span className="text-sm">{icon}</span>
+                            <div>
+                              <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
+                              <p className={`text-[10px] ${dimText}`}>{desc}</p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {appSettings.slideOrderRule === "tag-sequence" && plan !== "free" && (
+                      <div className="mt-3 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
+                        <p className={`text-[10px] font-medium ${dimText}`}>Drag tags to define order (first = first slide):</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {allAvailableTags.map((tag) => {
+                            const idx = appSettings.tagSequence.indexOf(tag);
+                            const inSeq = idx !== -1;
+                            return (
+                              <button key={tag}
+                                onClick={() => setAppSettings((s) => ({ ...s, tagSequence: inSeq ? s.tagSequence.filter((t) => t !== tag) : [...s.tagSequence, tag] }))}
+                                className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all ${inSeq ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
+                                {tagIcon(tag)} {tagLabel(tag)}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {appSettings.tagSequence.length > 0 && (
+                          <div className="flex items-center gap-2">
+                            <p className={`text-[10px] ${dimText} flex-1`}>Sequence: {appSettings.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
+                            <button onClick={() => setAppSettings((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[hsl(220,10%,35%)]">— AI prioritizes these</span>{plan === "free" && <DiamondBadge />}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {allAvailableTags.map((tag) => {
+                        const active = appSettings.preferredTags.includes(tag);
+                        return <button key={tag}
+                          disabled={plan === "free"}
+                          onClick={plan === "free" ? () => openProGate("Preferred content tags") : () => setAppSettings((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
+                          className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                          {tagIcon(tag)} {tagLabel(tag)}
+                        </button>;
+                      })}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className={`text-xs font-medium ${dimText} mb-1.5`}>Custom AI instructions <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
+                    <textarea
+                      readOnly={plan === "free"}
+                      onClick={plan === "free" ? () => openProGate("Custom AI instructions") : undefined}
+                      value={appSettings.aiCustomPreferences}
+                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
+                      rows={2}
+                      placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
+                      className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
+                    />
+                  </div>
+                </div>
+
+                {/* Tag Management */}
+                <div className={`${card} p-5 space-y-4`}>
+                  <p className="text-sm font-semibold">🏷️ Tag Management</p>
+                  <div>
+                    <p className={`text-xs ${dimText} mb-1.5`}>Add custom tag — type a word and pick an emoji{plan === "free" && <DiamondBadge />}</p>
+                    {newTagInput.trim() && plan !== "free" && (
+                      <div className="mb-2 p-2.5 rounded-xl border border-[hsl(263,70%,65%)/25] bg-[hsl(263,70%,65%)/8] flex items-center gap-3 flex-wrap">
+                        <span className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                          <span className="text-xl mr-1">{tagInputEmoji}</span>
+                          {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}
+                        </span>
+                        <div className="flex gap-1 flex-wrap">
+                          {ALT_EMOJIS.slice(0, 10).map((em) => (
+                            <button key={em} onClick={() => setTagInputEmoji(em)}
+                              className={`text-base px-1.5 py-0.5 rounded-lg transition-colors ${tagInputEmoji === em ? "bg-[hsl(263,70%,65%)/30] ring-1 ring-[hsl(263,70%,65%)]" : "hover:bg-[hsl(220,14%,18%)]"}`}>
+                              {em}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex gap-2" onClick={plan === "free" ? () => openProGate("Custom tags") : undefined}>
+                      <input value={newTagInput}
+                        readOnly={plan === "free"}
+                        onChange={(e) => { if (plan === "free") return; const val = e.target.value; setNewTagInput(val); setTagInputEmoji(suggestEmoji(val)); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" && plan !== "free") addCustomTag(); }}
+                        placeholder="e.g. Beach, Gym, Party…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-40 cursor-pointer" : ""}`} />
+                      <button onClick={() => { if (plan === "free") { openProGate("Custom tags"); return; } addCustomTag(); }} disabled={plan !== "free" && !newTagInput.trim()}
+                        className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white disabled:opacity-40">Add</button>
+                    </div>
+                    {newTagInput.trim() && plan !== "free" && (
+                      <p className={`text-[10px] ${dimText} mt-1`}>Will be saved as: <span className="text-[hsl(220,10%,70%)]">{tagInputEmoji} {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}</span></p>
+                    )}
+                  </div>
+                  <div>
+                    <p className={`text-xs ${dimText} mb-1.5`}>Active tags{plan === "free" && <DiamondBadge />}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allAvailableTags.map((tag) => (
+                        <span key={tag} className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${tagColor(tag, appSettings.customTags)}`}>
+                          {tagIcon(tag)} {tagLabel(tag)}
+                          <button onClick={() => {
+                            if (plan === "free") { openProGate("Managing active tags"); return; }
+                            BASE_TAGS.includes(tag)
+                              ? setAppSettings((s) => ({ ...s, hiddenBaseTags: [...s.hiddenBaseTags, tag] }))
+                              : setAppSettings((s) => ({ ...s, customTags: s.customTags.filter((t) => t !== tag) }));
+                          }}
+                            className="opacity-60 hover:opacity-100 hover:text-red-400 text-[10px]">✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  {appSettings.hiddenBaseTags.length > 0 && (
+                    <div>
+                      <p className={`text-xs ${dimText} mb-1.5`}>Hidden tags</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {appSettings.hiddenBaseTags.map((tag) => (
+                          <button key={tag} onClick={() => setAppSettings((s) => ({ ...s, hiddenBaseTags: s.hiddenBaseTags.filter((t) => t !== tag) }))}
+                            className={`text-xs px-2.5 py-1.5 rounded-lg border ${border} ${dimText} opacity-50 hover:opacity-100 hover:bg-[hsl(220,14%,16%)]`}>
+                            {tagIcon(tag)} {tagLabel(tag)} ↺
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Post Safety */}
+                <div className={`${card} p-5 space-y-4`}>
+                  <p className="text-sm font-semibold">🛡️ Post Safety</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                        Prevent duplicate media across posts{plan === "free" && <DiamondBadge />}
+                      </p>
+                      <p className={`text-xs ${dimText} mt-0.5 leading-relaxed`}>Avoid using the same photo or video in multiple drafts or scheduled posts</p>
+                    </div>
+                    <button
+                      onClick={plan === "free" ? () => openProGate("Post Safety — Prevent duplicate media") : () => setPreventDuplicates((v) => !v)}
+                      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,25%)]"}`}>
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Save */}
+                <div className="space-y-2">
+                  {settingsSaved && (
+                    <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
+                      <span className="text-emerald-400 text-sm font-semibold">✓ Settings saved!</span>
+                    </div>
+                  )}
+                  <button onClick={handleSaveSettings} disabled={settingsSaving}
+                    className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all ${settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"} disabled:opacity-60`}>
+                    {settingsSaving ? "Saving…" : settingsSaved ? "✓ Saved!" : "Save Preferences"}
+                  </button>
+                </div>
               </div>
             )}
           </div>
