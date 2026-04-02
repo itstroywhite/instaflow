@@ -5114,20 +5114,35 @@ export default function App() {
               </div>
               <button onClick={closeTagPicker} className={`${dimText} hover:text-white text-xl`}>✕</button>
             </div>
+            {plan === "free" && (
+              <div className="mb-4 p-3 rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8]">
+                <p className="text-xs font-semibold text-[hsl(263,70%,75%)]">💎 AI Tagging &amp; manual tag editing is a Pro feature.</p>
+                <p className={`text-xs ${dimText} mt-0.5`}>Upgrade to Pro to tag your media correctly.</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
               {allAvailableTags.map((tag) => (
                 <button key={tag}
-                  onClick={() => handleTagChange(tagPickerItem.id, tag)}
+                  disabled={plan === "free"}
+                  onClick={plan === "free" ? undefined : () => handleTagChange(tagPickerItem.id, tag)}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
-                    tagPickerItem.tag === tag
-                      ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
-                      : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
+                    plan === "free"
+                      ? `${border} opacity-40 cursor-not-allowed`
+                      : tagPickerItem.tag === tag
+                        ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
+                        : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
                   }`}>
                   <span className="text-base">{tagIcon(tag)}</span><span>{tagLabel(tag)}</span>
-                  {tagPickerItem.tag === tag && <span className="ml-auto text-xs">✓</span>}
+                  {tagPickerItem.tag === tag && plan !== "free" && <span className="ml-auto text-xs">✓</span>}
                 </button>
               ))}
             </div>
+            {plan === "free" && (
+              <button onClick={() => { closeTagPicker(); openProGate("AI Tagging & manual tag editing"); }}
+                className="mt-4 w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold">
+                Upgrade to Pro 💎
+              </button>
+            )}
           </div>
         </div>
       )}
