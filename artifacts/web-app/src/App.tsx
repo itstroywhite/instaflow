@@ -1090,6 +1090,7 @@ export default function App() {
   const [viewerDelta, setViewerDelta] = useState(0);
   const [viewerDragging, setViewerDragging] = useState(false);
   const [swipeHintVisible, setSwipeHintVisible] = useState(false);
+  const [viewerTagPickerOpen, setViewerTagPickerOpen] = useState(false);
   const viewerSwipeStartX = useRef<number | null>(null);
 
   // Edit-from tracking (Fix 8)
@@ -2041,6 +2042,7 @@ export default function App() {
     setViewerItem(next);
     setViewerDelta(0);
     setViewerDragging(false);
+    setViewerTagPickerOpen(false);
     viewerSwipeStartX.current = null;
   }
   function viewerGoPrev() {
@@ -2049,6 +2051,7 @@ export default function App() {
     setViewerItem(prev);
     setViewerDelta(0);
     setViewerDragging(false);
+    setViewerTagPickerOpen(false);
     viewerSwipeStartX.current = null;
   }
   function onViewerDragStart(clientX: number) {
@@ -2943,9 +2946,9 @@ export default function App() {
                         )}
                         <div className="grid grid-cols-4 gap-1.5">
                           {items.map((item) => (
-                            <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75">
-                              {isVideo(item.dataUrl, item.media_type) ? <>{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                              {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="text-[hsl(263,70%,65%)]">💎</span>}</span>}
+                            <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => setViewerItem(item)}>
+                              {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                              {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
                         </div>
@@ -4423,7 +4426,9 @@ export default function App() {
 
       {/* ── FULLSCREEN VIEWER — iOS Photos style ── */}
       {viewerItem && (() => {
-        const isFav = !!(mediaItems.find((m) => m.id === viewerItem.id)?.isFavorite);
+        const liveItem = mediaItems.find((m) => m.id === viewerItem.id) ?? viewerItem;
+        const liveTag = liveItem.tag;
+        const isFav = !!liveItem.isFavorite;
         const dateStr = viewerItem.createdAt
           ? new Date(viewerItem.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })
           : "";
@@ -4447,7 +4452,7 @@ export default function App() {
                     {viewerNavIdx + 1} / {viewerNavList.length}
                   </span>
                 )}
-                <button onClick={() => setViewerItem(null)}
+                <button onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}
                   className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
                   ✕
                 </button>
@@ -4455,7 +4460,7 @@ export default function App() {
             </div>
 
             {/* Main scrollable area — tap dark background to close */}
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => setViewerItem(null)}>
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-4 pt-20 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
               {/* Swipeable media container */}
               <div
                 className="w-full max-w-sm relative overflow-hidden rounded-xl"
@@ -4516,12 +4521,12 @@ export default function App() {
                   );
                 })()}
                 {/* Tag badge — top-left overlay */}
-                {viewerItem.tag && (
+                {liveTag && (
                   <button
                     style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
-                    onClick={(e) => { e.stopPropagation(); const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}
+                    onClick={(e) => { e.stopPropagation(); setViewerTagPickerOpen(true); }}
                     className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none flex items-center gap-1">
-                    {tagIcon(viewerItem.tag)} {tagLabel(viewerItem.tag)}
+                    {tagIcon(liveTag)} {tagLabel(liveTag)}
                   </button>
                 )}
                 {/* ▶ badge for videos */}
@@ -4568,11 +4573,8 @@ export default function App() {
                     <span className={`text-[10px] ${isFav ? "text-red-400" : "text-white/60"}`}>Favorite</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
-                    onClick={() => { if (plan === "free") { openProGate("AI Tagging"); return; } const item = viewerItem; setTagPickerReturnItem(item); setViewerItem(null); setTagPickerItem(item); }}>
-                    <div className="relative">
-                      <Tag className="w-5 h-5" stroke="white" fill="none" />
-                      {plan === "free" && <span className="absolute -top-1 -right-2 text-[hsl(263,70%,65%)] text-[8px]">💎</span>}
-                    </div>
+                    onClick={() => setViewerTagPickerOpen(true)}>
+                    <Tag className="w-5 h-5" stroke="white" fill="none" />
                     <span className="text-[10px] text-white/60">Tag</span>
                   </button>
                   <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
@@ -4583,6 +4585,37 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* ── Inline tag picker — slides up inside viewer, no viewer close ── */}
+            {viewerTagPickerOpen && (
+              <div className="absolute inset-0 z-50 flex flex-col justify-end" onClick={() => setViewerTagPickerOpen(false)}>
+                <div className="absolute inset-0 bg-black/50" />
+                <div className="relative bg-[hsl(220,14%,12%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <p className="text-sm font-semibold">Change tag</p>
+                    <button onClick={() => setViewerTagPickerOpen(false)} className="text-white/50 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto">
+                    {allAvailableTags.map((tag) => (
+                      <button key={tag}
+                        onClick={async () => {
+                          setViewerTagPickerOpen(false);
+                          await handleTagChange(viewerItem.id, tag);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all ${
+                          liveTag === tag
+                            ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
+                            : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
+                        }`}>
+                        <span className="text-base">{tagIcon(tag)}</span>
+                        <span>{tagLabel(tag)}</span>
+                        {liveTag === tag && <span className="ml-auto text-xs">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
