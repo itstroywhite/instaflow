@@ -882,7 +882,29 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
             source: { type: "base64", media_type: mediaType, data: base64data },
           }, {
             type: "text",
-            text: `Classify this image into exactly one of these categories: ${VALID_TAGS.join(", ")}. Reply with only the category word, nothing else.`,
+            text: `Examine this image carefully and choose exactly ONE category. Follow the STRICT RULES below — do not deviate.
+
+ABSOLUTE RULE — CHECK THIS FIRST:
+Is ANY person clearly visible as a subject in this image (selfie, portrait, mirror pic, someone posing, standing, sitting, looking at camera, or otherwise the focus)?
+- YES, exactly 1 person → ALWAYS tag "me". No exceptions. Even if indoors, at a restaurant, at a landmark, at night, holding food/drinks — if a person is the subject, it is "me".
+- YES, 2 or more people → ALWAYS tag "friends". No exceptions. Even if indoors, at a party, at a venue.
+- NO person as subject → continue to the categories below.
+
+CATEGORIES (only used when NO person is the subject):
+- "outfit" → Fashion focused: clothing flat lay or closeup of clothes/shoes/accessories with no person as focus.
+- "food" → Food is the ONLY subject: meal, plate, dessert, snacks. No person visible.
+- "drinks" → Drinks are the ONLY subject: wine, cocktails, beer, coffee. No person visible.
+- "dj" → DJ equipment: turntables, CDJs, mixer. No person as focus.
+- "city" → Outdoor urban scene: skyscrapers, city skyline, busy streets with tall buildings. No person as subject. NOT indoor.
+- "location" → A recognizable interior PLACE as subject: restaurant interior, bar/club space, museum, cafe, landmark building. No person as subject.
+- "outdoor" → Nature or outdoor scenery: hiking trail, beach, forest, park, mountains, landscape. No city buildings. No person.
+- "night" → Nighttime urban: city lights, neon signs, dark streets. No person as subject.
+- "pet" → Dog or cat as main subject. No person as subject.
+- "animal" → Any other animal. No person as subject.
+- "vibe" → Pure mood/aesthetic: decorative objects, candles, abstract textures, bokeh. Nothing else fits.
+- "other" → Anything that does not clearly fit the above.
+
+Reply with ONLY the single category word in lowercase, nothing else.`,
           }],
         }],
       }),
