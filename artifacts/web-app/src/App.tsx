@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { AlertCircle, Check, Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, Heart, LayoutTemplate, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
@@ -149,19 +149,25 @@ function captureVideoThumbnail(src: string): Promise<string> {
   return new Promise((resolve) => {
     const video = document.createElement("video");
     video.muted = true; video.playsInline = true; video.preload = "metadata";
-    video.onloadeddata = () => {
-      video.currentTime = 0;
-      video.onseeked = () => {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = 400; canvas.height = 500;
-          const ctx = canvas.getContext("2d");
-          if (ctx) { ctx.drawImage(video, 0, 0, 400, 500); resolve(canvas.toDataURL("image/jpeg", 0.8)); }
-          else resolve("");
-        } catch { resolve(""); }
-      };
+    let done = false;
+    const finish = (result: string) => { if (!done) { done = true; resolve(result); } };
+    // 8-second safety timeout so video upload never hangs
+    const timeout = setTimeout(() => finish(""), 8000);
+    const drawFrame = () => {
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = 400; canvas.height = 500;
+        const ctx = canvas.getContext("2d");
+        if (ctx) { ctx.drawImage(video, 0, 0, 400, 500); clearTimeout(timeout); finish(canvas.toDataURL("image/jpeg", 0.8)); }
+        else { clearTimeout(timeout); finish(""); }
+      } catch { clearTimeout(timeout); finish(""); }
     };
-    video.onerror = () => resolve("");
+    video.onloadedmetadata = () => {
+      video.currentTime = 0.01;
+      video.onseeked = drawFrame;
+    };
+    video.onloadeddata = drawFrame;
+    video.onerror = () => { clearTimeout(timeout); finish(""); };
     video.src = src;
   });
 }
@@ -919,7 +925,7 @@ export default function App() {
 
   const [screen, setScreen] = useState<Screen>(() => {
     const saved = localStorage.getItem(LAST_TAB_KEY) as Screen | null;
-    return (saved && ["pool","carousel","calendar","settings","profile"].includes(saved)) ? saved : "pool";
+    return (saved && ["pool","carousel","calendar","settings"].includes(saved)) ? saved : "pool";
   });
 
   // Pool controls
@@ -1125,6 +1131,8 @@ export default function App() {
   const [profilePasswordMsg, setProfilePasswordMsg] = useState<string | null>(null);
   const [profileBillingPeriod, setProfileBillingPeriod] = useState<"monthly" | "yearly">("monthly");
   const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
+  const [profileDrawerOpen, setProfileDrawerOpen] = useState(false);
+  const [profileSubpage, setProfileSubpage] = useState<null | "profile" | "usage" | "billing" | "account">(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
@@ -2547,8 +2555,8 @@ export default function App() {
             </button>
           ))}
           {/* Avatar / Profile button */}
-          <button onClick={() => goToScreen("profile")}
-            className={`w-7 h-7 rounded-full overflow-hidden flex items-center justify-center border-2 transition-all ${screen === "profile" ? "border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,26%)]"} bg-[hsl(220,14%,14%)] text-[11px] font-bold text-white ml-0.5`}>
+          <button onClick={() => { setProfileDrawerOpen(true); setPlusMenuOpen(false); }}
+            className={`w-7 h-7 rounded-full overflow-hidden flex items-center justify-center border-2 transition-all ${profileDrawerOpen || profileSubpage ? "border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,26%)]"} bg-[hsl(220,14%,14%)] text-[11px] font-bold text-white ml-0.5`}>
             {profileAvatarUrl
               ? <img src={profileAvatarUrl} className="w-full h-full object-cover" />
               : (session?.user?.email?.[0]?.toUpperCase() ?? "?")}
@@ -5223,304 +5231,389 @@ export default function App() {
         </div>
       )}
 
-      {/* ── PROFILE SCREEN ── */}
-      {screen === "profile" && (
-        <div className="flex-1 overflow-y-auto pb-10">
-          {/* Header */}
-          <div className="flex flex-col items-center pt-8 pb-6 px-4">
-            <button onClick={() => !avatarUploading && avatarInputRef.current?.click()} className="relative">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center">
-                {profileAvatarUrl
-                  ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
-                  : <span className="text-3xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
-                }
-                {avatarUploading && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full">
-                    <span className="text-white text-xs animate-pulse">⏳</span>
+      {/* ── PROFILE DRAWER ── */}
+      {profileDrawerOpen && !profileSubpage && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setProfileDrawerOpen(false)} />
+          <div className={`fixed top-0 right-0 h-full z-50 bg-[hsl(220,14%,11%)] border-l ${border} flex flex-col shadow-2xl`}
+            style={{ width: "min(280px, 100vw)" }}>
+            {/* Drawer Header */}
+            <div className={`px-5 pt-6 pb-5 border-b ${border} flex-shrink-0`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center flex-shrink-0">
+                  {profileAvatarUrl
+                    ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
+                    : <span className="text-2xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
+                  }
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-[hsl(220,10%,90%)] truncate text-sm">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
+                  <div className="flex items-center gap-1 mt-0.5 min-w-0">
+                    <p className={`text-xs ${dimText} truncate`}>{session?.user?.email}</p>
+                    {emailVerified === true
+                      ? <div className="w-3.5 h-3.5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0"><Check className="w-2 h-2 text-white" strokeWidth={3} /></div>
+                      : emailVerified === false
+                        ? <div className="w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0"><AlertCircle className="w-2 h-2 text-white" strokeWidth={3} /></div>
+                        : null}
                   </div>
-                )}
+                </div>
               </div>
-              <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">{avatarUploading ? "⏳" : "📷"}</div>
-            </button>
-            <p className="mt-4 text-lg font-semibold text-[hsl(220,10%,90%)]">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
-            <div className={`flex items-center gap-1.5 mt-0.5`}>
-              <p className={`text-sm ${dimText}`}>{session?.user?.email}</p>
-              {emailVerified === true
-                ? <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0" title="Email verified"><Check className="w-2.5 h-2.5 text-white" strokeWidth={3} /></div>
-                : emailVerified === false
-                  ? <div className="w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center flex-shrink-0" title="Email not verified"><AlertCircle className="w-2.5 h-2.5 text-white" strokeWidth={3} /></div>
-                  : null}
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${
+                plan === "agency" ? "text-amber-300 bg-amber-500/20 border-amber-500/30"
+                : plan === "pro" ? "text-purple-300 bg-purple-500/20 border-purple-500/30"
+                : "text-zinc-300 bg-zinc-500/20 border-zinc-500/30"
+              }`}>{plan === "agency" ? "AGENCY" : plan === "pro" ? "PRO" : "FREE"}</span>
             </div>
-            <span className={`mt-2 px-3 py-1 rounded-full text-xs font-semibold border ${
-              plan === "agency" ? "text-amber-300 bg-amber-500/20 border-amber-500/30"
-              : plan === "pro" ? "text-purple-300 bg-purple-500/20 border-purple-500/30"
-              : "text-zinc-300 bg-zinc-500/20 border-zinc-500/30"
-            }`}>{plan === "agency" ? "AGENCY" : plan === "pro" ? "PRO" : "FREE"}</span>
+            {/* Menu Items */}
+            <div className="flex-1 overflow-y-auto py-2">
+              {([
+                { icon: "👤", label: "Profile", sub: "profile" as const },
+                { icon: "📊", label: "Usage Overview", sub: "usage" as const },
+                { icon: "💳", label: "Plan & Billing", sub: "billing" as const },
+                { icon: "⚙️", label: "Account Settings", sub: "account" as const },
+              ] as { icon: string; label: string; sub: "profile" | "usage" | "billing" | "account" }[]).map(({ icon, label, sub }) => (
+                <button key={sub} onClick={() => { setProfileDrawerOpen(false); setProfileSubpage(sub); }}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[hsl(220,14%,16%)] transition-colors">
+                  <span className="text-base">{icon}</span>
+                  <span className="flex-1 text-sm font-medium text-[hsl(220,10%,85%)]">{label}</span>
+                  <ChevronRight className="w-4 h-4 text-[hsl(220,10%,35%)]" />
+                </button>
+              ))}
+              <div className="mx-5 my-2 border-t border-[hsl(220,13%,20%)]" />
+              <button onClick={() => supabase?.auth.signOut()}
+                className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[hsl(220,14%,16%)] transition-colors">
+                <span className="text-base">🚪</span>
+                <span className="flex-1 text-sm font-medium text-red-400">Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── PROFILE SUBPAGES ── */}
+      {profileSubpage && (
+        <div className="fixed inset-0 z-50 bg-[hsl(220,14%,8%)] flex flex-col overflow-hidden">
+          {/* Subpage top bar */}
+          <div className={`flex items-center px-4 py-3 border-b ${border} flex-shrink-0 bg-[hsl(220,14%,8%)]`}>
+            <button onClick={() => { setProfileSubpage(null); setProfileDrawerOpen(true); }}
+              className="flex items-center gap-1 text-sm text-[hsl(220,10%,55%)] hover:text-white transition-colors pr-3">
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            <span className="flex-1 text-center text-sm font-semibold text-[hsl(220,10%,90%)] pr-12">
+              {profileSubpage === "profile" ? "Profile"
+                : profileSubpage === "usage" ? "Usage Overview"
+                : profileSubpage === "billing" ? "Plan & Billing"
+                : "Account Settings"}
+            </span>
           </div>
 
-          <div className="px-4 space-y-4">
-            {/* Section 1 — Usage Overview */}
-            <div className={`${card} p-5 space-y-4`}>
-              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Usage Overview</p>
-              {[
-                { label: "Posts this month", value: monthPostCount, max: limits.maxPostsPerMonth },
-                { label: "Media in pool", value: mediaItems.length, max: limits.maxMedia },
-                { label: "Folders", value: folders.length, max: limits.maxFolders },
-                { label: "Drafts", value: approvedPosts.filter((p) => p.status === "draft").length, max: 3 },
-              ].map(({ label, value, max }) => (
-                <div key={label} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm ${dimText}`}>{label}</span>
-                    <span className="text-sm text-[hsl(220,10%,75%)]">{value} / {max === Infinity ? "∞" : max}</span>
+          <div className="flex-1 overflow-y-auto pb-10">
+            {/* ── PROFILE subpage ── */}
+            {profileSubpage === "profile" && (
+              <div className="px-4 pt-6 space-y-5">
+                <div className="flex flex-col items-center">
+                  <button onClick={() => !avatarUploading && avatarInputRef.current?.click()} className="relative">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center">
+                      {profileAvatarUrl
+                        ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
+                        : <span className="text-3xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
+                      }
+                      {avatarUploading && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full">
+                          <span className="text-white text-xs animate-pulse">⏳</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">{avatarUploading ? "⏳" : "📷"}</div>
+                  </button>
+                  <p className={`mt-2 text-xs ${dimText}`}>Tap to change photo</p>
+                </div>
+                <div className={`${card} p-5 space-y-4`}>
+                  <div className="space-y-1.5">
+                    <label className={`text-xs ${dimText}`}>Email</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm text-[hsl(220,10%,80%)]">{session?.user?.email}</span>
+                      {emailVerified === true && <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">✓ verified</span>}
+                      {emailVerified === false && <span className="text-xs text-amber-400">⚠️ not verified</span>}
+                    </div>
+                    {emailVerified === false && (
+                      <div className="space-y-2 pt-1">
+                        <p className={`text-xs ${dimText}`}>Check your inbox for a verification email.</p>
+                        <button onClick={async () => {
+                          try {
+                            await supabase?.auth.resend({ type: "signup", email: session?.user?.email ?? "" });
+                            showGlobalToast("Verification email sent!");
+                          } catch { showGlobalToast("Failed to resend — please try again"); }
+                        }} className="text-xs px-3 py-1.5 rounded-lg border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 transition-colors">
+                          Resend verification email
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  <div className="h-1.5 rounded-full bg-[hsl(220,14%,16%)] overflow-hidden">
-                    <div className="h-full rounded-full bg-[hsl(263,70%,65%)] transition-all"
-                      style={{ width: max === Infinity ? "4%" : `${Math.min(100, (value / max) * 100)}%` }} />
+                  <div className="space-y-1.5">
+                    <label className={`text-xs ${dimText}`}>Display Name</label>
+                    <div className="flex gap-2">
+                      <input value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)}
+                        placeholder="Your name"
+                        className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
+                      <button onClick={handleSaveProfile} disabled={profileSaving}
+                        className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
+                        {profileSaving ? "…" : "Save"}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
 
-            {/* Section 2 — Plan & Billing */}
-            <div className={`${card} p-5 space-y-4`}>
-              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Plan & Billing</p>
-              {/* Period toggle */}
-              <div className="flex items-center gap-2">
-                <div className={`flex rounded-lg border ${border} overflow-hidden`}>
-                  {(["monthly","yearly"] as const).map((p) => (
-                    <button key={p} onClick={() => setProfileBillingPeriod(p)}
-                      className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[hsl(263,70%,65%)] text-white" : dimText}`}>
-                      {p}
-                    </button>
+            {/* ── USAGE subpage ── */}
+            {profileSubpage === "usage" && (
+              <div className="px-4 pt-6 space-y-4">
+                <div className={`${card} p-5 space-y-4`}>
+                  {[
+                    { label: "Posts this month", value: monthPostCount, max: limits.maxPostsPerMonth },
+                    { label: "Media in pool", value: mediaItems.length, max: limits.maxMedia },
+                    { label: "Folders", value: folders.length, max: limits.maxFolders },
+                    { label: "Drafts", value: approvedPosts.filter((p) => p.status === "draft").length, max: 3 },
+                  ].map(({ label, value, max }) => (
+                    <div key={label} className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm ${dimText}`}>{label}</span>
+                        <span className="text-sm text-[hsl(220,10%,75%)]">{value} / {max === Infinity ? "∞" : max}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-[hsl(220,14%,16%)] overflow-hidden">
+                        <div className="h-full rounded-full bg-[hsl(263,70%,65%)] transition-all"
+                          style={{ width: max === Infinity ? "4%" : `${Math.min(100, (value / max) * 100)}%` }} />
+                      </div>
+                    </div>
                   ))}
                 </div>
-                {profileBillingPeriod === "yearly" && (
-                  <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Save 20%</span>
+                {plan === "free" && (
+                  <button onClick={() => setProfileSubpage("billing")}
+                    className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold">
+                    Upgrade Plan
+                  </button>
                 )}
               </div>
-              {/* Plan cards */}
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { name: "Free", key: "free", price: "€0", yearlyPrice: "€0" },
-                  { name: "Pro", key: "pro", price: "€9.99/mo", yearlyPrice: "€7.99/mo" },
-                  { name: "Agency", key: "agency", price: "€29.99/mo", yearlyPrice: "€23.99/mo" },
-                ].map((tier) => {
-                  const isCurrent = tier.key === plan;
-                  return (
-                    <div key={tier.key} className={`p-3 rounded-xl border text-center ${isCurrent ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)]`}`}>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,85%)]">{tier.name}</p>
-                      <p className={`text-[11px] mt-1 ${dimText}`}>{profileBillingPeriod === "yearly" ? tier.yearlyPrice : tier.price}</p>
-                      {isCurrent && <p className="text-[9px] mt-1.5 text-[hsl(263,70%,70%)] font-medium">Current</p>}
+            )}
+
+            {/* ── BILLING subpage ── */}
+            {profileSubpage === "billing" && (
+              <div className="px-4 pt-6 space-y-4">
+                <div className={`${card} p-5 space-y-4`}>
+                  <div className="flex items-center gap-2">
+                    <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                      {(["monthly","yearly"] as const).map((p) => (
+                        <button key={p} onClick={() => setProfileBillingPeriod(p)}
+                          className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[hsl(263,70%,65%)] text-white" : dimText}`}>
+                          {p}
+                        </button>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-              {profileBillingPeriod === "yearly" && (
-                <p className={`text-[10px] ${dimText} text-center`}>Pro billed €95.88/yr · Agency billed €287.88/yr</p>
-              )}
-              <div className={`space-y-2 text-sm ${dimText} pt-1`}>
-                <div className="flex justify-between"><span>Next billing date</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
-                <div className="flex justify-between"><span>Payment method</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
-              </div>
-              <p className={`text-xs ${dimText} text-center`}>No payments yet</p>
-              <button onClick={() => setUpgradeModalOpen(true)}
-                className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white">
-                Upgrade Plan
-              </button>
-              {plan !== "free" && (
-                <button onClick={() => showGlobalToast("Plan cancellation coming soon!")}
-                  className={`w-full py-2 rounded-xl text-sm border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
-                  Cancel Plan
-                </button>
-              )}
-            </div>
-
-            {/* Section 3 — Account Settings */}
-            <div className={`${card} p-5 space-y-4`}>
-              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Account Settings</p>
-              {/* Email + verification */}
-              <div className="space-y-1.5">
-                <label className={`text-xs ${dimText}`}>Email</label>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-sm text-[hsl(220,10%,80%)]">{session?.user?.email}</span>
-                  {emailVerified === true && (
-                    <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">✓ verified</span>
-                  )}
-                  {emailVerified === false && (
-                    <span className="text-xs text-amber-400">⚠️ not verified</span>
-                  )}
-                </div>
-                {emailVerified === false && (
-                  <div className="space-y-2 pt-1">
-                    <p className={`text-xs ${dimText}`}>Check your inbox for a verification email.</p>
-                    <button
-                      onClick={async () => {
-                        try {
-                          await supabase?.auth.resend({ type: "signup", email: session?.user?.email ?? "" });
-                          showGlobalToast("Verification email sent!");
-                        } catch { showGlobalToast("Failed to resend — please try again"); }
-                      }}
-                      className={`text-xs px-3 py-1.5 rounded-lg border border-amber-400/30 text-amber-400 hover:bg-amber-400/10 transition-colors`}>
-                      Resend verification email
-                    </button>
+                    {profileBillingPeriod === "yearly" && (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Save 20%</span>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="space-y-1.5">
-                <label className={`text-xs ${dimText}`}>Display Name</label>
-                <div className="flex gap-2">
-                  <input value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)}
-                    placeholder="Your name"
-                    className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
-                  <button onClick={handleSaveProfile} disabled={profileSaving}
-                    className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
-                    {profileSaving ? "…" : "Save"}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { name: "Free", key: "free", price: "€0", yearlyPrice: "€0" },
+                      { name: "Pro", key: "pro", price: "€9.99/mo", yearlyPrice: "€7.99/mo" },
+                      { name: "Agency", key: "agency", price: "€29.99/mo", yearlyPrice: "€23.99/mo" },
+                    ].map((tier) => {
+                      const isCurrent = tier.key === plan;
+                      return (
+                        <div key={tier.key} className={`p-3 rounded-xl border text-center ${isCurrent ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)]`}`}>
+                          <p className="text-xs font-semibold text-[hsl(220,10%,85%)]">{tier.name}</p>
+                          <p className={`text-[11px] mt-1 ${dimText}`}>{profileBillingPeriod === "yearly" ? tier.yearlyPrice : tier.price}</p>
+                          {isCurrent && <p className="text-[9px] mt-1.5 text-[hsl(263,70%,70%)] font-medium">Current</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {profileBillingPeriod === "yearly" && (
+                    <p className={`text-[10px] ${dimText} text-center`}>Pro billed €95.88/yr · Agency billed €287.88/yr</p>
+                  )}
+                  <div className={`space-y-2 text-sm ${dimText} pt-1`}>
+                    <div className="flex justify-between"><span>Next billing date</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
+                    <div className="flex justify-between"><span>Payment method</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
+                  </div>
+                  <p className={`text-xs ${dimText} text-center`}>No payments yet</p>
+                  <button onClick={() => setUpgradeModalOpen(true)}
+                    className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white">
+                    Upgrade Plan
                   </button>
+                  {plan !== "free" && (
+                    <button onClick={() => showGlobalToast("Plan cancellation coming soon!")}
+                      className={`w-full py-2 rounded-xl text-sm border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
+                      Cancel Plan
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label className={`text-xs ${dimText}`}>Instagram Username</label>
-                <div className="flex gap-2">
-                  <input value={profileInstagram} onChange={(e) => setProfileInstagram(e.target.value)}
-                    placeholder="@yourusername"
-                    className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
-                  <button onClick={handleSaveProfile} disabled={profileSaving}
-                    className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
-                    {profileSaving ? "…" : "Save"}
+            )}
+
+            {/* ── ACCOUNT SETTINGS subpage ── */}
+            {profileSubpage === "account" && (
+              <div className="px-4 pt-6 space-y-4">
+                {/* Profile info */}
+                <div className={`${card} p-5 space-y-4`}>
+                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Profile Info</p>
+                  <div className="space-y-1.5">
+                    <label className={`text-xs ${dimText}`}>Display Name</label>
+                    <div className="flex gap-2">
+                      <input value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)}
+                        placeholder="Your name"
+                        className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                      <button onClick={handleSaveProfile} disabled={profileSaving}
+                        className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
+                        {profileSaving ? "…" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={`text-xs ${dimText}`}>Instagram Username</label>
+                    <div className="flex gap-2">
+                      <input value={profileInstagram} onChange={(e) => setProfileInstagram(e.target.value)}
+                        placeholder="@yourusername"
+                        className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                      <button onClick={handleSaveProfile} disabled={profileSaving}
+                        className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
+                        {profileSaving ? "…" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                {/* Change password */}
+                <div className={`${card} p-5 space-y-3`}>
+                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Change Password</p>
+                  <input type="password" value={profileNewPassword} onChange={(e) => setProfileNewPassword(e.target.value)}
+                    placeholder="New password"
+                    className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                  <input type="password" value={profileConfirmPassword} onChange={(e) => setProfileConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                  {profilePasswordMsg && (
+                    <p className={`text-xs ${profilePasswordMsg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{profilePasswordMsg}</p>
+                  )}
+                  <button onClick={handleChangePassword} disabled={profilePasswordSaving || !profileNewPassword}
+                    className={`w-full py-2 rounded-xl border ${border} text-sm ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-50`}>
+                    {profilePasswordSaving ? "Updating…" : "Update Password"}
+                  </button>
+                  <button onClick={handleForgotPassword} className={`text-sm ${dimText} hover:text-white transition-colors`}>
+                    Send Password Reset Email →
                   </button>
                 </div>
-              </div>
-              {/* Change Password */}
-              <div className="pt-2 border-t border-[hsl(220,13%,20%)] space-y-2">
-                <p className={`text-xs ${dimText}`}>Change Password</p>
-                <input type="password" value={profileNewPassword} onChange={(e) => setProfileNewPassword(e.target.value)}
-                  placeholder="New password"
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
-                <input type="password" value={profileConfirmPassword} onChange={(e) => setProfileConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
-                {profilePasswordMsg && (
-                  <p className={`text-xs ${profilePasswordMsg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{profilePasswordMsg}</p>
-                )}
-                <button onClick={handleChangePassword} disabled={profilePasswordSaving || !profileNewPassword}
-                  className={`w-full py-2 rounded-xl border ${border} text-sm ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-50`}>
-                  {profilePasswordSaving ? "Updating…" : "Update Password"}
+                {/* Regional */}
+                <div className={`${card} p-5 space-y-4`}>
+                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Regional Settings</p>
+                  <div className="space-y-1.5">
+                    <label className={`text-xs ${dimText}`}>Language</label>
+                    <select value={profileLanguage} onChange={(e) => setProfileLanguage(e.target.value)}
+                      className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                      <option value="en">English</option>
+                      <option value="de">Deutsch</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={`text-xs ${dimText}`}>Timezone</label>
+                    <select value={profileTimezone} onChange={(e) => setProfileTimezone(e.target.value)}
+                      className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                      <optgroup label="Europe">
+                        <option value="Europe/London">Europe/London</option>
+                        <option value="Europe/Paris">Europe/Paris</option>
+                        <option value="Europe/Berlin">Europe/Berlin</option>
+                        <option value="Europe/Amsterdam">Europe/Amsterdam</option>
+                        <option value="Europe/Brussels">Europe/Brussels</option>
+                        <option value="Europe/Vienna">Europe/Vienna</option>
+                        <option value="Europe/Zurich">Europe/Zurich</option>
+                        <option value="Europe/Rome">Europe/Rome</option>
+                        <option value="Europe/Madrid">Europe/Madrid</option>
+                        <option value="Europe/Lisbon">Europe/Lisbon</option>
+                        <option value="Europe/Stockholm">Europe/Stockholm</option>
+                        <option value="Europe/Oslo">Europe/Oslo</option>
+                        <option value="Europe/Copenhagen">Europe/Copenhagen</option>
+                        <option value="Europe/Helsinki">Europe/Helsinki</option>
+                        <option value="Europe/Warsaw">Europe/Warsaw</option>
+                        <option value="Europe/Prague">Europe/Prague</option>
+                        <option value="Europe/Budapest">Europe/Budapest</option>
+                        <option value="Europe/Athens">Europe/Athens</option>
+                        <option value="Europe/Istanbul">Europe/Istanbul</option>
+                        <option value="Europe/Moscow">Europe/Moscow</option>
+                      </optgroup>
+                      <optgroup label="America">
+                        <option value="America/New_York">America/New_York</option>
+                        <option value="America/Chicago">America/Chicago</option>
+                        <option value="America/Denver">America/Denver</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles</option>
+                        <option value="America/Phoenix">America/Phoenix</option>
+                        <option value="America/Anchorage">America/Anchorage</option>
+                        <option value="America/Toronto">America/Toronto</option>
+                        <option value="America/Vancouver">America/Vancouver</option>
+                        <option value="America/Mexico_City">America/Mexico_City</option>
+                        <option value="America/Bogota">America/Bogota</option>
+                        <option value="America/Lima">America/Lima</option>
+                        <option value="America/Santiago">America/Santiago</option>
+                        <option value="America/Sao_Paulo">America/Sao_Paulo</option>
+                        <option value="America/Buenos_Aires">America/Argentina/Buenos_Aires</option>
+                      </optgroup>
+                      <optgroup label="Asia">
+                        <option value="Asia/Dubai">Asia/Dubai</option>
+                        <option value="Asia/Kolkata">Asia/Kolkata</option>
+                        <option value="Asia/Colombo">Asia/Colombo</option>
+                        <option value="Asia/Dhaka">Asia/Dhaka</option>
+                        <option value="Asia/Bangkok">Asia/Bangkok</option>
+                        <option value="Asia/Singapore">Asia/Singapore</option>
+                        <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
+                        <option value="Asia/Shanghai">Asia/Shanghai</option>
+                        <option value="Asia/Tokyo">Asia/Tokyo</option>
+                        <option value="Asia/Seoul">Asia/Seoul</option>
+                        <option value="Asia/Jerusalem">Asia/Jerusalem</option>
+                        <option value="Asia/Riyadh">Asia/Riyadh</option>
+                        <option value="Asia/Karachi">Asia/Karachi</option>
+                      </optgroup>
+                      <optgroup label="Australia / Pacific">
+                        <option value="Australia/Perth">Australia/Perth</option>
+                        <option value="Australia/Adelaide">Australia/Adelaide</option>
+                        <option value="Australia/Sydney">Australia/Sydney</option>
+                        <option value="Australia/Melbourne">Australia/Melbourne</option>
+                        <option value="Australia/Brisbane">Australia/Brisbane</option>
+                        <option value="Pacific/Auckland">Pacific/Auckland</option>
+                        <option value="Pacific/Honolulu">Pacific/Honolulu</option>
+                        <option value="Pacific/Fiji">Pacific/Fiji</option>
+                      </optgroup>
+                      <optgroup label="Africa">
+                        <option value="Africa/Cairo">Africa/Cairo</option>
+                        <option value="Africa/Johannesburg">Africa/Johannesburg</option>
+                        <option value="Africa/Lagos">Africa/Lagos</option>
+                        <option value="Africa/Nairobi">Africa/Nairobi</option>
+                        <option value="Africa/Casablanca">Africa/Casablanca</option>
+                      </optgroup>
+                    </select>
+                  </div>
+                  <button onClick={handleSaveProfile} disabled={profileSaving}
+                    className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-medium disabled:opacity-50">
+                    {profileSaving ? "Saving…" : profileSaved ? "✓ Saved!" : "Save Regional Settings"}
+                  </button>
+                </div>
+                {/* Danger zone */}
+                <div className={`${card} p-5 space-y-3`}>
+                  <p className="text-xs font-semibold text-red-400/80 uppercase tracking-wider">Danger Zone</p>
+                  <button onClick={() => setDeleteAccountConfirm(true)}
+                    className="w-full py-2.5 rounded-xl text-sm font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
+                    Delete Account
+                  </button>
+                </div>
+                <button onClick={() => supabase?.auth.signOut()}
+                  className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                  Sign Out
                 </button>
               </div>
-              {/* Forgot Password */}
-              <button onClick={handleForgotPassword} className={`text-sm ${dimText} hover:text-white transition-colors`}>
-                Send Password Reset Email →
-              </button>
-            </div>
-
-            {/* Section 4 — Regional Settings */}
-            <div className={`${card} p-5 space-y-4`}>
-              <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Regional Settings</p>
-              <div className="space-y-1.5">
-                <label className={`text-xs ${dimText}`}>Language</label>
-                <select value={profileLanguage} onChange={(e) => setProfileLanguage(e.target.value)}
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
-                  <option value="en">English</option>
-                  <option value="de">Deutsch</option>
-                </select>
-              </div>
-              <div className="space-y-1.5">
-                <label className={`text-xs ${dimText}`}>Timezone</label>
-                <select value={profileTimezone} onChange={(e) => setProfileTimezone(e.target.value)}
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
-                  <optgroup label="Europe">
-                    <option value="Europe/London">Europe/London</option>
-                    <option value="Europe/Paris">Europe/Paris</option>
-                    <option value="Europe/Berlin">Europe/Berlin</option>
-                    <option value="Europe/Amsterdam">Europe/Amsterdam</option>
-                    <option value="Europe/Brussels">Europe/Brussels</option>
-                    <option value="Europe/Vienna">Europe/Vienna</option>
-                    <option value="Europe/Zurich">Europe/Zurich</option>
-                    <option value="Europe/Rome">Europe/Rome</option>
-                    <option value="Europe/Madrid">Europe/Madrid</option>
-                    <option value="Europe/Lisbon">Europe/Lisbon</option>
-                    <option value="Europe/Stockholm">Europe/Stockholm</option>
-                    <option value="Europe/Oslo">Europe/Oslo</option>
-                    <option value="Europe/Copenhagen">Europe/Copenhagen</option>
-                    <option value="Europe/Helsinki">Europe/Helsinki</option>
-                    <option value="Europe/Warsaw">Europe/Warsaw</option>
-                    <option value="Europe/Prague">Europe/Prague</option>
-                    <option value="Europe/Budapest">Europe/Budapest</option>
-                    <option value="Europe/Athens">Europe/Athens</option>
-                    <option value="Europe/Istanbul">Europe/Istanbul</option>
-                    <option value="Europe/Moscow">Europe/Moscow</option>
-                  </optgroup>
-                  <optgroup label="America">
-                    <option value="America/New_York">America/New_York</option>
-                    <option value="America/Chicago">America/Chicago</option>
-                    <option value="America/Denver">America/Denver</option>
-                    <option value="America/Los_Angeles">America/Los_Angeles</option>
-                    <option value="America/Phoenix">America/Phoenix</option>
-                    <option value="America/Anchorage">America/Anchorage</option>
-                    <option value="America/Toronto">America/Toronto</option>
-                    <option value="America/Vancouver">America/Vancouver</option>
-                    <option value="America/Mexico_City">America/Mexico_City</option>
-                    <option value="America/Bogota">America/Bogota</option>
-                    <option value="America/Lima">America/Lima</option>
-                    <option value="America/Santiago">America/Santiago</option>
-                    <option value="America/Sao_Paulo">America/Sao_Paulo</option>
-                    <option value="America/Buenos_Aires">America/Argentina/Buenos_Aires</option>
-                  </optgroup>
-                  <optgroup label="Asia">
-                    <option value="Asia/Dubai">Asia/Dubai</option>
-                    <option value="Asia/Kolkata">Asia/Kolkata</option>
-                    <option value="Asia/Colombo">Asia/Colombo</option>
-                    <option value="Asia/Dhaka">Asia/Dhaka</option>
-                    <option value="Asia/Bangkok">Asia/Bangkok</option>
-                    <option value="Asia/Singapore">Asia/Singapore</option>
-                    <option value="Asia/Hong_Kong">Asia/Hong_Kong</option>
-                    <option value="Asia/Shanghai">Asia/Shanghai</option>
-                    <option value="Asia/Tokyo">Asia/Tokyo</option>
-                    <option value="Asia/Seoul">Asia/Seoul</option>
-                    <option value="Asia/Jerusalem">Asia/Jerusalem</option>
-                    <option value="Asia/Riyadh">Asia/Riyadh</option>
-                    <option value="Asia/Karachi">Asia/Karachi</option>
-                  </optgroup>
-                  <optgroup label="Australia / Pacific">
-                    <option value="Australia/Perth">Australia/Perth</option>
-                    <option value="Australia/Adelaide">Australia/Adelaide</option>
-                    <option value="Australia/Sydney">Australia/Sydney</option>
-                    <option value="Australia/Melbourne">Australia/Melbourne</option>
-                    <option value="Australia/Brisbane">Australia/Brisbane</option>
-                    <option value="Pacific/Auckland">Pacific/Auckland</option>
-                    <option value="Pacific/Honolulu">Pacific/Honolulu</option>
-                    <option value="Pacific/Fiji">Pacific/Fiji</option>
-                  </optgroup>
-                  <optgroup label="Africa">
-                    <option value="Africa/Cairo">Africa/Cairo</option>
-                    <option value="Africa/Johannesburg">Africa/Johannesburg</option>
-                    <option value="Africa/Lagos">Africa/Lagos</option>
-                    <option value="Africa/Nairobi">Africa/Nairobi</option>
-                    <option value="Africa/Casablanca">Africa/Casablanca</option>
-                  </optgroup>
-                </select>
-              </div>
-              <button onClick={handleSaveProfile} disabled={profileSaving}
-                className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-medium disabled:opacity-50">
-                {profileSaving ? "Saving…" : profileSaved ? "✓ Saved!" : "Save Regional Settings"}
-              </button>
-            </div>
-
-            {/* Section 5 — Danger Zone */}
-            <div className={`${card} p-5 space-y-3`}>
-              <p className="text-xs font-semibold text-red-400/80 uppercase tracking-wider">Danger Zone</p>
-              <button onClick={() => supabase?.auth.signOut()}
-                className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
-                Sign Out
-              </button>
-              <button onClick={() => setDeleteAccountConfirm(true)}
-                className="w-full py-2.5 rounded-xl text-sm font-medium border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">
-                Delete Account
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}
+
 
       {/* ── DELETE ACCOUNT CONFIRM ── */}
       {deleteAccountConfirm && (
