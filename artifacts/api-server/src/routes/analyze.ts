@@ -86,37 +86,27 @@ router.post("/analyze", async (req, res) => {
               },
               {
                 type: "text",
-                text: `Examine this image carefully and choose exactly ONE category from the list below. Use the PRIORITY ORDER when unsure.
+                text: `Examine this image carefully and choose exactly ONE category. Follow the STRICT RULES below — do not deviate.
 
-CATEGORIES:
-- "me" → A single person is the CLEAR MAIN SUBJECT: solo selfie, solo portrait, single person posing. Even if indoors, if a person is the focus → "me".
-- "friends" → Two or more people are the CLEAR MAIN SUBJECT: group photo, friends together, couple shot. Even if indoors, if people are the focus → "friends".
-- "outfit" → Fashion focused: clothing flat lay, someone modeling clothes/shoes/accessories, OOTD style post. The focus is the clothes/look.
-- "food" → Food is the main subject: meal, plate, restaurant dish, dessert, snacks.
-- "drinks" → Drinks are the main subject: wine glass, cocktails, beer, coffee. Even if a person holds them, drinks must be the FOCUS.
-- "dj" → DJ booth, turntables, CDJs, mixer, concert stage, festival performance setup.
-- "vibe" → Pure mood/aesthetic shot: decorative objects, artistic flat lay, candles, abstract textures, bokeh. No clear person or place as subject.
-- "city" → Outdoor urban scene: skyscrapers, city skyline, busy city streets with tall buildings from outside. NOT indoor venues.
-- "location" → A recognizable PLACE is the main subject, NOT a person: restaurant interior (when empty or architecture is focus), bar/club space as setting, museum interior, cafe interior, landmark building, scenic viewpoint. Use ONLY when the PLACE itself is the subject — NOT when a person is in front of it.
-- "outdoor" → Nature or outdoor scenery WITHOUT prominent city buildings: hiking trail, beach, forest, park, mountains, sunset over landscape.
-- "night" → Nighttime urban photography: city lights, light trails, neon signs, dark street scenes.
-- "pet" → Dog or cat as main subject.
-- "animal" → Any other animal (not dog/cat).
+ABSOLUTE RULE — CHECK THIS FIRST:
+Is ANY person clearly visible as a subject in this image (selfie, portrait, mirror pic, someone posing, standing, sitting, looking at camera, or otherwise the focus)?
+- YES, exactly 1 person → ALWAYS tag "me". No exceptions. Even if indoors, at a restaurant, at a landmark, at night, holding food/drinks — if a person is the subject, it is "me".
+- YES, 2 or more people → ALWAYS tag "friends". No exceptions. Even if indoors, at a party, at a venue.
+- NO person as subject → continue to the categories below.
+
+CATEGORIES (only used when NO person is the subject):
+- "outfit" → Fashion focused: clothing flat lay or closeup of clothes/shoes/accessories with no person as focus.
+- "food" → Food is the ONLY subject: meal, plate, dessert, snacks. No person visible.
+- "drinks" → Drinks are the ONLY subject: wine, cocktails, beer, coffee. No person visible.
+- "dj" → DJ equipment: turntables, CDJs, mixer. No person as focus.
+- "city" → Outdoor urban scene: skyscrapers, city skyline, busy streets with tall buildings. No person as subject. NOT indoor.
+- "location" → A recognizable interior PLACE as subject: restaurant interior, bar/club space, museum, cafe, landmark building. No person as subject.
+- "outdoor" → Nature or outdoor scenery: hiking trail, beach, forest, park, mountains, landscape. No city buildings. No person.
+- "night" → Nighttime urban: city lights, neon signs, dark streets. No person as subject.
+- "pet" → Dog or cat as main subject. No person as subject.
+- "animal" → Any other animal. No person as subject.
+- "vibe" → Pure mood/aesthetic: decorative objects, candles, abstract textures, bokeh. Nothing else fits.
 - "other" → Anything that does not clearly fit the above.
-
-PRIORITY ORDER:
-1. Is a person the clear focus? → me / friends
-2. Is fashion/clothing the focus? → outfit
-3. Is food the focus? → food
-4. Are drinks the focus? → drinks
-5. Is a DJ setup visible? → dj
-6. Is it an outdoor city scene with skyscrapers? → city
-7. Is it a recognizable PLACE (no person focus)? → location
-8. Is it nature/outdoor? → outdoor
-9. Is it nighttime urban? → night
-10. Is it a pet? → pet / animal
-11. Pure mood/aesthetic? → vibe
-12. None of the above → other
 
 Reply with ONLY the single category word in lowercase, nothing else.`,
               },
