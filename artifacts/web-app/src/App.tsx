@@ -286,6 +286,26 @@ async function apiPost(path: string, body: object) {
   }
   return res.json();
 }
+async function apiPostWithTimeout(path: string, body: object, timeoutMs: number) {
+  const headers = await authHeaders();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: controller.signal });
+    clearTimeout(timer);
+    handle401(res.status);
+    if (!res.ok) {
+      const err: any = new Error(`POST ${path} failed: ${res.status}`);
+      err.status = res.status;
+      try { err.data = await res.json(); } catch {}
+      throw err;
+    }
+    return res.json();
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+}
 async function computeFileHash(file: File): Promise<string> {
   try {
     const buffer = await file.arrayBuffer();
@@ -1628,7 +1648,9 @@ export default function App() {
       }
     }
 
-    // Compute SHA-256 hashes for all image files in parallel (cross-device dedup)
+    // ── Phase 1: client-side prep (hashing / compression / thumbnails) ─────────
+
+    // Compute SHA-256 hashes for all image files in parallel
     const imageFileHashes = await Promise.all(imageFiles.map(computeFileHash));
     // Duplicate detection — hash match OR name+size match
     const newImageFilesWithMeta = imageFiles
@@ -1639,7 +1661,7 @@ export default function App() {
           (m.name === file.name && (!m.fileSize || m.fileSize === file.size))
         )
       );
-    const duplicateFiles = imageFiles.filter((f, i) =>
+    const duplicateFiles = imageFiles.filter((f) =>
       !newImageFilesWithMeta.some(({ file }) => file === f)
     );
     if (duplicateFiles.length > 0) {
@@ -1651,7 +1673,7 @@ export default function App() {
       setTimeout(() => setDuplicatesBanner([]), 5000);
     }
 
-    // Process images in parallel (fast) — compute dimensions alongside compression
+    // Compress images in parallel (client-side only — safe to parallelize)
     const imageItems = await Promise.all(newImageFilesWithMeta.map(({ file, hash }) => new Promise<MediaItem>((resolve) => {
       const dimsPromise = getImageDimensions(file);
       const reader = new FileReader();
@@ -1663,26 +1685,16 @@ export default function App() {
       reader.readAsDataURL(file);
     })));
 
-    // Process videos sequentially (heavy files — generate thumbnail + duration + upload)
-    const MAX_VIDEO_BYTES = 50 * 1024 * 1024; // 50 MB
+    // Generate video thumbnails sequentially (heavy — avoid memory spikes)
+    const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
     const videoItems: MediaItem[] = [];
     if (videoFiles.length > 0 && limits.videoUpload) {
-      setVideoUploadProgress({ current: 0, total: videoFiles.length });
-      for (let i = 0; i < videoFiles.length; i++) {
-        setVideoUploadProgress({ current: i + 1, total: videoFiles.length });
-        const f = videoFiles[i];
-        // 50 MB hard cap — reject before reading
+      for (const f of videoFiles) {
         if (f.size > MAX_VIDEO_BYTES) {
-          showGlobalToast(`Video too large — max 50 MB supported (${f.name})`);
+          showGlobalToast(`Video too large — max 50 MB (${f.name})`);
           continue;
         }
-        showGlobalToast(`Uploading video (${Math.round(f.size / 1024 / 1024)} MB)…`);
-        // Generate thumbnail + duration from raw File (no base64 needed yet)
-        const [thumbUrl, duration] = await Promise.all([
-          captureVideoThumbnail(f),
-          getVideoDurationFromFile(f),
-        ]);
-        // Only read to base64 after thumbnail is done (avoids double memory peak)
+        const [thumbUrl, duration] = await Promise.all([captureVideoThumbnail(f), getVideoDurationFromFile(f)]);
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
@@ -1693,15 +1705,12 @@ export default function App() {
           dataUrl, used: false, media_type: "video",
           thumbnail_url: thumbUrl || undefined, duration: duration || undefined,
         };
-        setMediaItems((prev) => [...prev, item]);
-        if (thumbUrl) setVideoPosters((prev) => ({ ...prev, [item.id]: thumbUrl }));
         videoItems.push(item);
       }
-      setVideoUploadProgress(null);
     }
 
-    const withData = [...imageItems, ...videoItems];
-
+    // ── Add all items to UI state immediately (optimistic) ────────────────────
+    const allItems = [...imageItems, ...videoItems];
     if (imageItems.length > 0) {
       if (addToCarousel) {
         const toAdd = imageItems.slice(0, MAX_CAROUSEL - carouselIds.length);
@@ -1712,10 +1721,14 @@ export default function App() {
         setMediaItems((prev) => [...prev, ...imageItems]);
       }
     }
+    for (const item of videoItems) {
+      setMediaItems((prev) => [...prev, item]);
+      if (item.thumbnail_url) setVideoPosters((prev) => ({ ...prev, [item.id]: item.thumbnail_url! }));
+    }
 
-    // Add all uploaded items to target folder if specified
-    if (targetFolderId && withData.length > 0) {
-      const ids = withData.map((m) => m.id);
+    // Folder assignment
+    if (targetFolderId && allItems.length > 0) {
+      const ids = allItems.map((m) => m.id);
       setFolders((prev) => prev.map((f) => f.id === targetFolderId
         ? { ...f, mediaIds: [...f.mediaIds, ...ids.filter((id) => !f.mediaIds.includes(id))] }
         : f));
@@ -1726,63 +1739,92 @@ export default function App() {
       }
     }
 
-    // Upload video items to backend
-    for (const item of videoItems) {
-      const fileSizeMB = item.dataUrl ? Math.round(item.dataUrl.length * 0.75 / 1024 / 1024) : 0;
-      if (fileSizeMB > 5) showGlobalToast(`Uploading video (${fileSizeMB} MB)… please wait`);
-      try {
-        const saved = await apiPost("/media/upload", {
-          id: item.id, name: item.name, dataUrl: item.dataUrl,
-          tag: "video", fileHash: "", fileSize: 0, dimensions: "",
-          media_type: "video",
-          thumbnail_url: item.thumbnail_url || "",
-          duration: item.duration || 0,
-        });
-        const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
-        if (storedUrl !== item.dataUrl) {
-          setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
-        }
-        setMediaTotal((t) => t + 1);
-        if (fileSizeMB > 5) showGlobalToast("Video uploaded successfully");
-      } catch (err) {
-        console.error("Failed to save video", err);
-        showGlobalToast("Video upload failed — please try again");
-        setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
-        setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
-      }
-    }
+    // ── Phase 2: sequential server uploads with progress toasts ───────────────
+    const total = allItems.length;
+    let succeeded = 0;
+    const failedNames: string[] = [];
 
-    // Auto-tag images (using base64 still in state), then upload+persist via /media/upload
-    for (const item of imageItems) {
-      // analyzeTag while item.dataUrl is still base64 (before Supabase upload)
-      // Free plan: silently tag as "other" (no AI call)
-      const tag = limits.aiTagging ? await analyzeTag(item.dataUrl, allAvailableTags) : "other";
-      setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
+    async function uploadOneItem(item: MediaItem, idx: number): Promise<boolean> {
+      const isVideo = item.media_type === "video";
+      const label = isVideo ? `${item.name} (this may take a moment…)` : item.name;
+      showGlobalToast(`Uploading ${idx} of ${total} — ${label}`);
+
+      const doUpload = async () => {
+        if (isVideo) {
+          return apiPostWithTimeout("/media/upload", {
+            id: item.id, name: item.name, dataUrl: item.dataUrl,
+            tag: "video", fileHash: "", fileSize: 0, dimensions: "",
+            media_type: "video",
+            thumbnail_url: item.thumbnail_url || "",
+            duration: item.duration || 0,
+          }, 120_000);
+        } else {
+          const tag = limits.aiTagging ? await analyzeTag(item.dataUrl, allAvailableTags) : "other";
+          setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, tag, analyzing: false } : m));
+          return apiPostWithTimeout("/media/upload", {
+            id: item.id, name: item.name, dataUrl: item.dataUrl, tag,
+            fileHash: item.fileHash ?? "", fileSize: item.fileSize ?? 0, dimensions: item.dimensions ?? "",
+          }, 60_000);
+        }
+      };
+
       try {
-        // Single endpoint: uploads to Supabase Storage AND saves DB record
-        const saved = await apiPost("/media/upload", {
-          id: item.id, name: item.name, dataUrl: item.dataUrl, tag,
-          fileHash: item.fileHash ?? "", fileSize: item.fileSize ?? 0, dimensions: item.dimensions ?? "",
-        });
+        const saved = await doUpload();
         const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
-        // Swap local base64 for the persisted Supabase URL in state
         if (storedUrl !== item.dataUrl) {
           setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
         }
         setMediaTotal((t) => t + 1);
+        return true;
       } catch (err: any) {
+        // Retry once for videos
+        if (isVideo) {
+          showGlobalToast(`Retrying ${item.name}…`);
+          try {
+            const saved = await doUpload();
+            const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
+            if (storedUrl !== item.dataUrl) {
+              setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
+            }
+            setMediaTotal((t) => t + 1);
+            return true;
+          } catch {}
+        }
         if (err?.status === 409) {
-          // Server-side duplicate detected — remove the optimistically added item and notify
           showGlobalToast(err?.data?.message ?? "This file already exists in your pool");
           setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
           setCarouselIds((prev) => prev.filter((cid) => cid !== item.id));
-          continue;
+          return false;
         }
-        console.error("Failed to save media", err);
-        showGlobalToast("Upload failed — please try again");
+        console.error("Upload failed:", item.name, err);
+        // Remove failed item from state
+        setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
+        setCarouselIds((prev) => prev.filter((cid) => cid !== item.id));
+        if (item.media_type === "video") {
+          setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
+        }
+        return false;
       }
     }
-    // Re-sync count from server after all uploads so mediaTotal always reflects DB truth
+
+    for (let i = 0; i < allItems.length; i++) {
+      const ok = await uploadOneItem(allItems[i], i + 1);
+      if (ok) succeeded++;
+      else failedNames.push(allItems[i].name);
+    }
+
+    // Summary toast
+    if (total === 0) {
+      // nothing to upload
+    } else if (failedNames.length === 0) {
+      if (total > 1) showGlobalToast(`✓ All ${total} files uploaded`);
+    } else if (succeeded === 0) {
+      showGlobalToast(`Upload failed — ${failedNames.join(", ")}`);
+    } else {
+      showGlobalToast(`✓ ${succeeded} of ${total} uploaded — ${failedNames.length} failed: ${failedNames.join(", ")}`);
+    }
+
+    // Re-sync count from server
     refreshMediaTotal();
   }
 
