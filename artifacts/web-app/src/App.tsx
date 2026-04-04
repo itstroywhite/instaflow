@@ -3134,7 +3134,7 @@ export default function App() {
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => { setUsedViewerItem(item); setUsedViewerPost(post ?? null); setUsedViewerRemoveConfirm(false); }}>
                               {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                              {item.tag && <span style={{ padding: "1px 4px", fontSize: 9, transform: "translateZ(0)" }} className={`absolute top-0.5 left-0.5 rounded ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
+                              {item.tag && <span style={{ padding: "0px 3px", fontSize: 7, transform: "translateZ(0)" }} className={`absolute top-0.5 left-0.5 rounded ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
                         </div>
@@ -3316,7 +3316,7 @@ export default function App() {
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
-                            style={{ padding: "1px 4px", fontSize: 9 }} className={`absolute top-1 left-1 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
+                            style={{ padding: "0px 3px", fontSize: 7 }} className={`absolute top-1 left-1 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
                             {item.tag ? (
                               <>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
                             ) : "＋ Tag"}
@@ -3542,7 +3542,7 @@ export default function App() {
                         style={{ display: "block" }}
                       />
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
-                    {currentSlide.tag && <span style={{ padding: "1px 4px", fontSize: 9 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
+                    {currentSlide.tag && <span style={{ padding: "0px 3px", fontSize: 7 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
                     <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">{carouselIndex + 1} / {carouselItems.length}</span>
                     {carouselIndex > 0 && <button onClick={() => setCarouselIndex((i) => i - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">‹</button>}
                     {carouselIndex < carouselItems.length - 1 && <button onClick={() => setCarouselIndex((i) => i + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">›</button>}
@@ -3785,7 +3785,7 @@ export default function App() {
                     ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
                     : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
                 {singlePostItem.tag && (
-                  <span style={{ padding: "1px 4px", fontSize: 9 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm flex items-center gap-1 ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
+                  <span style={{ padding: "0px 3px", fontSize: 7 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm flex items-center gap-1 ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
                     {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}{plan === "free" && singlePostItem.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}
                   </span>
                 )}
@@ -4941,7 +4941,7 @@ export default function App() {
                             <span className="text-white text-xs font-semibold">Current</span>
                           </div>
                         )}
-                        {item.tag && !isCurrent && <span style={{ padding: "1px 4px", fontSize: 9 }} className="absolute top-1 left-1 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
+                        {item.tag && !isCurrent && <span style={{ padding: "0px 3px", fontSize: 7 }} className="absolute top-1 left-1 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
@@ -5000,7 +5000,7 @@ export default function App() {
                             </div>
                           </div>
                         )}
-                        {item.tag && !isSelected && <span style={{ padding: "1px 4px", fontSize: 9 }} className="absolute top-1 left-1 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
+                        {item.tag && !isSelected && <span style={{ padding: "0px 3px", fontSize: 7 }} className="absolute top-1 left-1 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
