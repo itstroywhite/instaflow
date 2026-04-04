@@ -9,9 +9,22 @@ const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
 const { createClient } = require("@supabase/supabase-js");
+const webpush = require("web-push");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// ─── Web Push (VAPID) ─────────────────────────────────────────────────────────
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    "mailto:" + (process.env.VAPID_EMAIL || "hello@instaflow.app"),
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+  console.log("[push] VAPID keys configured");
+} else {
+  console.warn("[push] VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY not set — push disabled");
+}
 
 // CORS — allow all origins so the Vercel frontend can talk to this Render backend.
 app.use(cors({
@@ -150,10 +163,22 @@ async function ensureTables() {
     );
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'Europe/Berlin';
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS prevent_duplicates BOOLEAN DEFAULT true;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_daily BOOLEAN DEFAULT true;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_time TEXT DEFAULT '09:00';
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_updates BOOLEAN DEFAULT false;
 
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS duration FLOAT;
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      endpoint TEXT NOT NULL,
+      subscription JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE(user_id, endpoint)
+    );
   `);
 }
 
@@ -1056,6 +1081,82 @@ app.post("/api/profile/avatar", requireAuth, async (req, res) => {
   }
 });
 
+// ── Push Notification Preferences ────────────────────────────────────────────
+app.post("/api/profile/notify", requireAuth, (req, res) => withTables(async () => {
+  const { notify_daily, notify_time, notify_updates } = req.body;
+  await pool.query(`
+    INSERT INTO profiles (user_id, notify_daily, notify_time, notify_updates)
+    VALUES ($1, $2, $3, $4)
+    ON CONFLICT (user_id) DO UPDATE SET
+      notify_daily = EXCLUDED.notify_daily,
+      notify_time = EXCLUDED.notify_time,
+      notify_updates = EXCLUDED.notify_updates
+  `, [req.userId, notify_daily ?? true, notify_time ?? "09:00", notify_updates ?? false]);
+  res.json({ ok: true });
+}, res));
+
+// ── Push subscription endpoints ───────────────────────────────────────────────
+app.post("/api/push/subscribe", requireAuth, (req, res) => withTables(async () => {
+  const subscription = req.body;
+  if (!subscription || !subscription.endpoint) return res.status(400).json({ error: "Missing subscription" });
+  await pool.query(`
+    INSERT INTO push_subscriptions (user_id, endpoint, subscription)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (user_id, endpoint) DO UPDATE SET subscription = EXCLUDED.subscription
+  `, [req.userId, subscription.endpoint, JSON.stringify(subscription)]);
+  res.json({ ok: true });
+}, res));
+
+app.post("/api/push/test", requireAuth, (req, res) => withTables(async () => {
+  if (!process.env.VAPID_PUBLIC_KEY) return res.status(503).json({ error: "Push not configured" });
+  const { rows } = await pool.query("SELECT subscription FROM push_subscriptions WHERE user_id = $1 LIMIT 5", [req.userId]);
+  if (rows.length === 0) return res.status(404).json({ error: "No subscriptions found" });
+  const payload = JSON.stringify({ title: "InstaFlow", body: "🎉 Push notifications are working!" });
+  const results = await Promise.allSettled(rows.map(row => webpush.sendNotification(row.subscription, payload)));
+  const sent = results.filter(r => r.status === "fulfilled").length;
+  res.json({ sent, total: rows.length });
+}, res));
+
+// ── Hourly push notification scheduler ───────────────────────────────────────
+async function sendDailyPostReminders() {
+  if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  try {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    // Get users who have notify_daily=true and whose reminder time matches the current hour+minute (within 5 min window)
+    const { rows: usersToNotify } = await pool.query(`
+      SELECT p.user_id, p.notify_time, p.timezone
+      FROM profiles p
+      WHERE p.notify_daily = true
+    `);
+    for (const user of usersToNotify) {
+      try {
+        const tz = user.timezone || "UTC";
+        const userNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+        const [hh, mm] = (user.notify_time || "09:00").split(":").map(Number);
+        if (userNow.getHours() !== hh || Math.abs(userNow.getMinutes() - mm) > 4) continue;
+        // Check if they have posts scheduled for today
+        const { rows: posts } = await pool.query(
+          "SELECT id FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved' LIMIT 1",
+          [user.user_id, todayStr]
+        );
+        if (posts.length === 0) continue;
+        // Get their subscriptions
+        const { rows: subs } = await pool.query(
+          "SELECT subscription FROM push_subscriptions WHERE user_id = $1", [user.user_id]
+        );
+        if (subs.length === 0) continue;
+        const payload = JSON.stringify({ title: "InstaFlow", body: "📅 You have posts scheduled for today!" });
+        await Promise.allSettled(subs.map(s => webpush.sendNotification(s.subscription, payload)));
+      } catch (userErr) {
+        console.error("[push-scheduler] error for user:", userErr.message);
+      }
+    }
+  } catch (err) {
+    console.error("[push-scheduler] error:", err.message);
+  }
+}
+
 // ── Start ─────────────────────────────────────────────────────────────────────
 
 async function ensureAvatarsBucket() {
@@ -1072,4 +1173,6 @@ app.listen(PORT, () => {
   console.log(`InstaFlow server running on port ${PORT}`);
   console.log(`Supabase auth: ${supabaseAdmin ? "configured" : "NOT configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY"}`);
   ensureAvatarsBucket();
+  // Run push reminder check every 5 minutes (scheduler fires near the user's configured time)
+  setInterval(sendDailyPostReminders, 5 * 60 * 1000);
 });

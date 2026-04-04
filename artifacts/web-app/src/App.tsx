@@ -10,6 +10,7 @@ const USER_PLAN: "free" | "pro" | "agency" = "pro";
 // ─── Supabase client ──────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? "";
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY ?? "";
 const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null;
@@ -1165,6 +1166,18 @@ export default function App() {
   const [profileSubpage, setProfileSubpage] = useState<null | "profile" | "usage" | "billing" | "account" | "preferences">(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Push Notifications ───────────────────────────────────────────────────
+  const [notifyBannerVisible, setNotifyBannerVisible] = useState(false);
+  const [notifyPermission, setNotifyPermission] = useState<NotificationPermission | "unsupported">("default");
+  const [notifyDaily, setNotifyDaily] = useState(true);
+  const [notifyTime, setNotifyTime] = useState("09:00");
+  const [notifyUpdates, setNotifyUpdates] = useState(false);
+
+  useEffect(() => {
+    if (!('Notification' in window)) { setNotifyPermission("unsupported"); return; }
+    setNotifyPermission(Notification.permission);
+  }, []);
+
   useEffect(() => { localStorage.setItem(LAST_TAB_KEY, screen); }, [screen]);
 
   useEffect(() => {
@@ -1251,8 +1264,33 @@ export default function App() {
       setPreventDuplicates(p.prevent_duplicates ?? true);
       setProfileAvatarUrl(p.avatar_url ?? null);
       setOnboardingComplete(p.onboarding_complete ?? false);
+      if (p.notify_daily !== undefined) setNotifyDaily(p.notify_daily ?? true);
+      if (p.notify_time) setNotifyTime(p.notify_time);
+      if (p.notify_updates !== undefined) setNotifyUpdates(p.notify_updates ?? false);
     }).catch(() => { setOnboardingComplete(true); }); // fail-safe: don't block app
+    // Show notification permission banner 3 seconds after login if not yet dismissed/granted
+    if (!localStorage.getItem("notificationPromptDismissed") && 'Notification' in window && Notification.permission === "default") {
+      setTimeout(() => setNotifyBannerVisible(true), 3000);
+    }
   }, [session]);
+
+  async function requestNotificationPermission() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
+    const permission = await Notification.requestPermission();
+    setNotifyPermission(permission);
+    if (permission !== "granted") return;
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      if (!VAPID_PUBLIC_KEY) return;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: VAPID_PUBLIC_KEY,
+      });
+      await apiPost("/push/subscribe", subscription);
+    } catch (err) {
+      console.error("Push subscription error:", err);
+    }
+  }
 
   async function handleSaveProfile() {
     setProfileSaving(true);
@@ -2573,7 +2611,11 @@ export default function App() {
   }
   async function handleSaveSettings() {
     setSettingsSaving(true); setSettingsSaved(false);
-    try { await saveSettingsToDB(appSettings); setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2500); }
+    try {
+      await saveSettingsToDB(appSettings);
+      await apiPost("/profile/notify", { notify_daily: notifyDaily, notify_time: notifyTime, notify_updates: notifyUpdates }).catch(() => {});
+      setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2500);
+    }
     catch (err) { console.error("Save settings failed:", err); }
     finally { setSettingsSaving(false); }
   }
@@ -2660,6 +2702,33 @@ export default function App() {
       {globalToast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-[hsl(220,14%,20%)] text-white text-sm px-5 py-3 rounded-2xl shadow-2xl border border-[hsl(220,13%,30%)] max-w-xs text-center pointer-events-none">
           {globalToast}
+        </div>
+      )}
+
+      {/* ── NOTIFICATION PERMISSION BANNER ── */}
+      {notifyBannerVisible && session && (
+        <div className="fixed bottom-0 left-0 right-0 z-[90] p-4 pb-safe">
+          <div className="bg-[hsl(220,14%,14%)] border border-[hsl(220,13%,24%)] rounded-2xl p-4 shadow-2xl max-w-sm mx-auto">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl mt-0.5">🔔</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-white mb-0.5">Stay on schedule</p>
+                <p className="text-xs text-white/55 leading-relaxed">Get daily reminders when you have posts scheduled for today.</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => { localStorage.setItem("notificationPromptDismissed", "1"); setNotifyBannerVisible(false); }}
+                className="flex-1 py-2 rounded-xl border border-[hsl(220,13%,24%)] text-white/50 text-xs font-medium">
+                Not now
+              </button>
+              <button
+                onClick={async () => { setNotifyBannerVisible(false); await requestNotificationPermission(); }}
+                className="flex-1 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-semibold">
+                Enable Notifications
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -6285,6 +6354,59 @@ export default function App() {
                       onClick={plan === "free" ? () => openProGate("Post Safety — Prevent duplicate media") : () => setPreventDuplicates((v) => !v)}
                       className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,25%)]"}`}>
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0"}`} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Notifications */}
+                <div className={`${card} p-5 space-y-4`}>
+                  <p className="text-sm font-semibold">🔔 Notifications</p>
+
+                  {/* Permission status */}
+                  <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl border ${notifyPermission === "granted" ? "border-emerald-500/30 bg-emerald-500/5" : notifyPermission === "denied" ? "border-red-500/30 bg-red-500/5" : "border-[hsl(220,13%,22%)] bg-[hsl(220,14%,12%)]"}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">{notifyPermission === "granted" ? "✅" : notifyPermission === "denied" ? "🚫" : notifyPermission === "unsupported" ? "❌" : "⚠️"}</span>
+                      <span className="text-xs font-medium">
+                        {notifyPermission === "granted" ? "Notifications enabled" : notifyPermission === "denied" ? "Blocked in browser settings" : notifyPermission === "unsupported" ? "Not supported on this device" : "Notifications not enabled"}
+                      </span>
+                    </div>
+                    {notifyPermission === "default" && (
+                      <button onClick={requestNotificationPermission}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white font-medium">
+                        Enable
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Daily post reminder */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium">Daily Post Reminder</p>
+                      <p className={`text-[11px] ${dimText}`}>Remind me when I have posts scheduled today</p>
+                    </div>
+                    <button onClick={() => setNotifyDaily(v => !v)}
+                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${notifyDaily ? "bg-[hsl(263,70%,65%)] justify-end" : "bg-[hsl(220,14%,20%)] justify-start"}`}>
+                      <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
+                    </button>
+                  </div>
+
+                  {notifyDaily && (
+                    <div>
+                      <p className={`text-xs ${dimText} mb-1.5`}>Remind me at</p>
+                      <input type="time" value={notifyTime} onChange={(e) => setNotifyTime(e.target.value)}
+                        className={`${inputCls} w-36`} />
+                    </div>
+                  )}
+
+                  {/* Feature updates */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium">New Feature Updates</p>
+                      <p className={`text-[11px] ${dimText}`}>Get notified about new InstaFlow features</p>
+                    </div>
+                    <button onClick={() => setNotifyUpdates(v => !v)}
+                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${notifyUpdates ? "bg-[hsl(263,70%,65%)] justify-end" : "bg-[hsl(220,14%,20%)] justify-start"}`}>
+                      <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
                     </button>
                   </div>
                 </div>
