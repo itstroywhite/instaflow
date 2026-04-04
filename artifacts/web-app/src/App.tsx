@@ -114,26 +114,6 @@ function tagColor(tag: string, customTags: string[]) {
   return CUSTOM_TAG_FALLBACK_COLORS[idx % CUSTOM_TAG_FALLBACK_COLORS.length] ?? CUSTOM_TAG_FALLBACK_COLORS[0];
 }
 
-// ─── Unified tag badge style ───────────────────────────────────────────────────
-const TAG_BADGE_STYLE: React.CSSProperties = {
-  position: "absolute",
-  top: 6,
-  left: 6,
-  zIndex: 10,
-  background: "rgba(139,92,246,0.85)",
-  borderRadius: 999,
-  padding: "2px 6px",
-  fontSize: 11,
-  color: "white",
-  backdropFilter: "blur(4px)",
-  WebkitBackdropFilter: "blur(4px)",
-  display: "flex",
-  alignItems: "center",
-  gap: 3,
-  maxWidth: 80,
-  overflow: "hidden",
-  lineHeight: 1.4,
-};
 
 const DEFAULT_CAPTION_PROMPT = `You are writing ONE Instagram caption for a post. Do not describe individual images. Instead capture the overall mood, feeling, and vibe of the post as a whole. Write as if you are the person in the photos expressing how the moment felt. Keep it short, cool, lowercase, maximum 1-2 sentences plus maximum 2 hashtags on a new line.`;
 const DEFAULT_CAPTION: CaptionSettings = {
@@ -3154,7 +3134,7 @@ export default function App() {
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => { setUsedViewerItem(item); setUsedViewerPost(post ?? null); setUsedViewerRemoveConfirm(false); }}>
                               {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                              {item.tag && <span style={TAG_BADGE_STYLE}>{tagIcon(item.tag)}</span>}
+                              {item.tag && <span style={{ transform: "translateZ(0)" }} className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
                         </div>
@@ -3334,16 +3314,12 @@ export default function App() {
                             ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div>
                             : <img src={item.url || item.dataUrl || ""} alt={item.name} loading="lazy" decoding="async" className="object-cover" style={{ width: "100%", height: "100%" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
-                        {!item.analyzing && !bulkMode && item.tag && (
-                          <button onClick={(e) => { e.stopPropagation(); if (!folderAddMode) setTagPickerItem(item); }}
-                            style={{ ...TAG_BADGE_STYLE, pointerEvents: "auto", cursor: folderAddMode ? "default" : "pointer" }}>
-                            {tagIcon(item.tag)}
-                          </button>
-                        )}
-                        {!item.analyzing && !bulkMode && !item.tag && !folderAddMode && (
+                        {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
-                            style={{ position: "absolute", top: 6, left: 6, zIndex: 10, fontSize: 9, padding: "2px 5px", borderRadius: 6, background: "rgba(0,0,0,0.45)", color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.15)", backdropFilter: "blur(4px)", lineHeight: 1.4 }}>
-                            ＋ Tag
+                            className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
+                            {item.tag ? (
+                              <>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
+                            ) : "＋ Tag"}
                           </button>
                         )}
                         {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
@@ -3566,7 +3542,7 @@ export default function App() {
                         style={{ display: "block" }}
                       />
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
-                    {currentSlide.tag && <span style={TAG_BADGE_STYLE}>{tagIcon(currentSlide.tag)}</span>}
+                    {currentSlide.tag && <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
                     <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">{carouselIndex + 1} / {carouselItems.length}</span>
                     {carouselIndex > 0 && <button onClick={() => setCarouselIndex((i) => i - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">‹</button>}
                     {carouselIndex < carouselItems.length - 1 && <button onClick={() => setCarouselIndex((i) => i + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">›</button>}
@@ -3650,7 +3626,6 @@ export default function App() {
                         <span style={{ color: "white", fontSize: 10, lineHeight: 1 }}>✕</span>
                       </button>
                       <div style={{ position: "absolute", bottom: 4, left: 6 }}><span style={{ color: "white", fontSize: 9, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{displayIdx + 1}</span></div>
-                      {item.tag && <span style={{ ...TAG_BADGE_STYLE, top: 4, left: 4, padding: "1px 4px", fontSize: 9 }}>{tagIcon(item.tag)}</span>}
                     </div>
                   );
                 })}
@@ -3809,7 +3784,11 @@ export default function App() {
                   : brokenImages.has(singlePostItem.id)
                     ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
                     : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
-                {singlePostItem.tag && <span style={TAG_BADGE_STYLE}>{tagIcon(singlePostItem.tag)}</span>}
+                {singlePostItem.tag && (
+                  <span className={`absolute top-3 left-3 text-xs px-2 py-0.5 rounded-lg border backdrop-blur-sm flex items-center gap-1 ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
+                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}{plan === "free" && singlePostItem.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}
+                  </span>
+                )}
                 {/* ↻ New File pill + 1/1 counter — top right */}
                 <div className="absolute top-3 right-3 flex items-center gap-1.5">
                   <button onClick={handleSingleNewMedia}
@@ -4962,7 +4941,7 @@ export default function App() {
                             <span className="text-white text-xs font-semibold">Current</span>
                           </div>
                         )}
-                        {item.tag && !isCurrent && <span style={TAG_BADGE_STYLE}>{tagIcon(item.tag)}</span>}
+                        {item.tag && !isCurrent && <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
@@ -5021,7 +5000,7 @@ export default function App() {
                             </div>
                           </div>
                         )}
-                        {item.tag && !isSelected && <span style={TAG_BADGE_STYLE}>{tagIcon(item.tag)}</span>}
+                        {item.tag && !isSelected && <span className="absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
