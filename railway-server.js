@@ -179,6 +179,16 @@ async function ensureTables() {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       UNIQUE(user_id, endpoint)
     );
+
+    CREATE TABLE IF NOT EXISTS posting_schedule (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      day_of_week INTEGER,
+      hour INTEGER,
+      engagement_score FLOAT DEFAULT 1.0,
+      post_count INTEGER DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 }
 
@@ -1156,6 +1166,140 @@ async function sendDailyPostReminders() {
     console.error("[push-scheduler] error:", err.message);
   }
 }
+
+// ── Recommended Posting Schedule ─────────────────────────────────────────────
+//
+// TODO: When Instagram API is connected, replace best-practice scores with
+// real engagement data:
+//   - Fetch post insights (reach, likes, comments) per post
+//   - Update engagement_score in posting_schedule table
+//   - ML model will learn user's personal best times
+
+function getBestPracticeScore(dayOfWeek, hour) {
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  if (!isWeekend) {
+    if (hour >= 18 && hour <= 21) return 1.0;
+    if (hour >= 11 && hour <= 13) return 0.8;
+    if (hour >= 9  && hour <= 10) return 0.6;
+    if (hour >= 7  && hour <=  8) return 0.4;
+    return 0.3;
+  } else {
+    if (hour >= 10 && hour <= 12) return 0.9;
+    if (hour >= 15 && hour <= 18) return 0.7;
+    if (hour >= 13 && hour <= 14) return 0.55;
+    return 0.35;
+  }
+}
+
+function scoreLabel(score) {
+  if (score >= 0.9) return "Best time";
+  if (score >= 0.75) return "Great time";
+  if (score >= 0.6)  return "Good time";
+  if (score >= 0.45) return "Okay time";
+  return "Low engagement expected";
+}
+
+function scoreEmoji(score) {
+  if (score >= 0.9)  return "🔥";
+  if (score >= 0.75) return "👍";
+  if (score >= 0.45) return "⚡";
+  return "😴";
+}
+
+const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+app.get("/api/schedule/recommendations", requireAuth, (req, res) => withTables(async () => {
+  const userId = req.userId;
+  const now = new Date();
+  const todayDow = now.getDay();
+
+  // Get user's own posting history to weight scores
+  const { rows: userHistory } = await pool.query(`
+    SELECT
+      EXTRACT(DOW FROM (scheduled_date::date)) AS dow,
+      EXTRACT(HOUR FROM (scheduled_time::time)) AS hr,
+      COUNT(*) AS cnt
+    FROM approved_posts
+    WHERE user_id = $1
+      AND scheduled_date IS NOT NULL
+      AND scheduled_time IS NOT NULL
+    GROUP BY 1, 2
+  `, [userId]);
+
+  const userScoreMap = {};
+  let maxUserCount = 1;
+  for (const row of userHistory) {
+    const key = `${row.dow}_${row.hr}`;
+    userScoreMap[key] = parseInt(row.cnt, 10);
+    maxUserCount = Math.max(maxUserCount, userScoreMap[key]);
+  }
+
+  // Build candidate slots across all days
+  const candidates = [];
+  for (let dow = 0; dow < 7; dow++) {
+    for (let hour = 7; hour <= 22; hour++) {
+      const base = getBestPracticeScore(dow, hour);
+      const userWeight = (userScoreMap[`${dow}_${hour}`] ?? 0) / maxUserCount;
+      const combined = Math.min(1.0, base * 0.7 + userWeight * 0.3);
+      const daysFromToday = (dow - todayDow + 7) % 7;
+      candidates.push({ dayOfWeek: dow, hour, score: combined, daysFromToday });
+    }
+  }
+
+  // Sort by score desc, take top 5
+  const top5 = candidates.sort((a, b) => b.score - a.score).slice(0, 5);
+
+  const result = top5.map((slot) => ({
+    dayOfWeek: slot.dayOfWeek,
+    hour: slot.hour,
+    score: Math.round(slot.score * 100) / 100,
+    label: `${DAY_NAMES[slot.dayOfWeek]} ${String(slot.hour).padStart(2, "0")}:00 — ${scoreLabel(slot.score)}`,
+    emoji: scoreEmoji(slot.score),
+    daysFromToday: slot.daysFromToday,
+  }));
+
+  res.json(result);
+}, res));
+
+app.get("/api/schedule/score", requireAuth, (req, res) => withTables(async () => {
+  const { date, time } = req.query;
+  if (!date || !time) return res.status(400).json({ error: "date and time required" });
+  const dt = new Date(`${date}T${time}:00`);
+  if (isNaN(dt.getTime())) return res.status(400).json({ error: "invalid date/time" });
+  const dow = dt.getDay();
+  const hour = dt.getHours();
+  const score = getBestPracticeScore(dow, hour);
+  const label = scoreLabel(score);
+  const emoji = scoreEmoji(score);
+
+  let suggestion = null;
+  if (score < 0.8) {
+    const isWeekend = dow === 0 || dow === 6;
+    suggestion = isWeekend
+      ? "Try 10:00–12:00 for better engagement"
+      : "Try 18:00–21:00 for best engagement";
+  }
+
+  res.json({ score: Math.round(score * 100) / 100, label, emoji, suggestion });
+}, res));
+
+app.post("/api/schedule/analytics", requireAuth, (req, res) => withTables(async () => {
+  const { dayOfWeek, hour } = req.body;
+  if (dayOfWeek == null || hour == null) return res.status(400).json({ error: "dayOfWeek and hour required" });
+  const userId = req.userId;
+  const score = getBestPracticeScore(dayOfWeek, hour);
+  await pool.query(`
+    INSERT INTO posting_schedule (user_id, day_of_week, hour, engagement_score, post_count)
+    VALUES ($1, $2, $3, $4, 1)
+    ON CONFLICT DO NOTHING
+  `, [userId, dayOfWeek, hour, score]);
+  await pool.query(`
+    UPDATE posting_schedule
+    SET post_count = post_count + 1, engagement_score = $4
+    WHERE user_id = $1 AND day_of_week = $2 AND hour = $3
+  `, [userId, dayOfWeek, hour, score]);
+  res.json({ ok: true });
+}, res));
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
