@@ -3009,7 +3009,7 @@ export default function App() {
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => { setUsedViewerItem(item); setUsedViewerPost(post ?? null); setUsedViewerRemoveConfirm(false); }}>
                               {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                              {item.tag && <span className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded backdrop-blur-sm ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
+                              {item.tag && <span style={{ transform: "translateZ(0)" }} className={`absolute top-0.5 left-0.5 text-[8px] px-1 py-0.5 rounded ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
                         </div>
@@ -3034,19 +3034,25 @@ export default function App() {
                           {imgs[2] && (
                             <div className="absolute inset-0 rounded-xl overflow-hidden border border-[hsl(220,13%,25%)]"
                               style={{ transform: "rotate(-7deg) scale(0.92)", zIndex: 1, opacity: 0.75 }}>
-                              <img src={imgs[2].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                              {isVideo(imgs[2].dataUrl, imgs[2].media_type)
+                                ? (imgs[2].thumbnail_url || videoPosters[imgs[2].id] ? <img src={imgs[2].thumbnail_url || videoPosters[imgs[2].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>)
+                                : <img src={imgs[2].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />}
                             </div>
                           )}
                           {imgs[1] && (
                             <div className="absolute inset-0 rounded-xl overflow-hidden border border-[hsl(220,13%,25%)]"
                               style={{ transform: "rotate(-3.5deg) scale(0.96)", zIndex: 2, opacity: 0.88 }}>
-                              <img src={imgs[1].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                              {isVideo(imgs[1].dataUrl, imgs[1].media_type)
+                                ? (imgs[1].thumbnail_url || videoPosters[imgs[1].id] ? <img src={imgs[1].thumbnail_url || videoPosters[imgs[1].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>)
+                                : <img src={imgs[1].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />}
                             </div>
                           )}
                           <div className="absolute inset-0 rounded-xl overflow-hidden border-2 border-[hsl(220,13%,28%)] group-hover:border-[hsl(263,70%,65%)/60] transition-all"
                             style={{ zIndex: 3 }}>
                             {imgs[0]
-                              ? <img src={imgs[0].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+                              ? (isVideo(imgs[0].dataUrl, imgs[0].media_type)
+                                  ? (imgs[0].thumbnail_url || videoPosters[imgs[0].id] ? <img src={imgs[0].thumbnail_url || videoPosters[imgs[0].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>)
+                                  : <img src={imgs[0].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />)
                               : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center"><span className="text-3xl">📁</span></div>}
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-1.5 pt-6 rounded-b-xl">
@@ -3153,7 +3159,7 @@ export default function App() {
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
                         <div style={{ position: "absolute", inset: 0 }}>
                         {isVideo(item.dataUrl, item.media_type)
-                          ? <div style={{ width: "100%", height: "100%", position: "relative" }}>{videoPosters[item.id] ? <img src={videoPosters[item.id]} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>{item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}</div>
+                          ? <div style={{ width: "100%", height: "100%", position: "relative" }}>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>{item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}</div>
                           : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div> : <LazyImg src={item.dataUrl} alt={item.name} className="object-cover" style={{ width: "100%", height: "100%" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
