@@ -7,6 +7,7 @@ export interface MediaItem {
   tag: string | null;
   analyzing: boolean;
   dataUrl: string;
+  url?: string;
   used?: boolean;
   createdAt?: string;
   fileSize?: number;

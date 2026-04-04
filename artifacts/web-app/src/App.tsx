@@ -3207,7 +3207,10 @@ export default function App() {
                   </div>
                 )}
 
-              <div className="grid grid-cols-3 gap-2" onClick={selectionMode ? cancelSelection : undefined}>
+              <div className="grid grid-cols-3 gap-2"
+                onClick={selectionMode ? cancelSelection : undefined}
+                onPointerUp={() => setIsDragSelecting(false)}
+                onPointerLeave={() => setIsDragSelecting(false)}>
 
                 {/* ── Media items ── */}
                 {(() => {
@@ -3250,13 +3253,29 @@ export default function App() {
                   );
                   const mappedItems = displayItems.map((item) => {
                     const isSelected = selectionMode ? selectedIds.includes(item.id) : bulkMode ? bulkSelectedIds.includes(item.id) : false;
+                    const isAnySelectActive = !!(bulkMode || selectionMode || folderAddMode);
                     return (
                       <div key={item.id}
                         onPointerDown={(e) => {
-                          if (bulkMode) { setIsDragSelecting(true); setBulkSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]); return; }
+                          if (bulkMode) {
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                            setIsDragSelecting(true);
+                            setBulkSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
+                            return;
+                          }
+                          if (folderAddMode) {
+                            e.currentTarget.setPointerCapture(e.pointerId);
+                            setIsDragSelecting(true);
+                            setFolderPendingIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
+                            return;
+                          }
                           clearLongPress(); startPoolLongPress(item, e, !!(openFolder && !folderAddMode));
                         }}
-                        onPointerEnter={() => { if (isDragSelecting && bulkMode) setBulkSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]); }}
+                        onPointerEnter={() => {
+                          if (!isDragSelecting) return;
+                          if (bulkMode) setBulkSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
+                          if (folderAddMode) setFolderPendingIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
+                        }}
                         onPointerMove={checkLongPressMove}
                         onPointerUp={(e) => { setIsDragSelecting(false); clearLongPress(); }}
                         onPointerCancel={() => { setIsDragSelecting(false); clearLongPress(); }}
@@ -3276,22 +3295,31 @@ export default function App() {
                           if (selectionMode) { e.stopPropagation(); toggleSelect(item.id); return; }
                           setViewerItem(item);
                         }}
-                        style={{ position: "relative", paddingBottom: "100%" }}
+                        style={{ position: "relative", paddingBottom: "100%", touchAction: isAnySelectActive ? "none" : undefined }}
                         className={`rounded-xl overflow-hidden cursor-pointer transition-all select-none
                           ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[hsl(263,70%,65%)]" : ""}
                           ${(openFolder && folderAddMode && folderPendingIds.includes(item.id)) ? "ring-2 ring-emerald-400" : ""}
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
                         <div style={{ position: "absolute", inset: 0 }}>
                         {isVideo(item.dataUrl, item.media_type)
-                          ? <div style={{ width: "100%", height: "100%", position: "relative" }}>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>{item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}</div>
-                          : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div> : <LazyImg src={item.dataUrl} alt={item.name} className="object-cover" style={{ width: "100%", height: "100%" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                          ? <div style={{ width: "100%", height: "100%", position: "relative" }}>
+                              {(videoPosters[item.id] || item.thumbnail_url)
+                                ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                                : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}
+                              <span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>
+                              {item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}
+                            </div>
+                          : brokenImages.has(item.id)
+                            ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div>
+                            : <img src={item.url || item.dataUrl || ""} alt={item.name} loading="lazy" decoding="async" className="object-cover" style={{ width: "100%", height: "100%" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
-                        {!item.analyzing && !bulkMode && !folderAddMode && (
-                          <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
-                            className={`absolute top-1 left-1 text-[9px] px-1.5 py-0.5 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
+                        {!item.analyzing && !bulkMode && (
+                          <button onClick={(e) => { e.stopPropagation(); if (!folderAddMode) setTagPickerItem(item); }}
+                            style={{ top: 6, left: 6, transform: "translateZ(0)" }}
+                            className={`absolute text-[9px] px-1.5 py-0.5 rounded border pointer-events-auto ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
                             {item.tag ? (
                               <>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
-                            ) : "＋ Tag"}
+                            ) : (folderAddMode ? null : "＋ Tag")}
                           </button>
                         )}
                         {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
