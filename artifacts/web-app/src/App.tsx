@@ -2062,6 +2062,17 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!viewerItem]);
 
+  // Release video resources when the viewer closes or navigates away
+  useEffect(() => {
+    return () => {
+      document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => {
+        v.pause();
+        v.src = "";
+        v.load();
+      });
+    };
+  }, [viewerItem?.id]);
+
   function viewerGoNext() {
     if (viewerNavList.length === 0) return;
     const next = viewerNavList[(viewerNavIdx + 1) % viewerNavList.length];
@@ -2081,6 +2092,8 @@ export default function App() {
     viewerSwipeStartX.current = null;
   }
   function onViewerDragStart(clientX: number) {
+    // Pause any playing video immediately so it doesn't hang during the swipe
+    document.querySelectorAll<HTMLVideoElement>("video").forEach((v) => v.pause());
     viewerSwipeStartX.current = clientX;
     viewerPendingX.current = clientX;
     setViewerDragging(true);
@@ -4552,24 +4565,28 @@ export default function App() {
                     transform: `translateX(calc(-33.333% + ${viewerDelta}px))`,
                     transition: viewerDragging ? "none" : "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
                   }}>
-                    {/* Prev panel */}
+                    {/* Prev panel — static only, never a live video */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {viewerNavIdx > 0 && (() => {
                         const prev = viewerNavList[viewerNavIdx - 1];
+                        const thumb = prev.thumbnail_url || videoPosters[prev.id];
                         return isVideo(prev.dataUrl, prev.media_type)
-                          ? <video key={prev.id} src={prev.dataUrl} poster={prev.thumbnail_url || (videoPosters[prev.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          ? (thumb
+                              ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,10%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "rgba(255,255,255,0.4)" }}>▶</div>)
                           : <img src={prev.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
                       })()}
                     </div>
-                    {/* Current panel */}
+                    {/* Current panel — only live video for the active item */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         <video
                           key={viewerItem.id}
                           src={viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          autoPlay muted loop playsInline preload="auto"
+                          autoPlay muted loop playsInline preload="metadata"
                           controls controlsList="nodownload nofullscreen"
+                          onError={(e) => console.error("Video load error:", e)}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
@@ -4577,12 +4594,15 @@ export default function App() {
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       )}
                     </div>
-                    {/* Next panel */}
+                    {/* Next panel — static only, never a live video */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {viewerNavIdx < viewerNavList.length - 1 && (() => {
                         const next = viewerNavList[viewerNavIdx + 1];
+                        const thumb = next.thumbnail_url || videoPosters[next.id];
                         return isVideo(next.dataUrl, next.media_type)
-                          ? <video key={next.id} src={next.dataUrl} poster={next.thumbnail_url || (videoPosters[next.id] ?? undefined)} muted playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          ? (thumb
+                              ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,10%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, color: "rgba(255,255,255,0.4)" }}>▶</div>)
                           : <img src={next.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
                       })()}
                     </div>
