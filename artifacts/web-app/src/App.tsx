@@ -1187,6 +1187,16 @@ export default function App() {
   const [profileSubpage, setProfileSubpage] = useState<null | "profile" | "usage" | "billing" | "account" | "preferences">(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Recommended Posting Schedule ─────────────────────────────────────────
+  type ScheduleRec = { dayOfWeek: number; hour: number; score: number; label: string; emoji: string; daysFromToday: number };
+  type TimeScore = { score: number; label: string; emoji: string; suggestion: string | null } | null;
+  const [scheduleRecs, setScheduleRecs] = useState<ScheduleRec[]>([]);
+  const [scheduleRecsLoading, setScheduleRecsLoading] = useState(false);
+  const [carouselTimeScore, setCarouselTimeScore] = useState<TimeScore>(null);
+  const [singleTimeScore, setSingleTimeScore] = useState<TimeScore>(null);
+  const [autoSuggestTime, setAutoSuggestTime] = useState(() => localStorage.getItem("autoSuggestTime") === "true");
+  const scoreDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // ── Push Notifications ───────────────────────────────────────────────────
   const [notifyBannerVisible, setNotifyBannerVisible] = useState(false);
   const [notifyPermission, setNotifyPermission] = useState<NotificationPermission | "unsupported">("default");
@@ -1218,6 +1228,48 @@ export default function App() {
       if (handle.timer) clearTimeout(handle.timer);
     };
   }, []);
+
+  // ── Schedule: fetch recommendations ─────────────────────────────────────
+  const fetchScheduleRecs = useCallback(async () => {
+    if (plan === "free") return;
+    setScheduleRecsLoading(true);
+    try {
+      const recs = await apiGet<ScheduleRec[]>("/schedule/recommendations");
+      setScheduleRecs(recs ?? []);
+    } catch { /* ignore */ } finally {
+      setScheduleRecsLoading(false);
+    }
+  }, [plan]);
+
+  useEffect(() => {
+    if (session) fetchScheduleRecs();
+  }, [session, fetchScheduleRecs]);
+
+  // ── Schedule: fetch real-time score (debounced 500ms) ────────────────────
+  function fetchTimeScore(date: string, time: string, setter: (s: TimeScore) => void) {
+    if (scoreDebounceRef.current) clearTimeout(scoreDebounceRef.current);
+    if (!date || !time) { setter(null); return; }
+    scoreDebounceRef.current = setTimeout(async () => {
+      try {
+        const result = await apiGet<{ score: number; label: string; emoji: string; suggestion: string | null }>(
+          `/schedule/score?date=${date}&time=${time}`
+        );
+        setter(result);
+      } catch { setter(null); }
+    }, 500);
+  }
+
+  // ── Schedule: auto-suggest best time when enabled ────────────────────────
+  useEffect(() => {
+    if (autoSuggestTime && plan !== "free" && scheduleRecs.length > 0) {
+      const todayRec = scheduleRecs.find((r) => r.daysFromToday === 0) ?? scheduleRecs[0];
+      if (todayRec) {
+        const t = `${String(todayRec.hour).padStart(2, "0")}:00`;
+        setScheduleTime(t);
+        setSingleScheduleTime(t);
+      }
+    }
+  }, [autoSuggestTime, scheduleRecs]); // eslint-disable-line
 
   // Load + reconcile on mount
   useEffect(() => {
@@ -3414,6 +3466,62 @@ export default function App() {
                     </div>
                   )}
 
+                  {/* ── Best times banner ── */}
+                  {plan !== "free" && (
+                    <div className={`${card} p-4`}>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,55%)] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
+                      {scheduleRecsLoading ? (
+                        <p className={`text-xs ${dimText} animate-pulse`}>Loading recommendations…</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {scheduleRecs.filter((r) => r.daysFromToday === 0).slice(0, 3).map((rec) => {
+                            const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
+                            const bgCls = rec.score >= 0.9 ? "bg-green-500/15 border-green-500/30 text-green-300"
+                              : rec.score >= 0.7 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                              : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]";
+                            return (
+                              <button key={rec.hour}
+                                onClick={() => { setScheduleTime(timeStr); setSingleScheduleTime(timeStr); setTodayBuildMode(true); }}
+                                className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-opacity hover:opacity-80 ${bgCls}`}>
+                                {rec.emoji} {timeStr}
+                              </button>
+                            );
+                          })}
+                          {scheduleRecs.filter((r) => r.daysFromToday === 0).length === 0 && (
+                            scheduleRecs.slice(0, 3).map((rec) => {
+                              const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
+                              const bgCls = rec.score >= 0.9 ? "bg-green-500/15 border-green-500/30 text-green-300"
+                                : rec.score >= 0.7 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                                : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]";
+                              return (
+                                <button key={rec.hour}
+                                  onClick={() => { setScheduleTime(timeStr); setSingleScheduleTime(timeStr); setTodayBuildMode(true); }}
+                                  className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-opacity hover:opacity-80 ${bgCls}`}>
+                                  {rec.emoji} {timeStr}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {plan === "free" && (
+                    <div className={`${card} p-4 relative overflow-hidden`}>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,55%)] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
+                      <div className="flex gap-1.5 blur-sm pointer-events-none select-none">
+                        {["🔥 19:00", "👍 11:00", "⚡ 21:00"].map((t) => (
+                          <span key={t} className="text-xs px-2.5 py-1 rounded-lg border bg-green-500/15 border-green-500/30 text-green-300 font-medium">{t}</span>
+                        ))}
+                      </div>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                        <button onClick={() => openProGate("Recommended Posting Schedule")} className="text-xs font-semibold text-[hsl(263,70%,70%)] flex items-center gap-1">
+                          <DiamondBadge /> Upgrade to see best posting times
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {todayPosts.length === 0 ? (
                     /* Empty state — large centered "+" */
                     <button
@@ -3723,13 +3831,30 @@ export default function App() {
                 <div className="flex gap-3 flex-wrap">
                   <div className="flex flex-col gap-0.5">
                     <label className={`text-[10px] ${dimText}`}>Date</label>
-                    <DatePicker value={scheduleDate} onChange={setScheduleDate} className={inputCls} />
+                    <DatePicker value={scheduleDate} onChange={(v) => { setScheduleDate(v); fetchTimeScore(v, scheduleTime, setCarouselTimeScore); }} className={inputCls} />
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <label className={`text-[10px] ${dimText}`}>Time</label>
-                    <TimePicker value={scheduleTime} onChange={setScheduleTime} className={inputCls} />
+                    <TimePicker value={scheduleTime} onChange={(v) => { setScheduleTime(v); fetchTimeScore(scheduleDate, v, setCarouselTimeScore); }} className={inputCls} />
                   </div>
                 </div>
+                {plan !== "free" && carouselTimeScore && (
+                  <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
+                    carouselTimeScore.score >= 0.9 ? "bg-green-500/10 border-green-500/25 text-green-300"
+                    : carouselTimeScore.score >= 0.7 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
+                    : carouselTimeScore.score >= 0.45 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                    : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,50%)]"
+                  }`}>
+                    <span>{carouselTimeScore.emoji}</span>
+                    <span className="font-medium">{carouselTimeScore.label}</span>
+                    {carouselTimeScore.suggestion && <span className={`${dimText} ml-1`}>— {carouselTimeScore.suggestion}</span>}
+                  </div>
+                )}
+                {plan === "free" && (
+                  <button onClick={() => openProGate("Recommended Posting Schedule")} className={`flex items-center gap-1 text-xs ${dimText}`}>
+                    <DiamondBadge /> See engagement score for this time
+                  </button>
+                )}
                 <button onClick={handleApproveCarousel}
                   disabled={approveLoading || !carouselCaption.trim() || !!(scheduleDate && scheduleTime && new Date(`${scheduleDate}T${scheduleTime}`) < new Date()) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
                   className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
@@ -3896,13 +4021,30 @@ export default function App() {
               <div className="flex gap-3 flex-wrap">
                 <div className="flex flex-col gap-0.5">
                   <label className={`text-[10px] ${dimText}`}>Date</label>
-                  <DatePicker value={singleScheduleDate} onChange={setSingleScheduleDate} className={inputCls} />
+                  <DatePicker value={singleScheduleDate} onChange={(v) => { setSingleScheduleDate(v); fetchTimeScore(v, singleScheduleTime, setSingleTimeScore); }} className={inputCls} />
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <label className={`text-[10px] ${dimText}`}>Time</label>
-                  <TimePicker value={singleScheduleTime} onChange={setSingleScheduleTime} className={inputCls} />
+                  <TimePicker value={singleScheduleTime} onChange={(v) => { setSingleScheduleTime(v); fetchTimeScore(singleScheduleDate, v, setSingleTimeScore); }} className={inputCls} />
                 </div>
               </div>
+              {plan !== "free" && singleTimeScore && (
+                <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
+                  singleTimeScore.score >= 0.9 ? "bg-green-500/10 border-green-500/25 text-green-300"
+                  : singleTimeScore.score >= 0.7 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
+                  : singleTimeScore.score >= 0.45 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                  : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,50%)]"
+                }`}>
+                  <span>{singleTimeScore.emoji}</span>
+                  <span className="font-medium">{singleTimeScore.label}</span>
+                  {singleTimeScore.suggestion && <span className={`${dimText} ml-1`}>— {singleTimeScore.suggestion}</span>}
+                </div>
+              )}
+              {plan === "free" && (
+                <button onClick={() => openProGate("Recommended Posting Schedule")} className={`flex items-center gap-1 text-xs ${dimText}`}>
+                  <DiamondBadge /> See engagement score for this time
+                </button>
+              )}
               <button onClick={handleApproveSinglePost}
                 disabled={approveLoading || !singleCaption.trim() || !!(singleScheduleDate && singleScheduleTime && new Date(`${singleScheduleDate}T${singleScheduleTime}`) < new Date())}
                 className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
@@ -4144,12 +4286,18 @@ export default function App() {
                     const dayPosts = postsByDate[dk] ?? [];
                     const isToday = dk === todayStr();
                     const isSelected = calendarDaySelected === dk;
+                    const dow = new Date(dk + "T12:00:00").getDay();
+                    const bestRec = plan !== "free" ? scheduleRecs.find((r) => r.dayOfWeek === dow && r.score >= 0.8) : null;
                     return (
                       <button key={dk} onClick={() => setCalendarDaySelected(isSelected ? null : dk)}
                         className={`rounded-lg py-1.5 flex flex-col items-center gap-1 transition-colors min-h-[48px] ${isSelected ? "bg-[hsl(263,70%,65%)/20] border border-[hsl(263,70%,65%)/40]" : isToday ? `border ${border} bg-[hsl(220,14%,14%)]` : "hover:bg-[hsl(220,14%,14%)]"}`}>
                         <span className={`text-xs font-medium ${isToday ? "text-[hsl(263,70%,75%)]" : dimText}`}>{day}</span>
                         <div className="flex flex-wrap gap-0.5 justify-center max-w-[32px]">
                           {dayPosts.slice(0, 3).map((p, pi) => <span key={pi} className={`w-1.5 h-1.5 rounded-full ${postStatusClasses(p).dot}`} />)}
+                          {dayPosts.length === 0 && bestRec && (
+                            <span title={`${bestRec.emoji} ${bestRec.label}`}
+                              className={`w-1.5 h-1.5 rounded-full ${bestRec.score >= 0.9 ? "bg-green-400/50" : "bg-[hsl(263,70%,65%)/40]"}`} />
+                          )}
                         </div>
                       </button>
                     );
@@ -5257,6 +5405,7 @@ export default function App() {
                         <p>{tl.maxFolders === Infinity ? "✓ Unlimited folders" : "✗ Up to 1 folder"}</p>
                         <p>{tier === "free" ? "✗ Up to 3 drafts" : "✓ Unlimited drafts"}</p>
                         <p>{tier === "free" ? "✗ Favorites & Heart Filter" : "✓ Favorites & Heart Filter"}</p>
+                        <p>{tier === "free" ? "✗ Posting Schedule AI" : "✓ Posting Schedule AI"}</p>
                         {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics Dashboard</p></>}
                         {tier !== "agency" && <p>✗ Analytics Dashboard</p>}
                       </div>
@@ -6477,6 +6626,52 @@ export default function App() {
                       <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
                     </button>
                   </div>
+                </div>
+
+                {/* ── Posting Schedule card ── */}
+                <div className={`${card} p-4 space-y-3`}>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">📅 Recommended Posting Schedule</span>
+                    {plan === "free" && <DiamondBadge />}
+                  </div>
+                  {plan === "free" ? (
+                    <p className={`text-xs ${dimText}`}>Upgrade to Pro to see personalised best-time recommendations based on your posting history and Instagram best practices.</p>
+                  ) : scheduleRecsLoading ? (
+                    <p className={`text-xs ${dimText} animate-pulse`}>Loading…</p>
+                  ) : scheduleRecs.length === 0 ? (
+                    <p className={`text-xs ${dimText}`}>No recommendations yet — post a few times to build your personal schedule.</p>
+                  ) : (
+                    <>
+                      <p className={`text-[11px] ${dimText}`}>Your top slots this week based on past engagement & best practices:</p>
+                      <div className="space-y-1.5">
+                        {scheduleRecs.slice(0, 5).map((rec) => {
+                          const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                          const barWidth = Math.round(rec.score * 100);
+                          return (
+                            <div key={`${rec.dayOfWeek}-${rec.hour}`} className="space-y-0.5">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="font-medium">{rec.emoji} {dayNames[rec.dayOfWeek]} {String(rec.hour).padStart(2, "0")}:00</span>
+                                <span className={dimText}>{rec.label}</span>
+                              </div>
+                              <div className="w-full h-1 rounded-full bg-[hsl(220,14%,20%)]">
+                                <div className="h-1 rounded-full bg-[hsl(263,70%,65%)]" style={{ width: `${barWidth}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-medium">Auto-suggest Best Time</p>
+                          <p className={`text-[11px] ${dimText}`}>Pre-fill the time picker with today's top slot</p>
+                        </div>
+                        <button onClick={() => { const next = !autoSuggestTime; setAutoSuggestTime(next); localStorage.setItem("autoSuggestTime", String(next)); }}
+                          className={`w-10 h-6 rounded-full transition-colors flex items-center flex-shrink-0 ${autoSuggestTime ? "bg-[hsl(263,70%,65%)] justify-end" : "bg-[hsl(220,14%,20%)] justify-start"}`}>
+                          <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Save */}
