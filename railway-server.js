@@ -1192,17 +1192,16 @@ function getBestPracticeScore(dayOfWeek, hour) {
 }
 
 function scoreLabel(score) {
-  if (score >= 0.9) return "Best time";
-  if (score >= 0.75) return "Great time";
-  if (score >= 0.6)  return "Good time";
-  if (score >= 0.45) return "Okay time";
-  return "Low engagement expected";
+  if (score >= 0.8) return "Great time";
+  if (score >= 0.6) return "Good time";
+  if (score >= 0.4) return "Okay time";
+  return "Low engagement";
 }
 
 function scoreEmoji(score) {
-  if (score >= 0.9)  return "🔥";
-  if (score >= 0.75) return "👍";
-  if (score >= 0.45) return "⚡";
+  if (score >= 0.8) return "⚡";
+  if (score >= 0.6) return "👍";
+  if (score >= 0.4) return "😐";
   return "😴";
 }
 
@@ -1234,20 +1233,25 @@ app.get("/api/schedule/recommendations", requireAuth, (req, res) => withTables(a
     maxUserCount = Math.max(maxUserCount, userScoreMap[key]);
   }
 
-  // Build candidate slots across all days
-  const candidates = [];
+  // Build the best slot for each of the 7 days, ensuring full-week coverage
+  const bestPerDay = [];
   for (let dow = 0; dow < 7; dow++) {
+    let bestSlot = null;
     for (let hour = 7; hour <= 22; hour++) {
       const base = getBestPracticeScore(dow, hour);
       const userWeight = (userScoreMap[`${dow}_${hour}`] ?? 0) / maxUserCount;
-      const combined = Math.min(1.0, base * 0.7 + userWeight * 0.3);
+      // Blend: best-practice 60%, user history 40%
+      const combined = Math.min(1.0, base * 0.6 + userWeight * 0.4);
       const daysFromToday = (dow - todayDow + 7) % 7;
-      candidates.push({ dayOfWeek: dow, hour, score: combined, daysFromToday });
+      if (!bestSlot || combined > bestSlot.score) {
+        bestSlot = { dayOfWeek: dow, hour, score: combined, daysFromToday };
+      }
     }
+    if (bestSlot) bestPerDay.push(bestSlot);
   }
 
-  // Sort by score desc, take top 5
-  const top5 = candidates.sort((a, b) => b.score - a.score).slice(0, 5);
+  // Sort the 7 day-winners by score desc, take top 5 (always spans 5 different days)
+  const top5 = bestPerDay.sort((a, b) => b.score - a.score).slice(0, 5);
 
   const result = top5.map((slot) => ({
     dayOfWeek: slot.dayOfWeek,
