@@ -3,9 +3,6 @@ import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, FolderP
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 
-// 🧪 TESTING ONLY — change to "pro" or "agency" to test different plans
-// Change back to "free" before production release
-const USER_PLAN: "free" | "pro" | "agency" = "pro";
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
@@ -1084,8 +1081,11 @@ export default function App() {
   // Video upload progress
   const [videoUploadProgress, setVideoUploadProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Freemium plan
-  const plan = USER_PLAN;
+  // Freemium plan (dynamic from Stripe)
+  const [userPlan, setUserPlan] = useState<"free" | "pro" | "agency">("free");
+  const [subInfo, setSubInfo] = useState<{ plan: string; status: string; period: string; nextBillingDate: string | null } | null>(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const plan = userPlan;
   const limits = PLAN_LIMITS[plan];
   const [monthPostCount, setMonthPostCount] = useState(0);
   const [postUsedAICaption, setPostUsedAICaption] = useState(false);
@@ -1347,6 +1347,30 @@ export default function App() {
       setTimeout(() => setNotifyBannerVisible(true), 3000);
     }
   }, [session]);
+
+  // ── Stripe subscription fetch + redirect handling ───────────────────────────
+  useEffect(() => {
+    if (!session) return;
+    // Handle post-checkout redirect params
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgrade") === "success") {
+      showGlobalToast("Welcome to Pro! 🎉");
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (params.get("upgrade") === "cancelled") {
+      showGlobalToast("Upgrade cancelled.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    // Fetch plan from backend (authoritative source)
+    apiGet<{ plan: string; status: string; period: string; nextBillingDate: string | null }>("/stripe/subscription")
+      .then((data) => {
+        if (data?.plan) {
+          setUserPlan(data.plan as "free" | "pro" | "agency");
+          setSubInfo(data);
+          if (data.period) setProfileBillingPeriod(data.period as "monthly" | "yearly");
+        }
+      })
+      .catch(() => { /* server not yet configured with Stripe — stay on free */ });
+  }, [session]); // eslint-disable-line
 
   async function requestNotificationPermission() {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
@@ -5469,9 +5493,20 @@ export default function App() {
               </div>
               {/* CTA buttons */}
               <div className="space-y-2 pt-1">
-                <button onClick={() => { setUpgradeModalOpen(false); showGlobalToast("Upgrade coming soon — stay tuned! 🚀"); }}
-                  className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-sm transition-colors">
-                  Upgrade to Pro — €9.99/month
+                <button
+                  onClick={async () => {
+                    setCheckoutLoading(true);
+                    try {
+                      const data = await apiPostWithTimeout("/stripe/create-checkout", { plan: "pro", period: profileBillingPeriod }, 15000) as any;
+                      if (data?.url) window.location.href = data.url;
+                      else showGlobalToast("Could not start checkout. Try again.");
+                    } catch { showGlobalToast("Could not start checkout. Try again."); }
+                    finally { setCheckoutLoading(false); }
+                  }}
+                  disabled={checkoutLoading}
+                  className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
+                  {checkoutLoading && <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin inline-block" />}
+                  {checkoutLoading ? "Opening checkout…" : `Upgrade to Pro — ${profileBillingPeriod === "yearly" ? "€7.99/mo" : "€9.99/month"}`}
                 </button>
                 {upgradeModalData.canContinue && (
                   <button onClick={() => { setUpgradeModalOpen(false); upgradeModalData.onContinue(); }}
@@ -6172,17 +6207,62 @@ export default function App() {
                   {profileBillingPeriod === "yearly" && (
                     <p className={`text-[10px] ${dimText} text-center`}>Pro billed €95.88/yr · Agency billed €287.88/yr</p>
                   )}
-                  <div className={`space-y-2 text-sm ${dimText} pt-1`}>
-                    <div className="flex justify-between"><span>Next billing date</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
-                    <div className="flex justify-between"><span>Payment method</span><span className="text-[hsl(220,10%,60%)]">—</span></div>
-                  </div>
-                  <p className={`text-xs ${dimText} text-center`}>No payments yet</p>
-                  <button onClick={() => setUpgradeModalOpen(true)}
-                    className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white">
-                    Upgrade Plan
-                  </button>
                   {plan !== "free" && (
-                    <button onClick={() => showGlobalToast("Plan cancellation coming soon!")}
+                    <div className={`space-y-2 text-sm ${dimText} pt-1`}>
+                      <div className="flex justify-between">
+                        <span>Next billing date</span>
+                        <span className="text-[hsl(220,10%,75%)]">
+                          {subInfo?.nextBillingDate
+                            ? new Date(subInfo.nextBillingDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Status</span>
+                        <span className={`capitalize ${subInfo?.status === "active" ? "text-emerald-400" : "text-[hsl(220,10%,60%)]"}`}>
+                          {subInfo?.status ?? "—"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {plan === "free" ? (
+                    <button
+                      onClick={async () => {
+                        setCheckoutLoading(true);
+                        try {
+                          const data = await apiPostWithTimeout("/stripe/create-checkout", { plan: "pro", period: profileBillingPeriod }, 15000) as any;
+                          if (data?.url) window.location.href = data.url;
+                          else showGlobalToast("Could not start checkout. Try again.");
+                        } catch { showGlobalToast("Could not start checkout. Try again."); }
+                        finally { setCheckoutLoading(false); }
+                      }}
+                      disabled={checkoutLoading}
+                      className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-60 flex items-center justify-center gap-2">
+                      {checkoutLoading && <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                      {checkoutLoading ? "Opening checkout…" : `Upgrade to Pro — ${profileBillingPeriod === "yearly" ? "€7.99/mo" : "€9.99/mo"}`}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const data = await apiPostWithTimeout("/stripe/create-portal", {}, 10000) as any;
+                          if (data?.url) window.location.href = data.url;
+                          else showGlobalToast("Could not open billing portal. Try again.");
+                        } catch { showGlobalToast("Could not open billing portal. Try again."); }
+                      }}
+                      className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white">
+                      Manage Subscription
+                    </button>
+                  )}
+                  {plan !== "free" && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          const data = await apiPostWithTimeout("/stripe/create-portal", {}, 10000) as any;
+                          if (data?.url) window.location.href = data.url;
+                          else showGlobalToast("Could not open billing portal. Try again.");
+                        } catch { showGlobalToast("Could not open billing portal. Try again."); }
+                      }}
                       className={`w-full py-2 rounded-xl text-sm border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
                       Cancel Plan
                     </button>
