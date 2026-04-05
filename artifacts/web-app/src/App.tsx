@@ -1041,6 +1041,7 @@ export default function App() {
   const [calendarDaySelected, setCalendarDaySelected] = useState<string | null>(null);
   const [previewPost, setPreviewPost] = useState<ApprovedPost | null>(null);
   const [previewSlide, setPreviewSlide] = useState(0);
+  const [previewPostExtraMedia, setPreviewPostExtraMedia] = useState<MediaItem[]>([]);
   const [deleteConfirmPost, setDeleteConfirmPost] = useState<ApprovedPost | null>(null);
   const previewSwipeX = useRef<number | null>(null);
 
@@ -1657,10 +1658,26 @@ export default function App() {
 
   const previewItems = useMemo(() => {
     if (!previewPost) return [];
-    return (previewPost.mediaIds ?? []).map((id) => mediaMap[id]).filter(Boolean) as MediaItem[];
-  }, [previewPost, mediaMap]);
+    const extraMap = Object.fromEntries(previewPostExtraMedia.map((m) => [m.id, m]));
+    return (previewPost.mediaIds ?? []).map((id) => mediaMap[id] ?? extraMap[id]).filter(Boolean) as MediaItem[];
+  }, [previewPost, mediaMap, previewPostExtraMedia]);
 
-  const igUsername = appSettings.instagramUsername || "instaflow_user";
+  const igUsername = appSettings.instagramUsername
+    || profile?.instagram_username
+    || profile?.display_name
+    || (session?.user?.email ? session.user.email.split("@")[0] : null)
+    || "instaflow_user";
+
+  // ── Fetch missing media when opening a post preview ──────────────────────
+  useEffect(() => {
+    if (!previewPost?.mediaIds?.length) { setPreviewPostExtraMedia([]); return; }
+    const missingIds = previewPost.mediaIds.filter((id) => !mediaMap[id]);
+    if (!missingIds.length) { setPreviewPostExtraMedia([]); return; }
+    setPreviewPostExtraMedia([]); // clear stale while loading
+    apiGet<MediaItem[]>(`/media/by-ids?ids=${missingIds.join(",")}`)
+      .then((items) => setPreviewPostExtraMedia(items ?? []))
+      .catch(() => setPreviewPostExtraMedia([]));
+  }, [previewPost]); // eslint-disable-line
 
   // ── Swipe carousel ──
   function onSwipeStart(e: React.TouchEvent) { swipeStartX.current = e.touches[0].clientX; }
@@ -5214,9 +5231,18 @@ export default function App() {
                 }}>
                 {previewItems.length > 0 ? (
                   <>
-                    {isVideo(previewItems[previewSlide]?.dataUrl ?? "")
-                      ? <video src={previewItems[previewSlide].dataUrl} className="w-full h-full object-cover" autoPlay muted loop />
-                      : <img src={previewItems[previewSlide]?.dataUrl ?? ""} alt="" className="w-full h-full object-cover" />}
+                    {(() => {
+                      const item = previewItems[previewSlide];
+                      const src = item?.thumbnail_url && isVideo(item.dataUrl ?? "", item.media_type)
+                        ? item.thumbnail_url : item?.dataUrl ?? "";
+                      return isVideo(item?.dataUrl ?? "", item?.media_type) ? (
+                        <video src={item.dataUrl} poster={item.thumbnail_url ?? undefined}
+                          className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                      ) : (
+                        <img src={src} alt="" className="w-full h-full object-cover"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
+                      );
+                    })()}
                     {previewItems.length > 1 && (
                       <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur-sm">
                         {previewSlide + 1}/{previewItems.length}
@@ -5230,7 +5256,15 @@ export default function App() {
                     )}
                   </>
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/30 text-4xl">🖼️</div>
+                  <div className="w-full h-full bg-[hsl(220,14%,10%)] flex flex-col items-center justify-center gap-3">
+                    {previewPost?.mediaIds?.length ? (
+                      /* Still loading from server */
+                      <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+                    ) : (
+                      /* Post has no media attached */
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-2xl">□</div>
+                    )}
+                  </div>
                 )}
               </div>
 
