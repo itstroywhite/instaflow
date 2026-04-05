@@ -3473,8 +3473,9 @@ export default function App() {
                         <div className="flex flex-wrap gap-1.5">
                           {scheduleRecs.filter((r) => r.daysFromToday === 0).slice(0, 3).map((rec) => {
                             const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
-                            const bgCls = rec.score >= 0.9 ? "bg-green-500/15 border-green-500/30 text-green-300"
-                              : rec.score >= 0.7 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                            const bgCls = rec.score >= 0.8 ? "bg-green-500/15 border-green-500/30 text-green-300"
+                              : rec.score >= 0.6 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                              : rec.score >= 0.4 ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
                               : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]";
                             return (
                               <button key={rec.hour}
@@ -3487,8 +3488,9 @@ export default function App() {
                           {scheduleRecs.filter((r) => r.daysFromToday === 0).length === 0 && (
                             scheduleRecs.slice(0, 3).map((rec) => {
                               const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
-                              const bgCls = rec.score >= 0.9 ? "bg-green-500/15 border-green-500/30 text-green-300"
-                                : rec.score >= 0.7 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                              const bgCls = rec.score >= 0.8 ? "bg-green-500/15 border-green-500/30 text-green-300"
+                                : rec.score >= 0.6 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                                : rec.score >= 0.4 ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
                                 : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]";
                               return (
                                 <button key={rec.hour}
@@ -3507,8 +3509,8 @@ export default function App() {
                     <div className={`${card} p-4 relative overflow-hidden`}>
                       <p className="text-xs font-semibold text-[hsl(220,10%,55%)] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
                       <div className="flex gap-1.5 blur-sm pointer-events-none select-none">
-                        {["🔥 19:00", "👍 11:00", "⚡ 21:00"].map((t) => (
-                          <span key={t} className="text-xs px-2.5 py-1 rounded-lg border bg-green-500/15 border-green-500/30 text-green-300 font-medium">{t}</span>
+                        {[{ l: "⚡ 19:00", c: "bg-green-500/15 border-green-500/30 text-green-300" }, { l: "👍 11:00", c: "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]" }, { l: "😐 14:00", c: "bg-amber-500/10 border-amber-500/20 text-amber-300" }].map((t) => (
+                          <span key={t.l} className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${t.c}`}>{t.l}</span>
                         ))}
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
@@ -3839,9 +3841,9 @@ export default function App() {
                 </div>
                 {plan !== "free" && carouselTimeScore && (
                   <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
-                    carouselTimeScore.score >= 0.9 ? "bg-green-500/10 border-green-500/25 text-green-300"
-                    : carouselTimeScore.score >= 0.7 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
-                    : carouselTimeScore.score >= 0.45 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                    carouselTimeScore.score >= 0.8 ? "bg-green-500/10 border-green-500/25 text-green-300"
+                    : carouselTimeScore.score >= 0.6 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
+                    : carouselTimeScore.score >= 0.4 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
                     : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,50%)]"
                   }`}>
                     <span>{carouselTimeScore.emoji}</span>
@@ -4029,9 +4031,9 @@ export default function App() {
               </div>
               {plan !== "free" && singleTimeScore && (
                 <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
-                  singleTimeScore.score >= 0.9 ? "bg-green-500/10 border-green-500/25 text-green-300"
-                  : singleTimeScore.score >= 0.7 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
-                  : singleTimeScore.score >= 0.45 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                  singleTimeScore.score >= 0.8 ? "bg-green-500/10 border-green-500/25 text-green-300"
+                  : singleTimeScore.score >= 0.6 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
+                  : singleTimeScore.score >= 0.4 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
                   : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,50%)]"
                 }`}>
                   <span>{singleTimeScore.emoji}</span>
@@ -4288,7 +4290,7 @@ export default function App() {
                     const isToday = dk === todayStr();
                     const isSelected = calendarDaySelected === dk;
                     const dow = new Date(dk + "T12:00:00").getDay();
-                    const bestRec = plan !== "free" ? scheduleRecs.find((r) => r.dayOfWeek === dow && r.score >= 0.8) : null;
+                    const bestRec = plan !== "free" ? scheduleRecs.find((r) => r.dayOfWeek === dow) : null;
                     return (
                       <button key={dk} onClick={() => setCalendarDaySelected(isSelected ? null : dk)}
                         className={`rounded-lg py-1.5 flex flex-col items-center gap-1 transition-colors min-h-[48px] ${isSelected ? "bg-[hsl(263,70%,65%)/20] border border-[hsl(263,70%,65%)/40]" : isToday ? `border ${border} bg-[hsl(220,14%,14%)]` : "hover:bg-[hsl(220,14%,14%)]"}`}>
@@ -4297,7 +4299,7 @@ export default function App() {
                           {dayPosts.slice(0, 3).map((p, pi) => <span key={pi} className={`w-1.5 h-1.5 rounded-full ${postStatusClasses(p).dot}`} />)}
                           {dayPosts.length === 0 && bestRec && (
                             <span title={`${bestRec.emoji} ${bestRec.label}`}
-                              className={`w-1.5 h-1.5 rounded-full ${bestRec.score >= 0.9 ? "bg-green-400/50" : "bg-[hsl(263,70%,65%)/40]"}`} />
+                              className={`w-1.5 h-1.5 rounded-full ${bestRec.score >= 0.8 ? "bg-green-400/50" : bestRec.score >= 0.6 ? "bg-[hsl(263,70%,65%)/40]" : "bg-amber-400/30"}`} />
                           )}
                         </div>
                       </button>
