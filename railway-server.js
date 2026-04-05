@@ -1351,4 +1351,8 @@ app.listen(PORT, () => {
   ensureAvatarsBucket();
   // Run push reminder check every 5 minutes (scheduler fires near the user's configured time)
   setInterval(sendDailyPostReminders, 5 * 60 * 1000);
+  // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
+  setInterval(() => {
+    fetch('https://instaflow-api.onrender.com/health').catch(() => {});
+  }, 14 * 60 * 1000);
 });
