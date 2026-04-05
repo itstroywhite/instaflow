@@ -279,6 +279,34 @@ app.get("/api/media/count", requireAuth, async (req, res) => {
   }, res);
 });
 
+// Batch fetch specific media items by IDs (used by post preview when items aren't in client cache)
+app.get("/api/media/by-ids", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  const rawIds = String(req.query.ids ?? "");
+  if (!rawIds) return res.json([]);
+  const ids = rawIds.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 50);
+  if (!ids.length) return res.json([]);
+  await withTables(async () => {
+    const placeholders = ids.map((_, i) => `$${i + 2}`).join(",");
+    const { rows } = await pool.query(
+      `SELECT id, name, tag, url, used, created_at, is_favorite, media_type, duration, thumbnail_url
+       FROM media_items
+       WHERE user_id = $1 AND id IN (${placeholders})`,
+      [userId, ...ids]
+    );
+    const items = rows.map((r) => ({
+      id: r.id, name: r.name, tag: r.tag,
+      dataUrl: r.url ?? "",
+      used: r.used ?? false, createdAt: r.created_at,
+      isFavorite: r.is_favorite ?? false,
+      media_type: r.media_type ?? "image",
+      duration: r.duration ?? null,
+      thumbnail_url: r.thumbnail_url ?? null,
+    }));
+    res.json(items);
+  }, res);
+});
+
 app.get("/api/media", requireAuth, async (req, res) => {
   const userId = req.userId;
   await withTables(async () => {
