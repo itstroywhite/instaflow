@@ -10,6 +10,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 const { createClient } = require("@supabase/supabase-js");
 const webpush = require("web-push");
+const stripe = process.env.STRIPE_SECRET_KEY ? require("stripe")(process.env.STRIPE_SECRET_KEY) : null;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -34,6 +35,77 @@ app.use(cors({
   credentials: true,
 }));
 app.options("*", cors());
+
+// ── Stripe helpers ─────────────────────────────────────────────────────────────
+function getPlanFromPriceId(priceId) {
+  const agencyIds = [
+    process.env.STRIPE_AGENCY_MONTHLY_PRICE_ID,
+    process.env.STRIPE_AGENCY_YEARLY_PRICE_ID,
+  ].filter(Boolean);
+  return agencyIds.includes(priceId) ? "agency" : "pro";
+}
+function getPeriodFromPriceId(priceId) {
+  const yearlyIds = [
+    process.env.STRIPE_PRO_YEARLY_PRICE_ID,
+    process.env.STRIPE_AGENCY_YEARLY_PRICE_ID,
+  ].filter(Boolean);
+  return yearlyIds.includes(priceId) ? "yearly" : "monthly";
+}
+
+// ── Stripe webhook — MUST be before express.json() to receive raw body ─────────
+app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
+  const sig = req.headers["stripe-signature"];
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  } catch (err) {
+    console.error("[stripe webhook] sig verify failed:", err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const userId = session.metadata?.user_id;
+      const customerId = session.customer;
+      const subscriptionId = session.subscription;
+      if (userId && subscriptionId) {
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
+        const priceId = sub.items.data[0]?.price.id;
+        const plan = getPlanFromPriceId(priceId);
+        const period = getPeriodFromPriceId(priceId);
+        await pool.query(
+          `UPDATE profiles SET plan = $1, stripe_customer_id = $2, stripe_subscription_id = $3,
+           subscription_status = 'active', subscription_period = $4 WHERE user_id = $5`,
+          [plan, customerId, subscriptionId, period, userId]
+        );
+        console.log(`[stripe] Activated ${plan}/${period} for user ${userId}`);
+      }
+    } else if (event.type === "customer.subscription.deleted") {
+      const sub = event.data.object;
+      const { rows } = await pool.query(
+        `UPDATE profiles SET plan = 'free', subscription_status = 'cancelled',
+         stripe_subscription_id = NULL WHERE stripe_subscription_id = $1 RETURNING user_id`,
+        [sub.id]
+      );
+      if (rows.length) console.log(`[stripe] Cancelled subscription for user ${rows[0].user_id}`);
+    } else if (event.type === "customer.subscription.updated") {
+      const sub = event.data.object;
+      const priceId = sub.items.data[0]?.price.id;
+      const plan = getPlanFromPriceId(priceId);
+      const period = getPeriodFromPriceId(priceId);
+      await pool.query(
+        `UPDATE profiles SET plan = $1, subscription_status = $2, subscription_period = $3
+         WHERE stripe_subscription_id = $4`,
+        [plan, sub.status === "active" ? "active" : sub.status, period, sub.id]
+      );
+    }
+  } catch (err) {
+    console.error("[stripe webhook] handler error:", err.message);
+  }
+  res.json({ received: true });
+});
+
 app.use(express.json({ limit: "500mb" }));
 app.use(express.urlencoded({ extended: true, limit: "500mb" }));
 
@@ -166,6 +238,10 @@ async function ensureTables() {
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_daily BOOLEAN DEFAULT true;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_time TEXT DEFAULT '09:00';
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_updates BOOLEAN DEFAULT false;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free';
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_period TEXT DEFAULT 'monthly';
 
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS duration FLOAT;
@@ -1333,7 +1409,80 @@ app.post("/api/schedule/analytics", requireAuth, (req, res) => withTables(async 
   res.json({ ok: true });
 }, res));
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// ── Stripe API endpoints ───────────────────────────────────────────────────────
+app.post("/api/stripe/create-checkout", requireAuth, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
+  const { plan, period } = req.body;
+  if (!plan || !period) return res.status(400).json({ error: "plan and period required" });
+
+  const { rows } = await pool.query("SELECT stripe_customer_id, display_name FROM profiles WHERE user_id = $1", [req.userId]);
+  let customerId = rows[0]?.stripe_customer_id;
+
+  if (!customerId) {
+    const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(req.userId);
+    const customer = await stripe.customers.create({
+      email: user?.email,
+      name: rows[0]?.display_name || user?.email,
+      metadata: { user_id: req.userId },
+    });
+    customerId = customer.id;
+    await pool.query("UPDATE profiles SET stripe_customer_id = $1 WHERE user_id = $2", [customerId, req.userId]);
+  }
+
+  const priceMap = {
+    pro_monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    pro_yearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
+    agency_monthly: process.env.STRIPE_AGENCY_MONTHLY_PRICE_ID,
+    agency_yearly: process.env.STRIPE_AGENCY_YEARLY_PRICE_ID,
+  };
+  const priceId = priceMap[`${plan}_${period}`];
+  if (!priceId) return res.status(400).json({ error: `No price configured for ${plan}_${period}. Add STRIPE_${plan.toUpperCase()}_${period.toUpperCase()}_PRICE_ID to env.` });
+
+  const session = await stripe.checkout.sessions.create({
+    customer: customerId,
+    payment_method_types: ["card"],
+    line_items: [{ price: priceId, quantity: 1 }],
+    mode: "subscription",
+    success_url: "https://instaflow-web-app.vercel.app?upgrade=success",
+    cancel_url: "https://instaflow-web-app.vercel.app?upgrade=cancelled",
+    metadata: { user_id: req.userId },
+  });
+  res.json({ url: session.url });
+});
+
+app.post("/api/stripe/create-portal", requireAuth, async (req, res) => {
+  if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
+  const { rows } = await pool.query("SELECT stripe_customer_id FROM profiles WHERE user_id = $1", [req.userId]);
+  const customerId = rows[0]?.stripe_customer_id;
+  if (!customerId) return res.status(400).json({ error: "No Stripe customer found — please subscribe first." });
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    return_url: "https://instaflow-web-app.vercel.app",
+  });
+  res.json({ url: session.url });
+});
+
+app.get("/api/stripe/subscription", requireAuth, async (req, res) => {
+  const { rows } = await pool.query(
+    "SELECT plan, stripe_subscription_id, subscription_status, subscription_period FROM profiles WHERE user_id = $1",
+    [req.userId]
+  );
+  if (!rows.length) return res.json({ plan: "free", status: "inactive", period: "monthly", nextBillingDate: null });
+  const row = rows[0];
+  let nextBillingDate = null;
+  if (stripe && row.stripe_subscription_id && row.subscription_status === "active") {
+    try {
+      const sub = await stripe.subscriptions.retrieve(row.stripe_subscription_id);
+      nextBillingDate = new Date(sub.current_period_end * 1000).toISOString().split("T")[0];
+    } catch (e) { /* subscription may have been deleted externally */ }
+  }
+  res.json({
+    plan: row.plan || "free",
+    status: row.subscription_status || "inactive",
+    period: row.subscription_period || "monthly",
+    nextBillingDate,
+  });
+});
 
 async function ensureAvatarsBucket() {
   if (!supabaseAdmin) return;
