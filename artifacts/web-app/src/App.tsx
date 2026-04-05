@@ -2326,8 +2326,6 @@ export default function App() {
       const prevCaption = singleCaption || undefined;
       const opts = await generate3Captions([singlePostItem.tag ?? "other"], appSettings.captionSettings, true, mode, prevCaption, undefined, singleUserIdeas);
       setSingleCaptionOptions(opts);
-      setSingleCaptionIdx(0);
-      setSingleCaption(opts[0]);
       setPostUsedAICaption(true);
     }
     catch (err) { setSingleError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); }
@@ -2431,7 +2429,6 @@ export default function App() {
       setCaptionOptions(options);
       setCaptionSelectedIdx(null);
       setCaptionOptionsExpanded(true);
-      if (mode === "fresh") setCarouselCaption("");
       setPostUsedAICaption(true);
     } catch (err) { if (generationIdRef.current === thisGen) { setCaptionError("Couldn't generate caption — please try again"); showGlobalToast("Couldn't generate caption — please try again"); } }
     finally { if (generationIdRef.current === thisGen) setGeneratingCaptions(false); }
@@ -3576,10 +3573,12 @@ export default function App() {
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
                                     {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
                                   </span>
-                                  <div className="flex gap-3 items-center">
-                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
-                                  </div>
+                                  {getPostStatus(post) !== "posted" && (
+                                    <div className="flex gap-3 items-center">
+                                      {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -4254,10 +4253,12 @@ export default function App() {
                                   <span className={`text-xs px-2 py-0.5 rounded-full border ${sc.badge}`}>
                                     {getPostStatus(post) === "scheduled" ? "🕐 Scheduled" : "✓ Posted"}
                                   </span>
-                                  <div className="flex gap-3 items-center">
-                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
-                                  </div>
+                                  {getPostStatus(post) !== "posted" && (
+                                    <div className="flex gap-3 items-center">
+                                      {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -4326,10 +4327,12 @@ export default function App() {
                                   {post.scheduledTime && <span className={`text-xs ${dimText}`}>🕐 {post.scheduledTime}</span>}
                                 </div>
                                 {post.caption && <p className={`text-xs ${dimText} line-clamp-2`}>{post.caption}</p>}
-                                <div className="flex gap-3 justify-end">
-                                  {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
-                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
-                                </div>
+                                {getPostStatus(post) !== "posted" && (
+                                  <div className="flex gap-3 justify-end">
+                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -5167,7 +5170,12 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm" onClick={() => setPreviewPost(null)}>
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            <p className="text-sm font-semibold text-white">Post Preview</p>
+            <div className="flex items-center gap-2.5">
+              <p className="text-sm font-semibold text-white">Post Preview</p>
+              {getPostStatus(previewPost) === "posted" && (
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-semibold">✓ Posted</span>
+              )}
+            </div>
             <button onClick={() => setPreviewPost(null)} className="text-white/60 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
           </div>
           {/* Scrollable content */}
@@ -5280,6 +5288,15 @@ export default function App() {
                 <p className="text-[10px] text-white/30 uppercase tracking-wide">{previewPost.scheduledTime ?? "12:00"} · {formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>
               </div>
             </div>
+            {/* Close button for posted posts */}
+            {getPostStatus(previewPost) === "posted" && (
+              <div className="w-full max-w-sm px-4 pb-6">
+                <button onClick={() => setPreviewPost(null)}
+                  className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-colors">
+                  Close
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
