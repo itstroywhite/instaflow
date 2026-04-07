@@ -1415,39 +1415,53 @@ app.post("/api/stripe/create-checkout", requireAuth, async (req, res) => {
   const { plan, period } = req.body;
   if (!plan || !period) return res.status(400).json({ error: "plan and period required" });
 
-  const { rows } = await pool.query("SELECT stripe_customer_id, display_name FROM profiles WHERE user_id = $1", [req.userId]);
-  let customerId = rows[0]?.stripe_customer_id;
+  console.log("[stripe] create-checkout called:", { plan, period, userId: req.userId });
+  console.log("[stripe] price IDs:", {
+    proMonthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    proYearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
+    agencyMonthly: process.env.STRIPE_AGENCY_MONTHLY_PRICE_ID,
+    agencyYearly: process.env.STRIPE_AGENCY_YEARLY_PRICE_ID,
+  });
 
-  if (!customerId) {
-    const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(req.userId);
-    const customer = await stripe.customers.create({
-      email: user?.email,
-      name: rows[0]?.display_name || user?.email,
+  try {
+    const { rows } = await pool.query("SELECT stripe_customer_id, display_name FROM profiles WHERE user_id = $1", [req.userId]);
+    let customerId = rows[0]?.stripe_customer_id;
+
+    if (!customerId) {
+      const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(req.userId);
+      const customer = await stripe.customers.create({
+        email: user?.email,
+        name: rows[0]?.display_name || user?.email,
+        metadata: { user_id: req.userId },
+      });
+      customerId = customer.id;
+      await pool.query("UPDATE profiles SET stripe_customer_id = $1 WHERE user_id = $2", [customerId, req.userId]);
+    }
+
+    const priceMap = {
+      pro_monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
+      pro_yearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
+      agency_monthly: process.env.STRIPE_AGENCY_MONTHLY_PRICE_ID,
+      agency_yearly: process.env.STRIPE_AGENCY_YEARLY_PRICE_ID,
+    };
+    const priceId = priceMap[`${plan}_${period}`];
+    if (!priceId) return res.status(400).json({ error: `No price ID configured for ${plan}_${period} — add STRIPE_${plan.toUpperCase()}_${period.toUpperCase()}_PRICE_ID to Render env vars.` });
+
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ["card"],
+      line_items: [{ price: priceId, quantity: 1 }],
+      mode: "subscription",
+      success_url: "https://instaflow-web-app.vercel.app?upgrade=success",
+      cancel_url: "https://instaflow-web-app.vercel.app?upgrade=cancelled",
       metadata: { user_id: req.userId },
     });
-    customerId = customer.id;
-    await pool.query("UPDATE profiles SET stripe_customer_id = $1 WHERE user_id = $2", [customerId, req.userId]);
+    console.log("[stripe] checkout session created:", session.id);
+    res.json({ url: session.url });
+  } catch (err) {
+    console.log("[stripe] create-checkout error:", err.message);
+    res.status(500).json({ error: err.message });
   }
-
-  const priceMap = {
-    pro_monthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
-    pro_yearly: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
-    agency_monthly: process.env.STRIPE_AGENCY_MONTHLY_PRICE_ID,
-    agency_yearly: process.env.STRIPE_AGENCY_YEARLY_PRICE_ID,
-  };
-  const priceId = priceMap[`${plan}_${period}`];
-  if (!priceId) return res.status(400).json({ error: `No price configured for ${plan}_${period}. Add STRIPE_${plan.toUpperCase()}_${period.toUpperCase()}_PRICE_ID to env.` });
-
-  const session = await stripe.checkout.sessions.create({
-    customer: customerId,
-    payment_method_types: ["card"],
-    line_items: [{ price: priceId, quantity: 1 }],
-    mode: "subscription",
-    success_url: "https://instaflow-web-app.vercel.app?upgrade=success",
-    cancel_url: "https://instaflow-web-app.vercel.app?upgrade=cancelled",
-    metadata: { user_id: req.userId },
-  });
-  res.json({ url: session.url });
 });
 
 app.post("/api/stripe/create-portal", requireAuth, async (req, res) => {
