@@ -1090,7 +1090,7 @@ export default function App() {
   const [monthPostCount, setMonthPostCount] = useState(0);
   const [postUsedAICaption, setPostUsedAICaption] = useState(false);
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [upgradeModalData, setUpgradeModalData] = useState<{ reasons: string[]; canContinue: boolean; onContinue: () => void } | null>(null);
+  const [upgradeModalData, setUpgradeModalData] = useState<{ reasons: string[]; canContinue: boolean; onContinue: () => void }>({ reasons: [], canContinue: false, onContinue: () => {} });
 
   // AI carousel source
   const [aiCarouselSource, setAiCarouselSource] = useState<"all" | "tag" | "folder">("all");
@@ -1350,6 +1350,9 @@ export default function App() {
 
   // ── Stripe subscription fetch + redirect handling ───────────────────────────
   useEffect(() => {
+    // Reset modal state on every session change (logout/login)
+    setUpgradeModalOpen(false);
+    setUpgradeModalData({ reasons: [], canContinue: false, onContinue: () => {} });
     if (!session) return;
     // Handle post-checkout redirect params
     const params = new URLSearchParams(window.location.search);
@@ -5436,85 +5439,130 @@ export default function App() {
       )}
 
       {/* ── UPGRADE MODAL ── */}
-      {upgradeModalOpen && upgradeModalData !== null && (
+      {upgradeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setUpgradeModalOpen(false)}>
           <div className="absolute inset-0 bg-black/70" />
           <div className="relative bg-[hsl(220,14%,11%)] border border-[hsl(220,13%,20%)] rounded-t-3xl w-full max-w-lg pb-10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-[hsl(220,13%,18%)]">
+            <div className="px-6 pt-5 pb-4 border-b border-[hsl(220,13%,18%)]">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-lg font-bold">Unlock with Pro 💎</h2>
-                <button onClick={() => setUpgradeModalOpen(false)} className={`${dimText} hover:text-white text-xl`}>✕</button>
+                <h2 className="text-lg font-bold">Choose Your Plan 💎</h2>
+                <button onClick={() => setUpgradeModalOpen(false)} className={`${dimText} hover:text-white text-xl leading-none`}>✕</button>
               </div>
-              <p className={`text-sm ${dimText}`}>This action requires a paid plan</p>
+              <p className={`text-sm ${dimText}`}>
+                {upgradeModalData.reasons.length > 0 ? upgradeModalData.reasons[0] : "Unlock powerful features with a paid plan"}
+              </p>
             </div>
-            <div className="px-6 py-4 space-y-4 max-h-[70vh] overflow-y-auto">
-              {/* Blocked reasons */}
-              {upgradeModalData.reasons.length > 0 && (
-                <div className={`rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8] p-4 space-y-2`}>
-                  <p className={`text-xs font-semibold uppercase tracking-wider ${dimText}`}>Features requiring Pro</p>
-                  {upgradeModalData.reasons.map((r) => (
-                    <div key={r} className="flex items-center gap-2.5 text-sm text-[hsl(220,10%,75%)]">
-                      <span className="text-[hsl(263,70%,65%)] flex-shrink-0">💎</span>
-                      <span>{r}</span>
-                    </div>
+            <div className="px-6 py-4 space-y-4 max-h-[75vh] overflow-y-auto">
+              {/* Period toggle */}
+              <div className="flex items-center gap-2">
+                <div className={`flex rounded-lg border ${border} overflow-hidden`}>
+                  {(["monthly", "yearly"] as const).map((p) => (
+                    <button key={p} onClick={() => setProfileBillingPeriod(p)}
+                      className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[hsl(263,70%,65%)] text-white" : dimText}`}>
+                      {p}
+                    </button>
                   ))}
                 </div>
-              )}
-              {/* Plan comparison table */}
-              <div className="grid grid-cols-3 gap-2 text-center text-[11px]">
-                {(["free", "pro", "agency"] as const).map((tier) => {
-                  const tl = PLAN_LIMITS[tier];
-                  const isCurrent = tier === plan;
-                  return (
-                    <div key={tier} className={`rounded-xl border p-3 space-y-2 ${isCurrent ? "border-[hsl(220,13%,30%)] bg-[hsl(220,14%,15%)]" : tier === "pro" ? "border-[hsl(263,70%,65%)/40] bg-[hsl(263,70%,65%)/8]" : "border-[hsl(220,13%,20%)]"}`}>
-                      <p className={`font-bold text-xs ${tier === "pro" ? "text-[hsl(263,70%,70%)]" : "text-[hsl(220,10%,70%)]"}`}>
-                        {tier === "free" ? "Free" : tier === "pro" ? "Pro 💎" : "Agency 💎"}
-                      </p>
-                      {tier === "pro" && <p className="text-[hsl(263,70%,70%)] font-semibold">€9.99/mo</p>}
-                      {tier === "agency" && <p className="text-[hsl(220,10%,60%)]">€29.99/mo</p>}
-                      <div className={`space-y-1 ${dimText}`}>
-                        <p>{tl.maxPostsPerMonth === Infinity ? "∞ posts" : `${tl.maxPostsPerMonth} posts/mo`}</p>
-                        <p>{tl.maxMedia === Infinity ? "∞ media" : `${tl.maxMedia} media`}</p>
-                        <p>{tl.aiCaptions ? "✓ AI Captions" : "✗ AI Captions"}</p>
-                        <p>{tl.aiTagging ? "✓ AI Tagging" : "✗ AI Tagging"}</p>
-                        <p>{tl.videoUpload ? "✓ Video Upload & Playback" : "✗ Video Upload & Playback"}</p>
-                        <p>{tl.maxFolders === Infinity ? "✓ Unlimited folders" : "✗ Up to 1 folder"}</p>
-                        <p>{tier === "free" ? "✗ Up to 3 drafts" : "✓ Unlimited drafts"}</p>
-                        <p>{tier === "free" ? "✗ Favorites & Heart Filter" : "✓ Favorites & Heart Filter"}</p>
-                        <p>{tier === "free" ? "✗ Posting Schedule AI" : "✓ Posting Schedule AI"}</p>
-                        {tier === "agency" && <><p>✓ Multi-account</p><p>✓ Analytics Dashboard</p></>}
-                        {tier !== "agency" && <p>✗ Analytics Dashboard</p>}
-                      </div>
-                      {isCurrent && <p className="text-[10px] text-[hsl(220,10%,45%)] font-medium">Current</p>}
-                    </div>
-                  );
-                })}
-              </div>
-              {/* CTA buttons */}
-              <div className="space-y-2 pt-1">
-                <button
-                  onClick={async () => {
-                    setCheckoutLoading(true);
-                    try {
-                      const data = await apiPostWithTimeout("/stripe/create-checkout", { plan: "pro", period: profileBillingPeriod }, 15000) as any;
-                      if (data?.url) window.location.href = data.url;
-                      else showGlobalToast("Could not start checkout. Try again.");
-                    } catch { showGlobalToast("Could not start checkout. Try again."); }
-                    finally { setCheckoutLoading(false); }
-                  }}
-                  disabled={checkoutLoading}
-                  className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-2">
-                  {checkoutLoading && <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin inline-block" />}
-                  {checkoutLoading ? "Opening checkout…" : `Upgrade to Pro — ${profileBillingPeriod === "yearly" ? "€7.99/mo" : "€9.99/month"}`}
-                </button>
-                {upgradeModalData.canContinue && (
-                  <button onClick={() => { setUpgradeModalOpen(false); upgradeModalData.onContinue(); }}
-                    className={`w-full py-2.5 rounded-xl border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] text-sm font-medium transition-colors`}>
-                    Continue on Free
-                  </button>
+                {profileBillingPeriod === "yearly" && (
+                  <span className="text-[10px] px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">Save 20%</span>
                 )}
               </div>
+
+              {/* Pro + Agency cards side by side */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* PRO card */}
+                <div className={`rounded-xl border p-4 space-y-3 flex flex-col ${plan === "pro" ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : "border-[hsl(263,70%,65%)/40] bg-[hsl(263,70%,65%)/6]"}`}>
+                  <div>
+                    <p className="font-bold text-sm text-[hsl(263,70%,72%)]">Pro 💎</p>
+                    <p className="text-base font-bold text-white mt-0.5">
+                      {profileBillingPeriod === "yearly" ? "€7.99" : "€9.99"}<span className="text-xs font-normal text-[hsl(220,10%,55%)]">/mo</span>
+                    </p>
+                    {profileBillingPeriod === "yearly" && <p className="text-[10px] text-[hsl(220,10%,45%)]">billed €95.88/yr</p>}
+                  </div>
+                  <ul className={`space-y-1.5 text-[11px] ${dimText} flex-1`}>
+                    <li>✓ Unlimited posts</li>
+                    <li>✓ Unlimited media</li>
+                    <li>✓ AI Captions</li>
+                    <li>✓ AI Tagging</li>
+                    <li>✓ Video upload</li>
+                    <li>✓ Unlimited folders</li>
+                    <li>✓ Schedule AI</li>
+                    <li>✓ Favorites filter</li>
+                    <li className="text-[hsl(220,10%,35%)]">✗ Multi-account</li>
+                    <li className="text-[hsl(220,10%,35%)]">✗ Analytics</li>
+                  </ul>
+                  {plan === "pro" ? (
+                    <p className="text-[10px] text-[hsl(263,70%,65%)] font-semibold text-center">Current plan</p>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        setCheckoutLoading(true);
+                        try {
+                          const data = await apiPostWithTimeout("/stripe/create-checkout", { plan: "pro", period: profileBillingPeriod }, 15000) as any;
+                          if (data?.url) window.location.href = data.url;
+                          else showGlobalToast(data?.error ?? "Could not start checkout. Try again.");
+                        } catch { showGlobalToast("Could not start checkout. Try again."); }
+                        finally { setCheckoutLoading(false); }
+                      }}
+                      disabled={checkoutLoading}
+                      className="w-full py-2.5 rounded-lg bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-xs transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+                      {checkoutLoading && <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                      Upgrade to Pro
+                    </button>
+                  )}
+                </div>
+
+                {/* AGENCY card */}
+                <div className={`rounded-xl border p-4 space-y-3 flex flex-col ${plan === "agency" ? "border-amber-500 bg-amber-500/10" : "border-amber-500/30 bg-amber-500/5"}`}>
+                  <div>
+                    <p className="font-bold text-sm text-amber-400">Agency 🏆</p>
+                    <p className="text-base font-bold text-white mt-0.5">
+                      {profileBillingPeriod === "yearly" ? "€23.99" : "€29.99"}<span className="text-xs font-normal text-[hsl(220,10%,55%)]">/mo</span>
+                    </p>
+                    {profileBillingPeriod === "yearly" && <p className="text-[10px] text-[hsl(220,10%,45%)]">billed €287.88/yr</p>}
+                  </div>
+                  <ul className={`space-y-1.5 text-[11px] ${dimText} flex-1`}>
+                    <li>✓ Everything in Pro</li>
+                    <li>✓ Multi-account</li>
+                    <li>✓ Analytics dashboard</li>
+                    <li>✓ Priority support</li>
+                    <li>✓ Bulk scheduling</li>
+                    <li>✓ Client workspace</li>
+                    <li>✓ Team collaboration</li>
+                    <li>✓ API access</li>
+                    <li>✓ White-label export</li>
+                    <li>✓ Advanced reports</li>
+                  </ul>
+                  {plan === "agency" ? (
+                    <p className="text-[10px] text-amber-400 font-semibold text-center">Current plan</p>
+                  ) : (
+                    <button
+                      onClick={async () => {
+                        setCheckoutLoading(true);
+                        try {
+                          const data = await apiPostWithTimeout("/stripe/create-checkout", { plan: "agency", period: profileBillingPeriod }, 15000) as any;
+                          if (data?.url) window.location.href = data.url;
+                          else showGlobalToast(data?.error ?? "Could not start checkout. Try again.");
+                        } catch { showGlobalToast("Could not start checkout. Try again."); }
+                        finally { setCheckoutLoading(false); }
+                      }}
+                      disabled={checkoutLoading}
+                      className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-semibold text-xs transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+                      {checkoutLoading && <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                      Upgrade to Agency
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Continue on Free */}
+              {upgradeModalData.canContinue && (
+                <button onClick={() => { setUpgradeModalOpen(false); upgradeModalData.onContinue(); }}
+                  className={`w-full py-2.5 rounded-xl border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] text-sm font-medium transition-colors`}>
+                  Continue on Free
+                </button>
+              )}
             </div>
           </div>
         </div>
