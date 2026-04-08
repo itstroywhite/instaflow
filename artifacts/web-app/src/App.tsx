@@ -1356,10 +1356,8 @@ export default function App() {
     if (!session) return;
     // Handle post-checkout redirect params
     const params = new URLSearchParams(window.location.search);
-    if (params.get("upgrade") === "success") {
-      showGlobalToast("Welcome to Pro! 🎉");
-      window.history.replaceState({}, "", window.location.pathname);
-    } else if (params.get("upgrade") === "cancelled") {
+    const upgradeParam = params.get("upgrade");
+    if (upgradeParam === "cancelled") {
       showGlobalToast("Upgrade cancelled.");
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -1371,8 +1369,20 @@ export default function App() {
           setSubInfo(data);
           if (data.period) setProfileBillingPeriod(data.period as "monthly" | "yearly");
         }
+        // Show welcome toast only after we know the real plan name
+        if (upgradeParam === "success") {
+          const planName = data?.plan === "agency" ? "Agency" : "Pro";
+          showGlobalToast(`Welcome to ${planName}! 🎉`);
+          window.history.replaceState({}, "", window.location.pathname);
+        }
       })
-      .catch(() => { /* server not yet configured with Stripe — stay on free */ });
+      .catch(() => {
+        // Server not yet configured with Stripe — stay on free
+        if (upgradeParam === "success") {
+          showGlobalToast("Welcome! 🎉 Your plan has been upgraded.");
+          window.history.replaceState({}, "", window.location.pathname);
+        }
+      });
   }, [session]); // eslint-disable-line
 
   async function requestNotificationPermission() {
