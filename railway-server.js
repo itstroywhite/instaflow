@@ -1409,6 +1409,98 @@ app.post("/api/schedule/analytics", requireAuth, (req, res) => withTables(async 
   res.json({ ok: true });
 }, res));
 
+// ── Analytics endpoints ───────────────────────────────────────────────────────
+function getISOWeek(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+  const w1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d - w1) / 86400000 - 3 + (w1.getDay() + 6) % 7) / 7);
+}
+
+app.get("/api/analytics/overview", requireAuth, (req, res) => withTables(async () => {
+  const userId = req.userId;
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+  const today = now.toISOString().split("T")[0];
+  const [posts, media, folders, drafts, scheduled, posted] = await Promise.all([
+    pool.query(`SELECT COUNT(*) FROM approved_posts WHERE user_id=$1 AND DATE(created_at) >= $2`, [userId, monthStart]),
+    pool.query(`SELECT COUNT(*) FROM media_items WHERE user_id=$1`, [userId]),
+    pool.query(`SELECT COUNT(*) FROM media_folders WHERE user_id=$1`, [userId]),
+    pool.query(`SELECT COUNT(*) FROM approved_posts WHERE user_id=$1 AND status='draft'`, [userId]),
+    pool.query(`SELECT COUNT(*) FROM approved_posts WHERE user_id=$1 AND status IN ('approved','scheduled') AND scheduled_date >= $2`, [userId, today]),
+    pool.query(`SELECT COUNT(*) FROM approved_posts WHERE user_id=$1 AND status='posted' AND DATE(created_at) >= $2`, [userId, monthStart]),
+  ]);
+  res.json({
+    postsThisMonth: parseInt(posts.rows[0].count),
+    mediaCount: parseInt(media.rows[0].count),
+    folderCount: parseInt(folders.rows[0].count),
+    draftCount: parseInt(drafts.rows[0].count),
+    scheduledCount: parseInt(scheduled.rows[0].count),
+    postedThisMonth: parseInt(posted.rows[0].count),
+  });
+}, res));
+
+app.get("/api/analytics/posting-frequency", requireAuth, (req, res) => withTables(async () => {
+  const { rows } = await pool.query(`
+    SELECT DATE_TRUNC('week', created_at) AS week_start, COUNT(*) AS count
+    FROM approved_posts
+    WHERE user_id=$1 AND created_at >= NOW() - INTERVAL '28 days'
+    GROUP BY week_start ORDER BY week_start
+  `, [req.userId]);
+  res.json(rows.map(r => ({ week: "CW " + getISOWeek(r.week_start), count: parseInt(r.count) })));
+}, res));
+
+app.get("/api/analytics/tag-distribution", requireAuth, (req, res) => withTables(async () => {
+  const { rows } = await pool.query(
+    `SELECT tags_summary FROM approved_posts WHERE user_id=$1 AND tags_summary != ''`, [req.userId]
+  );
+  const counts = {};
+  for (const r of rows) {
+    r.tags_summary.split(",").map(t => t.trim()).filter(Boolean).forEach(t => { counts[t] = (counts[t] || 0) + 1; });
+  }
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([tag, count]) => ({ tag, count }));
+  res.json(sorted);
+}, res));
+
+app.get("/api/analytics/posting-times", requireAuth, (req, res) => withTables(async () => {
+  const { rows } = await pool.query(`
+    SELECT
+      EXTRACT(DOW FROM scheduled_date::date) AS day_of_week,
+      CAST(SPLIT_PART(scheduled_time, ':', 1) AS INT) AS hour,
+      COUNT(*) AS count
+    FROM approved_posts
+    WHERE user_id=$1
+      AND scheduled_date IS NOT NULL AND scheduled_date != ''
+      AND scheduled_time IS NOT NULL AND scheduled_time != ''
+    GROUP BY day_of_week, hour ORDER BY day_of_week, hour
+  `, [req.userId]);
+  res.json(rows.map(r => ({ dayOfWeek: parseInt(r.day_of_week), hour: parseInt(r.hour), count: parseInt(r.count) })));
+}, res));
+
+app.get("/api/analytics/content-mix", requireAuth, (req, res) => withTables(async () => {
+  const [mediaRows, slideRows] = await Promise.all([
+    pool.query(`SELECT media_type, COUNT(*) AS count FROM media_items WHERE user_id=$1 GROUP BY media_type`, [req.userId]),
+    pool.query(`SELECT AVG(CAST(NULLIF(slide_count,'') AS FLOAT)) AS avg FROM approved_posts WHERE user_id=$1`, [req.userId]),
+  ]);
+  let imageCount = 0, videoCount = 0;
+  for (const r of mediaRows.rows) {
+    if (r.media_type === "video") videoCount += parseInt(r.count);
+    else imageCount += parseInt(r.count);
+  }
+  res.json({ imageCount, videoCount, avgSlides: parseFloat(slideRows.rows[0]?.avg || 1).toFixed(1) });
+}, res));
+
+app.get("/api/analytics/trending-tags", requireAuth, (req, res) => withTables(async () => {
+  const TRENDING = ["lifestyle", "food", "fitness", "travel", "fashion", "music", "pets", "city", "night", "friends"];
+  const { rows } = await pool.query(
+    `SELECT tags_summary FROM approved_posts WHERE user_id=$1 AND tags_summary != ''`, [req.userId]
+  );
+  const userTags = new Set();
+  rows.forEach(r => r.tags_summary.split(",").map(t => t.trim().toLowerCase()).filter(Boolean).forEach(t => userTags.add(t)));
+  res.json(TRENDING.map(tag => ({ tag, trending: true, userHasTag: userTags.has(tag) })));
+}, res));
+
 // ── Stripe API endpoints ───────────────────────────────────────────────────────
 app.post("/api/stripe/create-checkout", requireAuth, async (req, res) => {
   if (!stripe) return res.status(503).json({ error: "Stripe not configured" });
