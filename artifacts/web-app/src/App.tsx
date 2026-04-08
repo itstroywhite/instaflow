@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 
 // ─── Supabase client ──────────────────────────────────────────────────────────
@@ -1092,6 +1093,17 @@ export default function App() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [upgradeModalData, setUpgradeModalData] = useState<{ reasons: string[]; canContinue: boolean; onContinue: () => void }>({ reasons: [], canContinue: false, onContinue: () => {} });
 
+  // Analytics dashboard
+  const [analytics, setAnalytics] = useState<{
+    overview: { postsThisMonth: number; mediaCount: number; folderCount: number; draftCount: number; scheduledCount: number; postedThisMonth: number } | null;
+    freq: { week: string; count: number }[];
+    tagDist: { tag: string; count: number }[];
+    postingTimes: { dayOfWeek: number; hour: number; count: number }[];
+    contentMix: { imageCount: number; videoCount: number; avgSlides: string } | null;
+    trending: { tag: string; trending: boolean; userHasTag: boolean }[];
+  }>({ overview: null, freq: [], tagDist: [], postingTimes: [], contentMix: null, trending: [] });
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+
   // AI carousel source
   const [aiCarouselSource, setAiCarouselSource] = useState<"all" | "tag" | "folder">("all");
   const [aiCarouselTags, setAiCarouselTags] = useState<string[]>([]);
@@ -1384,6 +1396,25 @@ export default function App() {
         }
       });
   }, [session]); // eslint-disable-line
+
+  // ── Analytics data fetch (triggered when subpage opens) ──────────────────────
+  useEffect(() => {
+    if (profileSubpage !== "usage" || !session) return;
+    setAnalyticsLoading(true);
+    Promise.all([
+      apiGet<any>("/analytics/overview"),
+      apiGet<any>("/analytics/posting-frequency"),
+      apiGet<any>("/analytics/trending-tags"),
+      plan !== "free" ? apiGet<any>("/analytics/content-mix") : Promise.resolve(null),
+      plan === "agency" ? apiGet<any>("/analytics/tag-distribution") : Promise.resolve([]),
+      plan === "agency" ? apiGet<any>("/analytics/posting-times") : Promise.resolve([]),
+    ])
+      .then(([overview, freq, trending, contentMix, tagDist, postingTimes]) => {
+        setAnalytics({ overview, freq: freq ?? [], tagDist: tagDist ?? [], postingTimes: postingTimes ?? [], contentMix, trending: trending ?? [] });
+      })
+      .catch(() => {})
+      .finally(() => setAnalyticsLoading(false));
+  }, [profileSubpage, session]); // eslint-disable-line
 
   async function requestNotificationPermission() {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
@@ -6098,7 +6129,7 @@ export default function App() {
               {([
                 { icon: "👤", label: "Profile", sub: "profile" as const },
                 { icon: "🎨", label: "Preferences", sub: "preferences" as const },
-                { icon: "📊", label: "Usage Overview", sub: "usage" as const },
+                { icon: "📊", label: "Analytics Dashboard", sub: "usage" as const },
                 { icon: "💳", label: "Plan & Billing", sub: "billing" as const },
                 { icon: "⚙️", label: "Account Settings", sub: "account" as const },
               ] as { icon: string; label: string; sub: "profile" | "usage" | "billing" | "account" | "preferences" }[]).map(({ icon, label, sub }) => (
@@ -6132,7 +6163,7 @@ export default function App() {
             </button>
             <span className="flex-1 text-center text-sm font-semibold text-[hsl(220,10%,90%)] pr-12">
               {profileSubpage === "profile" ? "Profile"
-                : profileSubpage === "usage" ? "Usage Overview"
+                : profileSubpage === "usage" ? "Analytics Dashboard"
                 : profileSubpage === "billing" ? "Plan & Billing"
                 : profileSubpage === "preferences" ? "Preferences"
                 : "Account Settings"}
@@ -6198,33 +6229,242 @@ export default function App() {
               </div>
             )}
 
-            {/* ── USAGE subpage ── */}
+            {/* ── ANALYTICS DASHBOARD subpage ── */}
             {profileSubpage === "usage" && (
-              <div className="px-4 pt-6 space-y-4">
-                <div className={`${card} p-5 space-y-4`}>
-                  {[
-                    { label: "Posts this month", value: monthPostCount, max: limits.maxPostsPerMonth },
-                    { label: "Media in pool", value: mediaItems.length, max: limits.maxMedia },
-                    { label: "Folders", value: folders.length, max: limits.maxFolders },
-                    { label: "Drafts", value: approvedPosts.filter((p) => p.status === "draft").length, max: 3 },
-                  ].map(({ label, value, max }) => (
-                    <div key={label} className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className={`text-sm ${dimText}`}>{label}</span>
-                        <span className="text-sm text-[hsl(220,10%,75%)]">{value} / {max === Infinity ? "∞" : max}</span>
+              <div className="px-4 pt-6 space-y-6 pb-6">
+                {analyticsLoading && !analytics.overview ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    {/* ── SECTION 1: OVERVIEW ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Overview</p>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {[
+                          { label: "Posts this month", value: analytics.overview?.postsThisMonth ?? monthPostCount, max: limits.maxPostsPerMonth },
+                          { label: "Media in pool", value: analytics.overview?.mediaCount ?? mediaTotal, max: limits.maxMedia },
+                          { label: "Folders", value: analytics.overview?.folderCount ?? folders.length, max: limits.maxFolders },
+                          { label: "Drafts", value: analytics.overview?.draftCount ?? approvedPosts.filter(p => p.status === "draft").length, max: plan === "free" ? 3 : Infinity },
+                          { label: "Scheduled", value: analytics.overview?.scheduledCount ?? 0, max: Infinity },
+                          { label: "Posted this month", value: analytics.overview?.postedThisMonth ?? 0, max: Infinity },
+                        ].map(({ label, value, max }) => (
+                          <div key={label} className={`${card} p-4 space-y-1.5`}>
+                            <p className={`text-[11px] ${dimText}`}>{label}</p>
+                            <p className="text-2xl font-bold text-white">{value}</p>
+                            {max !== Infinity && (
+                              <>
+                                <div className="h-1 rounded-full bg-[hsl(220,14%,16%)] overflow-hidden">
+                                  <div className="h-full rounded-full bg-[hsl(263,70%,65%)]" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
+                                </div>
+                                <p className={`text-[10px] ${dimText}`}>of {max}</p>
+                              </>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                      <div className="h-1.5 rounded-full bg-[hsl(220,14%,16%)] overflow-hidden">
-                        <div className="h-full rounded-full bg-[hsl(263,70%,65%)] transition-all"
-                          style={{ width: max === Infinity ? "4%" : `${Math.min(100, (value / max) * 100)}%` }} />
+                      {plan === "free" && (
+                        <button onClick={() => setProfileSubpage("billing")}
+                          className="w-full mt-3 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold">
+                          Upgrade Plan
+                        </button>
+                      )}
+                    </div>
+
+                    {/* ── SECTION 2: POSTING FREQUENCY (Agency) ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Posting Frequency</p>
+                      {plan !== "agency" ? (
+                        <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">🏆</div>
+                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Agency Plan Required</p>
+                          <p className={`text-xs ${dimText}`}>Posts per week chart for the last 4 weeks</p>
+                          <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Posting Frequency chart"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
+                            className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold">Upgrade to Agency</button>
+                        </div>
+                      ) : analytics.freq.length === 0 ? (
+                        <div className={`${card} p-5 flex items-center justify-center`}><p className={`text-sm ${dimText}`}>No posts in the last 4 weeks</p></div>
+                      ) : (
+                        <div className={`${card} p-4`}>
+                          <ResponsiveContainer width="100%" height={160}>
+                            <BarChart data={analytics.freq} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "hsl(220,10%,50%)" }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11, fill: "hsl(220,10%,50%)" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip contentStyle={{ background: "hsl(220,14%,14%)", border: "1px solid hsl(220,13%,22%)", borderRadius: 8, color: "#fff", fontSize: 12 }} cursor={{ fill: "hsl(220,14%,20%)" }} />
+                              <Bar dataKey="count" name="Posts" fill="hsl(263,70%,65%)" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── SECTION 3: TAG DISTRIBUTION (Agency) ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Tag Distribution</p>
+                      {plan !== "agency" ? (
+                        <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">🏆</div>
+                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Agency Plan Required</p>
+                          <p className={`text-xs ${dimText}`}>See your most used tags + trending tag alerts</p>
+                          <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Tag Distribution & Trending Tags"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
+                            className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold">Upgrade to Agency</button>
+                        </div>
+                      ) : analytics.tagDist.length === 0 ? (
+                        <div className={`${card} p-5 flex items-center justify-center`}><p className={`text-sm ${dimText}`}>No tagged posts yet</p></div>
+                      ) : (() => {
+                        const TOP_COLORS = ["hsl(263,70%,65%)", "hsl(200,80%,60%)", "hsl(340,70%,65%)", "hsl(150,60%,55%)", "hsl(40,80%,60%)"];
+                        const top5 = analytics.tagDist.slice(0, 5);
+                        const otherCount = analytics.tagDist.slice(5).reduce((s, t) => s + t.count, 0);
+                        const chartData = [...top5, ...(otherCount > 0 ? [{ tag: "other", count: otherCount }] : [])];
+                        return (
+                          <div className={`${card} p-4 space-y-4`}>
+                            <div className="flex items-center gap-4">
+                              <ResponsiveContainer width="45%" height={130}>
+                                <PieChart>
+                                  <Pie data={chartData} dataKey="count" cx="50%" cy="50%" innerRadius={35} outerRadius={55} strokeWidth={0}>
+                                    {chartData.map((_, i) => <Cell key={i} fill={i < TOP_COLORS.length ? TOP_COLORS[i] : "hsl(220,15%,35%)"} />)}
+                                  </Pie>
+                                  <Tooltip contentStyle={{ background: "hsl(220,14%,14%)", border: "1px solid hsl(220,13%,22%)", borderRadius: 8, color: "#fff", fontSize: 12 }} />
+                                </PieChart>
+                              </ResponsiveContainer>
+                              <ul className="flex-1 space-y-1.5">
+                                {chartData.map((d, i) => (
+                                  <li key={d.tag} className="flex items-center gap-2">
+                                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: i < TOP_COLORS.length ? TOP_COLORS[i] : "hsl(220,15%,35%)" }} />
+                                    <span className={`text-[11px] ${dimText} truncate flex-1`}>#{d.tag}</span>
+                                    <span className="text-[11px] text-[hsl(220,10%,55%)]">{d.count}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                            {analytics.trending.filter(t => t.userHasTag).length > 0 && (
+                              <div className="rounded-xl bg-emerald-500/8 border border-emerald-500/20 p-3 space-y-1">
+                                <p className="text-xs font-semibold text-emerald-400">🔥 Trending this month</p>
+                                {analytics.trending.filter(t => t.userHasTag).slice(0, 3).map(t => (
+                                  <p key={t.tag} className="text-xs text-emerald-300">Your <span className="font-semibold">#{t.tag}</span> tag is trending!</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* ── SECTION 4: BEST POSTING TIMES (Agency) ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Best Posting Times</p>
+                      {plan !== "agency" ? (
+                        <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
+                          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">🏆</div>
+                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Agency Plan Required</p>
+                          <p className={`text-xs ${dimText}`}>Heatmap of your posting patterns by day & hour</p>
+                          <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Best Posting Times heatmap"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
+                            className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold">Upgrade to Agency</button>
+                        </div>
+                      ) : analytics.postingTimes.length === 0 ? (
+                        <div className={`${card} p-5 flex items-center justify-center`}><p className={`text-sm ${dimText}`}>No scheduled posts with times yet</p></div>
+                      ) : (() => {
+                        const DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+                        const maxCt = Math.max(1, ...analytics.postingTimes.map(d => d.count));
+                        const getCell = (day: number, hour: number) => analytics.postingTimes.find(d => d.dayOfWeek === day && d.hour === hour);
+                        return (
+                          <div className={`${card} p-4`}>
+                            <div style={{ display: "grid", gridTemplateColumns: "26px repeat(7,1fr)", gap: 2 }}>
+                              <div />
+                              {DAYS.map(d => <div key={d} className="text-center text-[9px] text-[hsl(220,10%,45%)] font-medium pb-0.5">{d}</div>)}
+                              {Array.from({ length: 24 }, (_, h) => (
+                                <>{
+                                  [<div key={`l${h}`} className="text-[9px] text-[hsl(220,10%,38%)] flex items-center justify-end pr-1">{h}h</div>,
+                                    ...DAYS.map((_, di) => {
+                                      const c = getCell(di, h);
+                                      const ity = c ? c.count / maxCt : 0;
+                                      return <div key={`${di}-${h}`} title={c ? `${c.count} post${c.count !== 1 ? "s" : ""}` : ""}
+                                        style={{ background: ity > 0 ? `hsla(263,70%,65%,${0.15 + ity * 0.85})` : "hsl(220,14%,13%)", borderRadius: 2, height: 10 }} />;
+                                    })
+                                  ]
+                                }</>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-end gap-1.5 mt-3">
+                              <span className={`text-[9px] ${dimText}`}>Less</span>
+                              {[0.1, 0.35, 0.6, 0.85, 1].map(v => (
+                                <div key={v} style={{ width: 10, height: 10, borderRadius: 2, background: `hsla(263,70%,65%,${0.15 + v * 0.85})` }} />
+                              ))}
+                              <span className={`text-[9px] ${dimText}`}>More</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* ── SECTION 5: CONTENT MIX (Pro+Agency) ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Content Mix</p>
+                      {plan === "free" ? (
+                        <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
+                          <div className="w-10 h-10 rounded-xl bg-[hsl(263,70%,65%)/10] border border-[hsl(263,70%,65%)/20] flex items-center justify-center text-lg">💎</div>
+                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Pro Plan Required</p>
+                          <p className={`text-xs ${dimText}`}>Image vs video ratio and carousel stats</p>
+                          <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Content Mix stats"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
+                            className="px-4 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white text-xs font-semibold">Upgrade to Pro</button>
+                        </div>
+                      ) : !analytics.contentMix ? (
+                        <div className={`${card} p-5 flex items-center justify-center`}><div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" /></div>
+                      ) : (() => {
+                        const { imageCount, videoCount, avgSlides } = analytics.contentMix!;
+                        const total = imageCount + videoCount || 1;
+                        const imgPct = Math.round((imageCount / total) * 100);
+                        return (
+                          <div className={`${card} p-4 space-y-4`}>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between text-xs text-[hsl(220,10%,70%)]">
+                                <span>📷 Images {imgPct}%</span>
+                                <span>🎥 Videos {100 - imgPct}%</span>
+                              </div>
+                              <div className="h-3 rounded-full overflow-hidden flex">
+                                <div style={{ width: `${imgPct}%`, background: "hsl(263,70%,65%)" }} />
+                                <div style={{ width: `${100 - imgPct}%`, background: "hsl(200,80%,60%)" }} />
+                              </div>
+                              <div className="flex justify-between text-[10px] text-[hsl(220,10%,40%)]">
+                                <span>{imageCount} images</span>
+                                <span>{videoCount} videos</span>
+                              </div>
+                            </div>
+                            <div className="flex justify-around pt-1 border-t border-[hsl(220,13%,18%)]">
+                              <div className="text-center">
+                                <p className="text-xl font-bold text-white">{avgSlides}</p>
+                                <p className={`text-[10px] ${dimText}`}>avg slides/carousel</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xl font-bold text-white">{imageCount + videoCount}</p>
+                                <p className={`text-[10px] ${dimText}`}>total media</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* ── SECTION 6: INSTAGRAM METRICS (teaser) ── */}
+                    <div>
+                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Instagram Performance</p>
+                      <div className={`${card} p-5 space-y-4`} style={{ opacity: 0.65 }}>
+                        <div className="grid grid-cols-2 gap-3">
+                          {["Reach", "Likes", "Comments", "Follower Growth"].map(metric => (
+                            <div key={metric} className={`bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-center`}>
+                              <p className="text-xl font-bold text-[hsl(220,10%,38%)]">—</p>
+                              <p className={`text-[11px] ${dimText} mt-0.5`}>{metric}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p className={`text-xs ${dimText} text-center`}>Connect your Instagram account to see real performance data</p>
+                        <button disabled className={`w-full py-2.5 rounded-xl border ${border} text-[hsl(220,10%,38%)] text-sm font-medium cursor-not-allowed`}>
+                          Connect Instagram — Coming Soon
+                        </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-                {plan === "free" && (
-                  <button onClick={() => setProfileSubpage("billing")}
-                    className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold">
-                    Upgrade Plan
-                  </button>
+                  </>
                 )}
               </div>
             )}
