@@ -383,28 +383,46 @@ app.get("/api/media/by-ids", requireAuth, async (req, res) => {
   }, res);
 });
 
+function mapMediaRow(r) {
+  return {
+    id: r.id, name: r.name, display_name: r.display_name ?? null, tag: r.tag,
+    dataUrl: r.url ?? "",
+    folderId: r.folder_id ?? null,
+    used: r.used ?? false, createdAt: r.created_at,
+    isFavorite: r.is_favorite ?? false,
+    media_type: r.media_type ?? "image",
+    duration: r.duration ?? null,
+    thumbnail_url: r.thumbnail_url ?? null,
+  };
+}
+
 app.get("/api/media", requireAuth, async (req, res) => {
   const userId = req.userId;
+  const search = (req.query.search ?? "").toString().trim();
   await withTables(async () => {
+    if (search) {
+      const result = await pool.query(
+        `SELECT id, name, display_name, tag, url, folder_id, used, created_at, is_favorite,
+                media_type, duration, thumbnail_url
+         FROM media_items
+         WHERE user_id = $1
+           AND (display_name ILIKE $2 OR tag ILIKE $2 OR name ILIKE $2)
+         ORDER BY created_at DESC`,
+        [userId, `%${search}%`]
+      );
+      const items = result.rows.map(mapMediaRow);
+      return res.json({ items, hasMore: false, total: items.length, page: 1, search });
+    }
     if (!userMediaCache[userId]) {
       const result = await pool.query(
-        `SELECT id, name, tag, url, folder_id, used, created_at, is_favorite,
+        `SELECT id, name, display_name, tag, url, folder_id, used, created_at, is_favorite,
                 media_type, duration, thumbnail_url
          FROM media_items
          WHERE user_id = $1
          ORDER BY created_at DESC`,
         [userId]
       );
-      userMediaCache[userId] = result.rows.map((r) => ({
-        id: r.id, name: r.name, tag: r.tag,
-        dataUrl: r.url ?? "",
-        folderId: r.folder_id ?? null,
-        used: r.used ?? false, createdAt: r.created_at,
-        isFavorite: r.is_favorite ?? false,
-        media_type: r.media_type ?? "image",
-        duration: r.duration ?? null,
-        thumbnail_url: r.thumbnail_url ?? null,
-      }));
+      userMediaCache[userId] = result.rows.map(mapMediaRow);
     }
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10));
     const offset = (page - 1) * PAGE_SIZE;
@@ -523,7 +541,7 @@ app.post("/api/media", requireAuth, async (req, res) => {
 
 app.patch("/api/media/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const { tag, used } = req.body;
+  const { tag, used, display_name } = req.body;
   await withTables(async () => {
     if (tag !== undefined && used !== undefined) {
       await pool.query("UPDATE media_items SET tag = $1, used = $2 WHERE id = $3 AND user_id = $4", [tag, used, req.params.id, userId]);
@@ -531,6 +549,8 @@ app.patch("/api/media/:id", requireAuth, async (req, res) => {
       await pool.query("UPDATE media_items SET tag = $1 WHERE id = $2 AND user_id = $3", [tag, req.params.id, userId]);
     } else if (used !== undefined) {
       await pool.query("UPDATE media_items SET used = $1 WHERE id = $2 AND user_id = $3", [used, req.params.id, userId]);
+    } else if (display_name !== undefined) {
+      await pool.query("UPDATE media_items SET display_name = $1 WHERE id = $2 AND user_id = $3", [display_name || null, req.params.id, userId]);
     }
     invalidateMedia(userId);
     res.json({ ok: true });
