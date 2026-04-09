@@ -5184,15 +5184,8 @@ export default function App() {
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
               style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
-              {/* LEFT: tag → filename → date (stacked, never side-by-side) */}
-              <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
-                {liveTag && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setViewerTagPickerOpen(true); }}
-                    className="self-start text-xs px-2.5 py-0.5 rounded-full bg-[hsl(263,70%,50%)]/70 text-white/90 border border-white/15 hover:bg-[hsl(263,70%,50%)]/90 transition-colors leading-none flex items-center gap-1">
-                    {tagIcon(liveTag)} {tagLabel(liveTag)}
-                  </button>
-                )}
+              {/* LEFT: filename + edit icon */}
+              <div className="flex items-center gap-1 min-w-0 flex-1 mr-2">
                 {(liveItem.display_name || liveItem.name) && (
                   <button
                     onClick={() => { setRenameSheet(liveItem); setRenameInput(liveItem.display_name ?? liveItem.name); }}
@@ -5204,14 +5197,15 @@ export default function App() {
                     </svg>
                   </button>
                 )}
-                {(dateStr || timeStr) && (
-                  <span className="text-white/40 text-[11px] leading-none">
-                    {dateStr}{dateStr && timeStr ? " · " : ""}{timeStr}
-                  </span>
-                )}
               </div>
+              {/* CENTER: date + time */}
+              {(dateStr || timeStr) && (
+                <span className="text-white/40 text-[11px] leading-none text-center flex-shrink-0 mx-1">
+                  {dateStr}{dateStr && timeStr ? " · " : ""}{timeStr}
+                </span>
+              )}
               {/* RIGHT: counter + close */}
-              <div className="flex items-center gap-2 flex-shrink-0 pt-0.5">
+              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                 {viewerNavList.length > 1 && (
                   <span className="text-white/60 text-xs tabular-nums bg-white/[0.07] px-2.5 py-1 rounded-full">
                     {viewerNavIdx + 1} / {viewerNavList.length}
@@ -5225,7 +5219,7 @@ export default function App() {
             </div>
 
             {/* Main content — flex column, tap dark bg to close */}
-            <div className="flex-1 flex flex-col justify-center gap-3 pt-28 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
+            <div className="flex-1 flex flex-col justify-center gap-3 pt-16 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
 
               {/* ── Swipeable strip ── */}
               {/* Outer: relative wrapper for clip + badge overlays */}
@@ -5295,6 +5289,14 @@ export default function App() {
                 </div>
 
                 {/* Overlays — positioned over the center panel (not inside the clip/strip) */}
+                {liveTag && (
+                  <button
+                    style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
+                    onClick={(e) => { e.stopPropagation(); setViewerTagPickerOpen(true); }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 hover:bg-black/70 transition-colors leading-none flex items-center gap-1">
+                    {tagIcon(liveTag)} {tagLabel(liveTag)}
+                  </button>
+                )}
                 {isVideo(viewerItem.dataUrl, viewerItem.media_type) && (
                   <span style={{ position: "absolute", top: 8, right: 8, zIndex: 10 }} className="text-[10px] px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-white/80 border border-white/15 leading-none">▶</span>
                 )}
