@@ -5577,96 +5577,116 @@ export default function App() {
               {/* Filter presets row */}
               <div className="mb-1">
                 <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2.5 font-semibold px-4">Filters</p>
-                <div className="flex gap-2.5 overflow-x-auto px-4 pb-2" style={{ scrollbarWidth: "none" }}>
 
-                  {/* Built-in presets */}
-                  {FILTER_PRESETS.map((p) => {
-                    const isProLocked = p.pro && plan === "free";
-                    const isSelected = editorFilter === p.name;
-                    return (
+                {/* Scroll container — relative so the fade overlay can be positioned inside it */}
+                <div className="relative">
+                  <div
+                    className="flex gap-2.5 overflow-x-auto pb-2"
+                    style={{ scrollbarWidth: "none", paddingLeft: 16, paddingRight: 48 }}>
+
+                    {/* Built-in presets */}
+                    {FILTER_PRESETS.map((p) => {
+                      const isProLocked = p.pro && plan === "free";
+                      const isSelected = editorFilter === p.name;
+                      return (
+                        <button
+                          key={p.name}
+                          onClick={() => {
+                            if (isProLocked) { openProGate(`${p.name} filter`); return; }
+                            applyEditorPreset(p);
+                          }}
+                          style={{ minWidth: 64 }}
+                          className={`flex flex-col items-center gap-1.5 flex-shrink-0 transition-opacity ${isSelected ? "opacity-100" : "opacity-70 hover:opacity-90"}`}>
+                          <div className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? "border-[hsl(263,70%,55%)]" : "border-transparent"}`}>
+                            <img
+                              src={imageEditorItem.dataUrl}
+                              alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+                                filter: buildEditorCssFilter(p.brightness, p.contrast, p.saturation, p.warmth, p.sharpness) }}
+                            />
+                          </div>
+                          <span className="text-[9px] text-white/70 text-center leading-tight whitespace-nowrap">
+                            {p.name}{isProLocked && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}
+                          </span>
+                        </button>
+                      );
+                    })}
+
+                    {/* Divider — only shown when custom presets exist */}
+                    {customPresets.length > 0 && (
+                      <div className="flex-shrink-0 flex items-center px-1">
+                        <div style={{ width: 1, height: 52, background: "rgba(255,255,255,0.10)", borderRadius: 1 }} />
+                      </div>
+                    )}
+
+                    {/* Custom presets — purple border, truncated name, long-press to delete */}
+                    {customPresets.map((p) => {
+                      const isSelected = editorFilter === p.name;
+                      return (
+                        <button
+                          key={p.id ?? p.name}
+                          onClick={() => applyEditorPreset(p)}
+                          onContextMenu={(e) => { e.preventDefault(); setPresetDeleteTarget({ id: p.id, name: p.name }); }}
+                          onTouchStart={() => {
+                            presetLongPressRef.current = setTimeout(() => {
+                              presetLongPressRef.current = null;
+                              setPresetDeleteTarget({ id: p.id, name: p.name });
+                            }, 550);
+                          }}
+                          onTouchEnd={() => { if (presetLongPressRef.current) { clearTimeout(presetLongPressRef.current); presetLongPressRef.current = null; } }}
+                          onTouchMove={() => { if (presetLongPressRef.current) { clearTimeout(presetLongPressRef.current); presetLongPressRef.current = null; } }}
+                          style={{ minWidth: 64 }}
+                          className={`flex flex-col items-center gap-1.5 flex-shrink-0 transition-opacity ${isSelected ? "opacity-100" : "opacity-75 hover:opacity-95"}`}>
+                          <div className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? "border-[hsl(263,70%,60%)]" : "border-[hsl(263,60%,45%)]"}`}>
+                            <img
+                              src={imageEditorItem.dataUrl}
+                              alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
+                                filter: buildEditorCssFilter(p.brightness, p.contrast, p.saturation, p.warmth, p.sharpness) }}
+                            />
+                          </div>
+                          <span className="text-[9px] text-[hsl(263,70%,70%)] text-center leading-tight max-w-[56px] truncate block">{p.name}</span>
+                        </button>
+                      );
+                    })}
+
+                    {/* + Save Preset tile — always visible at the end */}
+                    {customPresets.length < 5 && (
                       <button
-                        key={p.name}
                         onClick={() => {
-                          if (isProLocked) { openProGate(`${p.name} filter`); return; }
-                          applyEditorPreset(p);
+                          if (plan === "free") { openProGate("Custom filter presets"); return; }
+                          setSavePresetOpen(true);
                         }}
                         style={{ minWidth: 64 }}
-                        className={`flex flex-col items-center gap-1.5 flex-shrink-0 transition-opacity ${isSelected ? "opacity-100" : "opacity-70 hover:opacity-90"}`}>
-                        <div className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? "border-[hsl(263,70%,55%)]" : "border-transparent"}`}>
-                          <img
-                            src={imageEditorItem.dataUrl}
-                            alt={p.name}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
-                              filter: buildEditorCssFilter(p.brightness, p.contrast, p.saturation, p.warmth, p.sharpness) }}
-                          />
+                        className="flex flex-col items-center gap-1.5 flex-shrink-0 opacity-55 hover:opacity-80 transition-opacity">
+                        <div className="w-14 h-14 rounded-xl border-2 border-dashed border-white/30 flex items-center justify-center">
+                          <span className="text-white/50 text-2xl leading-none select-none">+</span>
                         </div>
-                        <span className="text-[9px] text-white/70 text-center leading-tight whitespace-nowrap">
-                          {p.name}{isProLocked && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}
+                        <span className="text-[9px] text-white/40 text-center leading-tight whitespace-nowrap">
+                          {plan === "free" ? <span className="text-[hsl(263,70%,65%)]">💎 </span> : null}Save Preset
                         </span>
                       </button>
-                    );
-                  })}
+                    )}
 
-                  {/* Divider — only shown when custom presets exist */}
-                  {customPresets.length > 0 && (
-                    <div className="flex-shrink-0 flex items-center px-1">
-                      <div style={{ width: 1, height: 52, background: "rgba(255,255,255,0.10)", borderRadius: 1 }} />
-                    </div>
-                  )}
+                  </div>
 
-                  {/* Custom presets — purple border, truncated name, long-press to delete */}
-                  {customPresets.map((p) => {
-                    const isSelected = editorFilter === p.name;
-                    return (
-                      <button
-                        key={p.id ?? p.name}
-                        onClick={() => applyEditorPreset(p)}
-                        onContextMenu={(e) => { e.preventDefault(); setPresetDeleteTarget({ id: p.id, name: p.name }); }}
-                        onTouchStart={() => {
-                          presetLongPressRef.current = setTimeout(() => {
-                            presetLongPressRef.current = null;
-                            setPresetDeleteTarget({ id: p.id, name: p.name });
-                          }, 550);
-                        }}
-                        onTouchEnd={() => { if (presetLongPressRef.current) { clearTimeout(presetLongPressRef.current); presetLongPressRef.current = null; } }}
-                        onTouchMove={() => { if (presetLongPressRef.current) { clearTimeout(presetLongPressRef.current); presetLongPressRef.current = null; } }}
-                        style={{ minWidth: 64 }}
-                        className={`flex flex-col items-center gap-1.5 flex-shrink-0 transition-opacity ${isSelected ? "opacity-100" : "opacity-75 hover:opacity-95"}`}>
-                        <div className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? "border-[hsl(263,70%,60%)]" : "border-[hsl(263,60%,45%)]"}`}>
-                          <img
-                            src={imageEditorItem.dataUrl}
-                            alt={p.name}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block",
-                              filter: buildEditorCssFilter(p.brightness, p.contrast, p.saturation, p.warmth, p.sharpness) }}
-                          />
-                        </div>
-                        <span className="text-[9px] text-[hsl(263,70%,70%)] text-center leading-tight max-w-[56px] truncate block">{p.name}</span>
-                      </button>
-                    );
-                  })}
-
-                  {/* + Save Preset tile */}
-                  {customPresets.length < 5 && (
-                    <button
-                      onClick={() => {
-                        if (plan === "free") { openProGate("Custom filter presets"); return; }
-                        setSavePresetOpen(true);
-                      }}
-                      style={{ minWidth: 64 }}
-                      className="flex flex-col items-center gap-1.5 flex-shrink-0 opacity-50 hover:opacity-75 transition-opacity">
-                      <div className="w-14 h-14 rounded-xl border-2 border-dashed border-white/25 flex items-center justify-center">
-                        <span className="text-white/50 text-2xl leading-none select-none">+</span>
-                      </div>
-                      <span className="text-[9px] text-white/40 text-center leading-tight whitespace-nowrap">
-                        {plan === "free" ? <span className="text-[hsl(263,70%,65%)]">💎 </span> : null}Save Preset
-                      </span>
-                    </button>
-                  )}
-
+                  {/* Right-fade gradient — hints that the row is scrollable */}
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute", top: 0, right: 0, bottom: 8,
+                      width: 48, pointerEvents: "none",
+                      background: "linear-gradient(to right, transparent, hsl(220,14%,6%) 90%)",
+                    }}
+                  />
                 </div>
-                {customPresets.length > 0 && (
-                  <p className="text-[9px] text-white/25 px-4 mt-0.5">Long-press a purple preset to delete it</p>
-                )}
+
+                {/* Hint text below the scroll row */}
+                <p className="text-[9px] px-4 mt-0.5" style={{ color: "rgba(255,255,255,0.22)" }}>
+                  {customPresets.length > 0
+                    ? "Long-press a purple preset to delete it"
+                    : "Scroll right to save your own presets →"}
+                </p>
               </div>
 
               {/* Back to original */}
