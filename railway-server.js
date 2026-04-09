@@ -698,6 +698,63 @@ app.get("/api/posts", requireAuth, async (req, res) => {
   }, res);
 });
 
+app.get("/api/posts/export/ical", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  await withTables(async () => {
+    const result = await pool.query(
+      `SELECT id, caption, tags_summary, scheduled_date, scheduled_time
+       FROM approved_posts
+       WHERE user_id = $1 AND status = 'scheduled' AND scheduled_date IS NOT NULL
+       ORDER BY scheduled_date ASC, scheduled_time ASC`,
+      [userId]
+    );
+
+    const pad = (n) => String(n).padStart(2, "0");
+    const toIcalDt = (dateStr, timeStr) => {
+      const [y, mo, d] = dateStr.split("-").map(Number);
+      const [h, mi] = timeStr ? timeStr.split(":").map(Number) : [9, 0];
+      return `${y}${pad(mo)}${pad(d)}T${pad(h)}${pad(mi)}00Z`;
+    };
+    const escape = (s) => (s || "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+
+    const now = new Date();
+    const stamp = `${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}T${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}Z`;
+
+    let ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//InstaFlow//EN", "CALSCALE:GREGORIAN", "METHOD:PUBLISH"];
+
+    for (const row of result.rows) {
+      const caption = row.caption || "";
+      const summary = escape(caption.slice(0, 50) || "InstaFlow Post");
+      const tags = row.tags_summary ? ` ${row.tags_summary}` : "";
+      const description = escape(caption + tags);
+      const dtstart = toIcalDt(row.scheduled_date, row.scheduled_time);
+      // DTEND = DTSTART + 1 hour
+      const startDate = new Date(`${row.scheduled_date}T${row.scheduled_time || "09:00"}:00Z`);
+      startDate.setHours(startDate.getHours() + 1);
+      const dtend = `${startDate.getFullYear()}${pad(startDate.getMonth()+1)}${pad(startDate.getDate())}T${pad(startDate.getHours())}${pad(startDate.getMinutes())}00Z`;
+
+      ics.push(
+        "BEGIN:VEVENT",
+        `UID:post${row.id}@instaflow`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART:${dtstart}`,
+        `DTEND:${dtend}`,
+        `SUMMARY:${summary}`,
+        `DESCRIPTION:${description}`,
+        "END:VEVENT"
+      );
+    }
+
+    ics.push("END:VCALENDAR");
+
+    const body = ics.join("\r\n");
+    res.set("Content-Type", "text/calendar; charset=utf-8");
+    res.set("Content-Disposition", 'attachment; filename="instaflow-schedule.ics"');
+    res.set("Access-Control-Allow-Origin", "*");
+    res.send(body);
+  }, res);
+});
+
 app.get("/api/posts/count", requireAuth, async (req, res) => {
   const userId = req.userId;
   await withTables(async () => {

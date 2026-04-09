@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Download, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -4643,7 +4643,26 @@ export default function App() {
                 <h1 className="text-xl font-bold">Calendar</h1>
                 <p className={`${dimText} text-sm`}>{scheduledPosts.length} post{scheduledPosts.length !== 1 ? "s" : ""}{draftPosts.length > 0 ? ` · ${draftPosts.length} draft${draftPosts.length !== 1 ? "s" : ""}` : ""}</p>
               </div>
-              <div className="flex gap-1">
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={async () => {
+                    if (plan === "free") { openProGate("Calendar Export (.ics)"); return; }
+                    try {
+                      const res = await fetch(`${API_BASE}/api/posts/export/ical`, { headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } });
+                      const text = await res.text();
+                      const blob = new Blob([text], { type: "text/calendar" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url; a.download = "instaflow-schedule.ics"; a.click();
+                      URL.revokeObjectURL(url);
+                      showGlobalToast("Calendar exported!");
+                    } catch { showGlobalToast("Export failed. Try again."); }
+                  }}
+                  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}
+                  title={plan === "free" ? "Pro feature — upgrade to export" : "Export to .ics"}>
+                  <Download className="w-3.5 h-3.5" />
+                  Export{plan === "free" && <DiamondBadge />}
+                </button>
                 {(["list", "week", "month"] as const).map((v) => (
                   <button key={v} onClick={() => setCalendarView(v)}
                     className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${calendarView === v ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
@@ -6405,6 +6424,7 @@ export default function App() {
                     <li>✓ Unlimited folders</li>
                     <li>✓ Schedule AI</li>
                     <li>✓ Favorites filter</li>
+                    <li>✓ Calendar Export (.ics)</li>
                     <li className="text-[hsl(220,10%,35%)]">✗ Multi-account</li>
                     <li className="text-[hsl(220,10%,35%)]">✗ Analytics</li>
                   </ul>
@@ -6440,6 +6460,7 @@ export default function App() {
                   </div>
                   <ul className={`space-y-1.5 text-[11px] ${dimText} flex-1`}>
                     <li>✓ Everything in Pro</li>
+                    <li>✓ Calendar Export (.ics)</li>
                     <li>✓ Multi-account</li>
                     <li>✓ Analytics dashboard</li>
                     <li>✓ Priority support</li>
