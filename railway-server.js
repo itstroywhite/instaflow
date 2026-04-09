@@ -266,6 +266,14 @@ async function ensureTables() {
       post_count INTEGER DEFAULT 0,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS filter_presets (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      settings JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 }
 
@@ -877,6 +885,45 @@ app.delete("/api/folders/:id", requireAuth, async (req, res) => {
   await withTables(async () => {
     await pool.query("DELETE FROM media_folders WHERE id = $1 AND user_id = $2", [req.params.id, userId]);
     invalidateFolders(userId);
+    res.json({ ok: true });
+  }, res);
+});
+
+// ── Filter Presets ─────────────────────────────────────────────────────────────
+
+app.get("/api/presets", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  await withTables(async () => {
+    const result = await pool.query(
+      "SELECT id, name, settings FROM filter_presets WHERE user_id = $1 ORDER BY created_at ASC",
+      [userId]
+    );
+    res.json(result.rows.map(r => ({ id: r.id, name: r.name, ...r.settings })));
+  }, res);
+});
+
+app.post("/api/presets", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  const { name, settings } = req.body;
+  if (!name || !settings) return res.status(400).json({ error: "name and settings required" });
+  await withTables(async () => {
+    const count = await pool.query("SELECT COUNT(*) FROM filter_presets WHERE user_id = $1", [userId]);
+    if (parseInt(count.rows[0].count) >= 5) {
+      return res.status(400).json({ error: "Max 5 presets allowed" });
+    }
+    const result = await pool.query(
+      "INSERT INTO filter_presets (user_id, name, settings) VALUES ($1, $2, $3) RETURNING id, name, settings",
+      [userId, name, JSON.stringify(settings)]
+    );
+    const row = result.rows[0];
+    res.json({ id: row.id, name: row.name, ...row.settings });
+  }, res);
+});
+
+app.delete("/api/presets/:id", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  await withTables(async () => {
+    await pool.query("DELETE FROM filter_presets WHERE id = $1 AND user_id = $2", [req.params.id, userId]);
     res.json({ ok: true });
   }, res);
 });
