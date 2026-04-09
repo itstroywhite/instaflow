@@ -1041,10 +1041,18 @@ export default function App() {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [splashVisible, setSplashVisible] = useState(true);
   const loadAllRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (!supabase) { setAuthLoading(false); return; }
+    const splashStart = Date.now();
+    const hideSplash = () => {
+      const elapsed = Date.now() - splashStart;
+      const delay = Math.max(0, 1000 - elapsed);
+      setTimeout(() => setSplashVisible(false), delay);
+    };
+
+    if (!supabase) { setAuthLoading(false); hideSplash(); return; }
 
     // Register module-level callbacks so global helpers can reach React state
     _sessionExpiredHandler = () => {
@@ -1068,6 +1076,7 @@ export default function App() {
         }
       }
       setAuthLoading(false);
+      hideSplash();
     })();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
@@ -1180,6 +1189,10 @@ export default function App() {
   const [calendarMonth, setCalendarMonth] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
   const [calendarWeekStart, setCalendarWeekStart] = useState(() => getWeekStart(todayStr()));
   const [calendarDaySelected, setCalendarDaySelected] = useState<string | null>(null);
+  // Pull to refresh
+  const [pullDistance, setPullDistance] = useState(0);
+  const [pullRefreshing, setPullRefreshing] = useState(false);
+  const pullStartY = useRef(0);
   const [previewPost, setPreviewPost] = useState<ApprovedPost | null>(null);
   const [previewSlide, setPreviewSlide] = useState(0);
   const [previewPostExtraMedia, setPreviewPostExtraMedia] = useState<MediaItem[]>([]);
@@ -3275,15 +3288,32 @@ export default function App() {
   const inputCls = "bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,22%)] rounded-lg px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/50]";
   const SORT_LABELS: Record<PoolSort, string> = { latest: "Latest", oldest: "Oldest", name: "A–Z" };
 
-  // ─── Auth gates ────────────────────────────────────────────────────────────
-  if (authLoading) {
+  // ─── Splash screen ─────────────────────────────────────────────────────────
+  if (splashVisible) {
     return (
-      <div className="min-h-screen bg-[hsl(220,14%,8%)] flex items-center justify-center">
-        <div className="w-8 h-8 rounded-full border-2 border-[hsl(263,70%,65%)] border-t-transparent animate-spin" />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-8"
+        style={{ background: "linear-gradient(160deg, hsl(263,60%,12%) 0%, hsl(220,14%,8%) 100%)" }}>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-20 h-20 rounded-[28px] flex items-center justify-center text-3xl font-black text-white select-none shadow-2xl"
+            style={{ background: "linear-gradient(135deg, hsl(263,70%,65%) 0%, hsl(263,50%,45%) 100%)" }}>
+            IF
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-2xl font-bold tracking-tight text-white">
+              Insta<span style={{ color: "hsl(263,70%,72%)" }}>Flow</span>
+            </span>
+            <span className="text-[11px] tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
+              Content Scheduler
+            </span>
+          </div>
+        </div>
+        <div className="w-6 h-6 rounded-full border-2 animate-spin"
+          style={{ borderColor: "rgba(255,255,255,0.15)", borderTopColor: "hsl(263,70%,65%)" }} />
       </div>
     );
   }
 
+  // ─── Auth gates ────────────────────────────────────────────────────────────
   if (!session) {
     return <LoginScreen />;
   }
@@ -3462,7 +3492,36 @@ export default function App() {
         </div>
       )}
 
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main
+        className="max-w-2xl mx-auto px-4 py-6"
+        onTouchStart={(e) => {
+          pullStartY.current = e.touches[0].clientY;
+        }}
+        onTouchMove={(e) => {
+          if (window.scrollY > 0) return;
+          if (screen !== "pool" && screen !== "carousel" && screen !== "calendar") return;
+          const dist = e.touches[0].clientY - pullStartY.current;
+          if (dist > 0) setPullDistance(Math.min(dist, 120));
+        }}
+        onTouchEnd={() => {
+          if (pullDistance >= 80 && !pullRefreshing && (screen === "pool" || screen === "carousel" || screen === "calendar")) {
+            setPullRefreshing(true);
+            loadAllRef.current?.();
+            setTimeout(() => { setPullRefreshing(false); setPullDistance(0); }, 1400);
+          } else {
+            setPullDistance(0);
+          }
+        }}
+      >
+        {/* ── Pull-to-refresh indicator ── */}
+        {(pullDistance > 10 || pullRefreshing) && (screen === "pool" || screen === "carousel" || screen === "calendar") && (
+          <div className="flex items-center justify-center gap-2 text-xs overflow-hidden transition-all duration-150"
+            style={{ height: pullRefreshing ? 36 : Math.min(pullDistance * 0.4, 36), color: "rgba(255,255,255,0.45)" }}>
+            {pullRefreshing
+              ? <div className="w-4 h-4 rounded-full border-2 border-t-[hsl(263,70%,65%)] animate-spin" style={{ borderColor: "rgba(255,255,255,0.15)", borderTopColor: "hsl(263,70%,65%)" }} />
+              : <span>{pullDistance >= 80 ? "↑ Release to refresh" : "↓ Pull to refresh"}</span>}
+          </div>
+        )}
 
         {/* ════ POOL ════ */}
         {screen === "pool" && (

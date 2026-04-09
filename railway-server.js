@@ -1751,7 +1751,13 @@ app.listen(PORT, () => {
   // Run push reminder check every 5 minutes (scheduler fires near the user's configured time)
   setInterval(sendDailyPostReminders, 5 * 60 * 1000);
   // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
-  setInterval(() => {
-    fetch('https://instaflow-api.onrender.com/health').catch(() => {});
+  const SELF_URL = 'https://instaflow-api.onrender.com/api/healthz';
+  setInterval(async () => {
+    try {
+      await fetch(SELF_URL);
+      console.log('[keep-alive] pinged successfully');
+    } catch (err) {
+      console.log('[keep-alive] ping failed:', err.message);
+    }
   }, 14 * 60 * 1000);
 });
