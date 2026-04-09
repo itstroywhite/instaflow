@@ -1054,6 +1054,7 @@ export default function App() {
   const [folderAddMode, setFolderAddMode] = useState(false);
   const [folderAddSourceSheet, setFolderAddSourceSheet] = useState(false);
   const [folderItemContextMenu, setFolderItemContextMenu] = useState<MediaItem | null>(null);
+  const [poolItemContextMenu, setPoolItemContextMenu] = useState<MediaItem | null>(null);
   const [longPressFolder, setLongPressFolder] = useState<MediaFolder | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<MediaFolder | null>(null);
   const [folderNameError, setFolderNameError] = useState(false);
@@ -1121,6 +1122,14 @@ export default function App() {
   // Fullscreen viewer
   const [viewerItem, setViewerItem] = useState<MediaItem | null>(null);
   const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
+  const [mediaSearchOpen, setMediaSearchOpen] = useState(false);
+  const [mediaSearchQuery, setMediaSearchQuery] = useState("");
+  const [mediaSearchResults, setMediaSearchResults] = useState<MediaItem[] | null>(null);
+  const [mediaSearchLoading, setMediaSearchLoading] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [renameSheet, setRenameSheet] = useState<MediaItem | null>(null);
+  const [renameInput, setRenameInput] = useState("");
+  const [renameSaving, setRenameSaving] = useState(false);
   const viewerVideoRef = useRef<HTMLVideoElement>(null);
   const [viewerDelta, setViewerDelta] = useState(0);
   const [viewerDragging, setViewerDragging] = useState(false);
@@ -1415,6 +1424,35 @@ export default function App() {
       .catch(() => {})
       .finally(() => setAnalyticsLoading(false));
   }, [profileSubpage, session]); // eslint-disable-line
+
+  // ── Media search debounce ─────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!mediaSearchQuery.trim()) { setMediaSearchResults(null); setMediaSearchLoading(false); return; }
+    setMediaSearchLoading(true);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const data = await apiGet<{ items: MediaItem[] }>(`/media?search=${encodeURIComponent(mediaSearchQuery.trim())}`);
+        setMediaSearchResults(data.items ?? []);
+      } catch {}
+      setMediaSearchLoading(false);
+    }, 400);
+  }, [mediaSearchQuery]); // eslint-disable-line
+
+  // ── Rename helper ─────────────────────────────────────────────────────────────
+  async function handleRenameMedia(item: MediaItem, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed || trimmed === (item.display_name ?? item.name)) { setRenameSheet(null); return; }
+    setRenameSaving(true);
+    try {
+      await apiPatch(`/media/${item.id}`, { display_name: trimmed });
+      setMediaItems(prev => prev.map(m => m.id === item.id ? { ...m, display_name: trimmed } : m));
+      if (viewerItem?.id === item.id) setViewerItem(v => v ? { ...v, display_name: trimmed } : v);
+      showGlobalToast("File renamed");
+    } catch {}
+    setRenameSaving(false);
+    setRenameSheet(null);
+  }
 
   async function requestNotificationPermission() {
     if (!('Notification' in window) || !('serviceWorker' in navigator)) return;
@@ -2072,8 +2110,7 @@ export default function App() {
       if (inFolder) {
         setFolderItemContextMenu(item);
       } else {
-        setBulkMode(true);
-        setBulkSelectedIds([item.id]);
+        setPoolItemContextMenu(item);
       }
     }, 500);
   }
@@ -2930,7 +2967,7 @@ export default function App() {
               <>
                 <div className="text-7xl mb-6">🖼️</div>
                 <h1 className="text-2xl font-bold mb-2">Your Media Pool</h1>
-                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Upload your photos and videos. AI automatically tags and organizes them for you.</p>
+                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Upload your photos and videos. AI tags them automatically. You can rename files and search by name or tag.</p>
                 <div className="w-full max-w-xs bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,20%)] rounded-2xl p-4">
                   <div className="grid grid-cols-3 gap-2">
                     {["🌅","🤳","🍕","🎵","🌿","👫"].map((e, i) => (
@@ -3175,6 +3212,43 @@ export default function App() {
               </div>
             )}
 
+            {/* ── Search bar (Pro feature) ── */}
+            {!openFolder && (
+              <div>
+                {mediaSearchOpen ? (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 flex items-center gap-2 bg-[hsl(220,14%,13%)] border border-[hsl(220,13%,22%)] rounded-xl px-3 py-2">
+                      <svg className="w-3.5 h-3.5 text-[hsl(220,10%,45%)] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+                      <input
+                        autoFocus
+                        type="text"
+                        placeholder="Search by name or tag…"
+                        value={mediaSearchQuery}
+                        onChange={(e) => setMediaSearchQuery(e.target.value)}
+                        className="flex-1 bg-transparent text-sm text-white placeholder-[hsl(220,10%,40%)] outline-none"
+                      />
+                      {mediaSearchLoading && <div className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin flex-shrink-0" />}
+                    </div>
+                    <button onClick={() => { setMediaSearchOpen(false); setMediaSearchQuery(""); setMediaSearchResults(null); }}
+                      className={`text-xs px-3 py-2 rounded-xl border ${border} ${dimText} hover:text-white transition-colors flex-shrink-0`}>✕ Clear</button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (plan === "free") { openProGate("Media Search"); return; }
+                      setMediaSearchOpen(true);
+                    }}
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+                    Search{plan === "free" && <DiamondBadge />}
+                  </button>
+                )}
+                {mediaSearchResults !== null && !mediaSearchLoading && (
+                  <p className={`text-xs ${dimText} mt-2`}>{mediaSearchResults.length} result{mediaSearchResults.length !== 1 ? "s" : ""} for &ldquo;{mediaSearchQuery}&rdquo;</p>
+                )}
+              </div>
+            )}
+
             {/* ── Folder view header ── */}
             {openFolder && (
               <div className="flex items-center justify-between py-1">
@@ -3354,7 +3428,9 @@ export default function App() {
                     ? (folderAddMode
                         ? mediaItems.filter((m) => !openFolder.mediaIds.includes(m.id) && !m.used)
                         : mediaItems.filter((m) => openFolder.mediaIds.includes(m.id)))
-                    : filteredSortedMedia;
+                    : mediaSearchResults !== null
+                      ? mediaSearchResults
+                      : filteredSortedMedia;
                   if (displayItems.length === 0 && !openFolder) return (
                     <div className="col-span-3 flex flex-col items-center justify-center py-16 gap-3 text-center">
                       <span className="text-4xl">🔍</span>
@@ -3482,6 +3558,11 @@ export default function App() {
                         {bulkMode && isSelected && (
                           <div className="absolute top-1.5 left-1.5 w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center">
                             <span className="text-black text-[9px] font-bold">{bulkSelectedIds.indexOf(item.id) + 1}</span>
+                          </div>
+                        )}
+                        {item.display_name && !bulkMode && !selectionMode && !folderAddMode && (
+                          <div className="absolute bottom-0 left-0 right-0 px-1.5 pt-3 pb-1 bg-gradient-to-t from-black/65 to-transparent pointer-events-none">
+                            <p className="text-[9px] text-white/80 truncate leading-tight">{item.display_name}</p>
                           </div>
                         )}
                         </div>
@@ -4896,13 +4977,23 @@ export default function App() {
           <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar */}
             <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pt-10 pb-3 absolute top-0 left-0 right-0 z-10">
-              {(dateStr || timeStr) ? (
-                <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
-                  {dateStr && <span className="text-white/90 text-xs font-medium">{dateStr}</span>}
-                  {dateStr && timeStr && <span className="text-white/30 text-xs">·</span>}
-                  {timeStr && <span className="text-white/50 text-xs">{timeStr}</span>}
-                </div>
-              ) : <div />}
+              <div className="flex flex-col gap-1 max-w-[55%]">
+                {(liveItem.display_name || liveItem.name) && (
+                  <button
+                    onClick={() => { setRenameSheet(liveItem); setRenameInput(liveItem.display_name ?? liveItem.name); }}
+                    className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 text-left max-w-full group">
+                    <span className="text-white/90 text-xs font-medium truncate">{liveItem.display_name ?? liveItem.name}</span>
+                    <svg className="w-3 h-3 text-white/40 group-hover:text-white/80 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+                  </button>
+                )}
+                {(dateStr || timeStr) && (
+                  <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
+                    {dateStr && <span className="text-white/60 text-xs">{dateStr}</span>}
+                    {dateStr && timeStr && <span className="text-white/25 text-xs">·</span>}
+                    {timeStr && <span className="text-white/40 text-xs">{timeStr}</span>}
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 {viewerNavList.length > 1 && (
                   <span className="text-white/60 text-xs bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 tabular-nums">
@@ -6065,7 +6156,20 @@ export default function App() {
               </div>
             </div>
             <button onClick={() => {
-              handleRemoveFromFolder(openFolder.id, folderItemContextMenu.id);
+              const item = folderItemContextMenu!;
+              setFolderItemContextMenu(null);
+              setRenameSheet(item);
+              setRenameInput(item.display_name ?? item.name);
+            }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
+              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+              <div>
+                <p className="text-sm font-semibold">Rename</p>
+                <p className={`text-xs ${dimText}`}>Give this file a custom name</p>
+              </div>
+            </button>
+            <button onClick={() => {
+              handleRemoveFromFolder(openFolder.id, folderItemContextMenu!.id);
               setFolderItemContextMenu(null);
             }}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
@@ -6087,6 +6191,91 @@ export default function App() {
               </div>
             </button>
             <button onClick={() => setFolderItemContextMenu(null)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── POOL ITEM CONTEXT MENU (long press) ── */}
+      {poolItemContextMenu && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setPoolItemContextMenu(null)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-2`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[hsl(220,14%,18%)]">
+                {isVideo(poolItemContextMenu.dataUrl, poolItemContextMenu.media_type)
+                  ? <div className="w-full h-full flex items-center justify-center text-xl">🎥</div>
+                  : <img src={poolItemContextMenu.url || poolItemContextMenu.dataUrl} alt="" className="w-full h-full object-cover" />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{poolItemContextMenu.display_name ?? poolItemContextMenu.name}</p>
+                {poolItemContextMenu.tag && <p className={`text-xs ${dimText}`}>{tagIcon(poolItemContextMenu.tag)} {tagLabel(poolItemContextMenu.tag)}</p>}
+              </div>
+            </div>
+            <button onClick={() => {
+              const item = poolItemContextMenu;
+              setPoolItemContextMenu(null);
+              setRenameSheet(item);
+              setRenameInput(item.display_name ?? item.name);
+            }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
+              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+              <div>
+                <p className="text-sm font-semibold">Rename</p>
+                <p className={`text-xs ${dimText}`}>Give this file a custom name</p>
+              </div>
+            </button>
+            <button onClick={() => {
+              const item = poolItemContextMenu;
+              setPoolItemContextMenu(null);
+              setBulkMode(true);
+              setBulkSelectedIds([item.id]);
+            }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
+              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x={3} y={3} width={7} height={7} rx={1}/><rect x={14} y={3} width={7} height={7} rx={1}/><rect x={3} y={14} width={7} height={7} rx={1}/><rect x={14} y={14} width={7} height={7} rx={1}/></svg>
+              <div>
+                <p className="text-sm font-semibold">Select</p>
+                <p className={`text-xs ${dimText}`}>Multi-select to batch actions</p>
+              </div>
+            </button>
+            <button onClick={() => { handleDeleteMedia(poolItemContextMenu.id); setPoolItemContextMenu(null); }}
+              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-red-500/20 hover:bg-red-500/10 transition-colors text-left">
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+              <div>
+                <p className="text-sm font-semibold text-red-400">Delete</p>
+                <p className="text-xs text-red-400/60">Remove permanently</p>
+              </div>
+            </button>
+            <button onClick={() => setPoolItemContextMenu(null)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── RENAME BOTTOM SHEET ── */}
+      {renameSheet && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => !renameSaving && setRenameSheet(null)}>
+          <div className="absolute inset-0 bg-black/60" />
+          <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-4`} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold">Rename File</p>
+              <button onClick={() => setRenameSheet(null)} className={`${dimText} hover:text-white text-xl w-8 h-8 flex items-center justify-center`}>✕</button>
+            </div>
+            <input
+              autoFocus
+              type="text"
+              value={renameInput}
+              onChange={(e) => setRenameInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleRenameMedia(renameSheet, renameInput); }}
+              placeholder="Enter a name…"
+              className={`w-full bg-[hsl(220,14%,14%)] border ${border} rounded-xl px-4 py-3 text-sm text-white placeholder-[hsl(220,10%,40%)] outline-none focus:border-[hsl(263,70%,55%)]`}
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setRenameSheet(null)} disabled={renameSaving}
+                className={`flex-1 py-3 rounded-xl border ${border} text-sm ${dimText} hover:text-white transition-colors`}>Cancel</button>
+              <button onClick={() => handleRenameMedia(renameSheet, renameInput)} disabled={renameSaving || !renameInput.trim()}
+                className="flex-1 py-3 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold disabled:opacity-50 transition-colors">
+                {renameSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
         </div>
       )}
