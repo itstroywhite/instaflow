@@ -4,6 +4,7 @@ export type PoolSort = "latest" | "oldest" | "name";
 export interface MediaItem {
   id: string;
   name: string;
+  display_name?: string | null;
   tag: string | null;
   analyzing: boolean;
   dataUrl: string;
