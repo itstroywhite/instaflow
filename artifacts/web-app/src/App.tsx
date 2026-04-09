@@ -788,7 +788,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   const parts = value ? value.split(":").map(Number) : [dH, dM];
   const curH = parts[0] ?? dH;
   const curM = parts[1] ?? dM;
-  const ITEM_H = 40;
+  const ITEM_H = 32;
   const hourRef = useRef<HTMLDivElement>(null);
   const minRef = useRef<HTMLDivElement>(null);
   const hTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -830,31 +830,29 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
     }, 120);
   }
 
-  const colScroll: React.CSSProperties = { height: "100%", overflowY: "scroll", scrollbarWidth: "none", scrollSnapType: "y mandatory" };
-  const highlight: React.CSSProperties = { position: "absolute", left: 0, right: 0, top: ITEM_H, height: ITEM_H, background: "hsl(263 70% 65% / 0.12)", borderTop: "1px solid hsl(263 70% 65% / 0.35)", borderBottom: "1px solid hsl(263 70% 65% / 0.35)", pointerEvents: "none", zIndex: 10 };
+  const colStyle: React.CSSProperties = {
+    height: ITEM_H, width: 40, overflowY: "scroll", scrollbarWidth: "none",
+    scrollSnapType: "y mandatory", borderRadius: 8,
+    background: "hsl(220,14%,9%)", border: "1px solid hsl(220,13%,20%)",
+  };
 
   function col(ref: React.RefObject<HTMLDivElement>, onScroll: () => void, count: number, cur: number) {
     return (
-      <div className="relative flex-1 overflow-hidden rounded-xl bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,20%)]" style={{ height: ITEM_H * 3 }}>
-        <div style={highlight} />
-        <div ref={ref} onScroll={onScroll} style={colScroll}>
-          <div style={{ height: ITEM_H, scrollSnapAlign: "start", flexShrink: 0 }} />
-          {Array.from({ length: count }, (_, i) => (
-            <div key={i} style={{ height: ITEM_H, scrollSnapAlign: "start" }}
-              className={`flex items-center justify-center text-base font-semibold select-none transition-colors ${i === cur ? "text-[hsl(263,70%,78%)]" : "text-[hsl(220,10%,40%)]"}`}>
-              {String(i).padStart(2, "0")}
-            </div>
-          ))}
-          <div style={{ height: ITEM_H * 2, scrollSnapAlign: "start" }} />
-        </div>
+      <div ref={ref} onScroll={onScroll} style={colStyle}>
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} style={{ height: ITEM_H, scrollSnapAlign: "start" }}
+            className={`flex items-center justify-center text-xs font-semibold select-none ${i === cur ? "text-[hsl(263,70%,78%)]" : "text-[hsl(220,10%,35%)]"}`}>
+            {String(i).padStart(2, "0")}
+          </div>
+        ))}
       </div>
     );
   }
 
   return (
-    <div className={`flex items-center gap-2 ${className ?? ""}`}>
+    <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
       {col(hourRef, onHScroll, 24, curH)}
-      <span className="text-[hsl(220,10%,35%)] font-bold text-lg select-none">:</span>
+      <span className="text-[hsl(220,10%,35%)] font-bold text-xs select-none">:</span>
       {col(minRef, onMScroll, 60, curM)}
     </div>
   );
@@ -1183,6 +1181,7 @@ export default function App() {
   const [confirmRemoveItem, setConfirmRemoveItem] = useState<MediaItem | null>(null);
   const [folderAddMode, setFolderAddMode] = useState(false);
   const [folderPoolMedia, setFolderPoolMedia] = useState<MediaItem[]>([]);
+  const [folderPoolMediaLoading, setFolderPoolMediaLoading] = useState(false);
   const [folderAddSourceSheet, setFolderAddSourceSheet] = useState(false);
   const [folderItemContextMenu, setFolderItemContextMenu] = useState<MediaItem | null>(null);
   const [poolItemContextMenu, setPoolItemContextMenu] = useState<MediaItem | null>(null);
@@ -1431,16 +1430,24 @@ export default function App() {
   // Fetch all media when entering folder-add mode
   useEffect(() => {
     if (folderAddMode) {
+      setFolderPoolMediaLoading(true);
       apiGet<{ items: any[] }>("/media?limit=1000").then((data) => {
         const items: MediaItem[] = (data.items ?? []).map((m: any) => ({
           id: m.id, name: m.name, tag: m.tag, dataUrl: m.url, used: m.used ?? false,
           fileHash: m.file_hash ?? "", fileSize: m.file_size ?? 0, dimensions: m.dimensions ?? "",
           media_type: m.media_type ?? "image", thumbnail_url: m.thumbnail_url ?? "", duration: m.duration ?? 0,
         }));
+        console.log("[folder-add] fetched:", items.length);
         setFolderPoolMedia(items);
-      }).catch(() => setFolderPoolMedia([]));
+        setFolderPoolMediaLoading(false);
+      }).catch((err) => {
+        console.error("[folder-add] fetch failed, falling back to mediaItems:", err);
+        setFolderPoolMedia(mediaItems);
+        setFolderPoolMediaLoading(false);
+      });
     } else {
       setFolderPoolMedia([]);
+      setFolderPoolMediaLoading(false);
     }
   }, [folderAddMode]); // eslint-disable-line
 
@@ -1787,6 +1794,29 @@ export default function App() {
     if (Object.keys(toSync).length > 0) setVideoPosters((prev) => ({ ...prev, ...toSync }));
   }, [mediaItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Lock body scroll when any modal/sheet is open (prevents background scroll on iOS)
+  useEffect(() => {
+    const anyOpen = upgradeModalOpen || folderAddSourceSheet || viewerTagPickerOpen || editorSaveSheet ||
+      discardConfirm || !!renameSheet || !!viewerItem || !!imageEditorItem || singlePickerOpen ||
+      folderPickerOpen || aiTypeModal || createPostModal;
+    if (anyOpen) {
+      const scrollY = window.scrollY;
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+      return () => {
+        document.body.style.overflow = "";
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.width = "";
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [upgradeModalOpen, folderAddSourceSheet, viewerTagPickerOpen, editorSaveSheet,
+      discardConfirm, renameSheet, viewerItem, imageEditorItem, singlePickerOpen,
+      folderPickerOpen, aiTypeModal, createPostModal]); // eslint-disable-line
+
   // Auto-expand caption textareas when value is set programmatically (e.g. AI generation)
   useEffect(() => {
     if (carouselCaptionRef.current) {
@@ -2098,16 +2128,16 @@ export default function App() {
       }
     }
 
-    // ── Phase 2: sequential server uploads with progress toasts ───────────────
+    // ── Phase 2: parallel image uploads, sequential video uploads ────────────
     const total = allItems.length;
     let succeeded = 0;
     const failedNames: string[] = [];
 
-    async function uploadOneItem(item: MediaItem, idx: number): Promise<boolean> {
+    async function uploadOneItem(item: MediaItem, idx: number, showToast = true): Promise<boolean> {
       const isVideo = item.media_type === "video";
-      showGlobalToast(isVideo
-        ? `Uploading ${idx} of ${total}… (may take a moment)`
-        : `Uploading ${idx} of ${total}…`);
+      if (showToast && isVideo) {
+        showGlobalToast(`Uploading video ${idx} of ${total}… (may take a moment)`);
+      }
 
       const doUpload = async () => {
         if (isVideo) {
@@ -2172,10 +2202,17 @@ export default function App() {
       }
     }
 
-    for (let i = 0; i < allItems.length; i++) {
-      const ok = await uploadOneItem(allItems[i], i + 1);
-      if (ok) succeeded++;
-      else failedNames.push(allItems[i].name);
+    // Images: parallel; Videos: sequential (too large for parallel)
+    const imageUploads = allItems.filter((m) => m.media_type !== "video");
+    const videoUploads = allItems.filter((m) => m.media_type === "video");
+
+    if (imageUploads.length > 0) showGlobalToast(`Uploading ${imageUploads.length} image${imageUploads.length !== 1 ? "s" : ""}…`);
+    const imageResults = await Promise.all(imageUploads.map((item, i) => uploadOneItem(item, i + 1, false)));
+    imageResults.forEach((ok, i) => { if (ok) succeeded++; else failedNames.push(imageUploads[i].name); });
+
+    for (let i = 0; i < videoUploads.length; i++) {
+      const ok = await uploadOneItem(videoUploads[i], imageUploads.length + i + 1, true);
+      if (ok) succeeded++; else failedNames.push(videoUploads[i].name);
     }
 
     // Summary toast
@@ -3874,7 +3911,14 @@ export default function App() {
 
                 {/* ── Media items ── */}
                 {(() => {
-                  // Fix 2: in folderAddMode show ALL pool items not already in the folder
+                  // Show spinner while folder pool media is loading
+                  if (folderAddMode && folderPoolMediaLoading) return (
+                    <div className="col-span-3 flex items-center justify-center py-16">
+                      <span className="w-6 h-6 rounded-full border-2 border-[hsl(263,70%,65%)/30] border-t-[hsl(263,70%,65%)] animate-spin" />
+                    </div>
+                  );
+
+                  // in folderAddMode show ALL pool items not already in the folder
                   const displayItems = openFolder
                     ? (folderAddMode
                         ? (folderPoolMedia.length > 0 ? folderPoolMedia : mediaItems).filter((m) => !openFolder.mediaIds.includes(m.id))
@@ -5071,12 +5115,13 @@ export default function App() {
                     className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>↺ Reset</button>
                 </div>
                 <textarea
-                  rows={5}
+                  rows={1}
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
                   value={sd.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
                   onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
                   onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
+                  style={{ minHeight: 40 }}
                   className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
                 <p className={`text-[10px] ${dimText} mt-1`}>This is the base instruction sent to the AI for every caption.</p>
@@ -5131,13 +5176,14 @@ export default function App() {
               <div>
                 <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
                 <textarea
-                  rows={2}
+                  rows={1}
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Additional caption instructions") : undefined}
                   value={sd.captionSettings.customInstructions ?? ""}
                   onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
                   onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   placeholder="e.g. Always mention the city. Avoid the word 'journey'."
+                  style={{ minHeight: 40 }}
                   className={`w-full ${inputCls} resize-none ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
               </div>
@@ -5332,7 +5378,8 @@ export default function App() {
                   value={sd.aiCustomPreferences}
                   onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
                   onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
-                  rows={2}
+                  rows={1}
+                  style={{ minHeight: 40 }}
                   placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
                   className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
@@ -7813,12 +7860,13 @@ export default function App() {
                         className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>↺ Reset</button>
                     </div>
                     <textarea
-                      rows={5}
+                      rows={1}
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
                       value={sd.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
                       onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
                       onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
+                      style={{ minHeight: 40 }}
                       className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                     />
                     <p className={`text-[10px] ${dimText} mt-1`}>Base instruction sent to the AI for every caption.</p>
@@ -7875,13 +7923,14 @@ export default function App() {
                   <div>
                     <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
                     <textarea
-                      rows={2}
+                      rows={1}
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Additional caption instructions") : undefined}
                       value={sd.captionSettings.customInstructions ?? ""}
                       onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
                       onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                       placeholder="e.g. Always mention the city. Avoid the word 'journey'."
+                      style={{ minHeight: 40 }}
                       className={`w-full ${inputCls} resize-none ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                     />
                   </div>
@@ -7989,7 +8038,8 @@ export default function App() {
                       value={sd.aiCustomPreferences}
                       onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
                       onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
-                      rows={2}
+                      rows={1}
+                      style={{ minHeight: 40 }}
                       placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
                       className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                     />
