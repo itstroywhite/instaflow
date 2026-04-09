@@ -5518,6 +5518,7 @@ export default function App() {
                     cursor: "grab",
                     border: "2px solid rgba(255,255,255,0.35)",
                     boxSizing: "border-box",
+                    touchAction: "none",
                   }}
                   onTouchStart={(e) => {
                     cropDragRef.current = { startTouchY: e.touches[0].clientY, startTouchX: e.touches[0].clientX, startOffsetY: cropOffset.y, startOffsetX: cropOffset.x };
@@ -5572,7 +5573,7 @@ export default function App() {
             </div>
 
             {/* Controls panel */}
-            <div className="flex-1 overflow-y-auto pb-8">
+            <div className="flex-1 overflow-y-auto pb-8" style={{ touchAction: "pan-y" }}>
 
               {/* Filter presets row */}
               <div className="mb-1">
@@ -5582,7 +5583,7 @@ export default function App() {
                 <div className="relative">
                   <div
                     className="flex gap-2.5 overflow-x-auto pb-2"
-                    style={{ scrollbarWidth: "none", paddingLeft: 16, paddingRight: 48 }}>
+                    style={{ scrollbarWidth: "none", paddingLeft: 16, paddingRight: 24 }}>
 
                     {/* Built-in presets */}
                     {FILTER_PRESETS.map((p) => {
@@ -5650,21 +5651,28 @@ export default function App() {
                       );
                     })}
 
-                    {/* + Save Preset tile — always visible at the end */}
+                    {/* + Save Preset tile — always the last item; hidden only when user has max 5 presets */}
                     {customPresets.length < 5 && (
                       <button
                         onClick={() => {
                           if (plan === "free") { openProGate("Custom filter presets"); return; }
                           setSavePresetOpen(true);
                         }}
-                        style={{ minWidth: 64 }}
-                        className="flex flex-col items-center gap-1.5 flex-shrink-0 opacity-55 hover:opacity-80 transition-opacity">
-                        <div className="w-14 h-14 rounded-xl border-2 border-dashed border-white/30 flex items-center justify-center">
-                          <span className="text-white/50 text-2xl leading-none select-none">+</span>
+                        style={{ minWidth: 64, flexShrink: 0, opacity: 0.72 }}>
+                        <div className="flex flex-col items-center gap-1.5">
+                          <div
+                            style={{
+                              width: 56, height: 56, borderRadius: 12,
+                              border: "2px dashed rgba(255,255,255,0.35)",
+                              background: "rgba(255,255,255,0.04)",
+                              display: "flex", alignItems: "center", justifyContent: "center",
+                            }}>
+                            <span style={{ fontSize: 22, color: "rgba(255,255,255,0.55)", lineHeight: 1, userSelect: "none" }}>+</span>
+                          </div>
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", textAlign: "center", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                            {plan === "free" ? "💎 " : ""}Save Preset
+                          </span>
                         </div>
-                        <span className="text-[9px] text-white/40 text-center leading-tight whitespace-nowrap">
-                          {plan === "free" ? <span className="text-[hsl(263,70%,65%)]">💎 </span> : null}Save Preset
-                        </span>
                       </button>
                     )}
 
@@ -5675,8 +5683,8 @@ export default function App() {
                     aria-hidden
                     style={{
                       position: "absolute", top: 0, right: 0, bottom: 8,
-                      width: 48, pointerEvents: "none",
-                      background: "linear-gradient(to right, transparent, hsl(220,14%,6%) 90%)",
+                      width: 40, pointerEvents: "none",
+                      background: "linear-gradient(to right, transparent 0%, hsl(220,14%,6%) 85%)",
                     }}
                   />
                 </div>
