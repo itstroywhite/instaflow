@@ -246,6 +246,7 @@ async function ensureTables() {
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS media_type TEXT DEFAULT 'image';
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS duration FLOAT;
     ALTER TABLE media_items ADD COLUMN IF NOT EXISTS thumbnail_url TEXT;
+    ALTER TABLE media_items ADD COLUMN IF NOT EXISTS display_name TEXT;
 
     CREATE TABLE IF NOT EXISTS push_subscriptions (
       id SERIAL PRIMARY KEY,
