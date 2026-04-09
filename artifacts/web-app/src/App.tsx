@@ -1981,7 +1981,7 @@ export default function App() {
     if (videoFiles.length > 0 && limits.videoUpload) {
       for (const f of videoFiles) {
         if (f.size > MAX_VIDEO_BYTES) {
-          showGlobalToast(`Video too large — max 50 MB (${f.name})`);
+          showGlobalToast("File too large — max 50MB");
           continue;
         }
         const [thumbUrl, duration] = await Promise.all([captureVideoThumbnail(f), getVideoDurationFromFile(f)]);
@@ -2036,8 +2036,9 @@ export default function App() {
 
     async function uploadOneItem(item: MediaItem, idx: number): Promise<boolean> {
       const isVideo = item.media_type === "video";
-      const label = isVideo ? `${item.name} (this may take a moment…)` : item.name;
-      showGlobalToast(`Uploading ${idx} of ${total} — ${label}`);
+      showGlobalToast(isVideo
+        ? `Uploading ${idx} of ${total}… (may take a moment)`
+        : `Uploading ${idx} of ${total}…`);
 
       const doUpload = async () => {
         if (isVideo) {
@@ -2058,6 +2059,12 @@ export default function App() {
         }
       };
 
+      const removeFromState = () => {
+        setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
+        setCarouselIds((prev) => prev.filter((cid) => cid !== item.id));
+        if (isVideo) setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
+      };
+
       try {
         const saved = await doUpload();
         const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
@@ -2067,9 +2074,8 @@ export default function App() {
         setMediaTotal((t) => t + 1);
         return true;
       } catch (err: any) {
-        // Retry once for videos
+        // Retry once for videos before giving up
         if (isVideo) {
-          showGlobalToast(`Retrying ${item.name}…`);
           try {
             const saved = await doUpload();
             const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
@@ -2080,19 +2086,19 @@ export default function App() {
             return true;
           } catch {}
         }
+
+        console.error("[upload] failed:", item.name, err);
+        removeFromState();
+
+        // Classify error for per-file feedback
         if (err?.status === 409) {
-          showGlobalToast(err?.data?.message ?? "This file already exists in your pool");
-          setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
-          setCarouselIds((prev) => prev.filter((cid) => cid !== item.id));
-          return false;
+          showGlobalToast("Already in your pool");
+        } else if (err?.status === 413 || err?.message?.toLowerCase().includes("too large") || err?.message?.toLowerCase().includes("entity too large")) {
+          showGlobalToast("File too large — max 50MB");
+        } else if (err?.name === "AbortError" || err?.message?.toLowerCase().includes("network") || err?.message?.toLowerCase().includes("failed to fetch")) {
+          showGlobalToast("Upload failed — check connection");
         }
-        console.error("Upload failed:", item.name, err);
-        // Remove failed item from state
-        setMediaItems((prev) => prev.filter((m) => m.id !== item.id));
-        setCarouselIds((prev) => prev.filter((cid) => cid !== item.id));
-        if (item.media_type === "video") {
-          setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
-        }
+        // (Other errors: no per-file toast — summarised at the end)
         return false;
       }
     }
@@ -2107,11 +2113,11 @@ export default function App() {
     if (total === 0) {
       // nothing to upload
     } else if (failedNames.length === 0) {
-      if (total > 1) showGlobalToast(`✓ All ${total} files uploaded`);
+      if (total > 1) showGlobalToast(`✓ ${total} files uploaded`);
     } else if (succeeded === 0) {
-      showGlobalToast(`Upload failed — ${failedNames.join(", ")}`);
+      showGlobalToast("Upload failed — please try again");
     } else {
-      showGlobalToast(`✓ ${succeeded} of ${total} uploaded — ${failedNames.length} failed: ${failedNames.join(", ")}`);
+      showGlobalToast(`✓ ${succeeded} uploaded · ${failedNames.length} failed`);
     }
 
     // Re-sync count from server
