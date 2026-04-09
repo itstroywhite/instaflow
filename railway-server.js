@@ -238,6 +238,7 @@ async function ensureTables() {
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_daily BOOLEAN DEFAULT true;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_time TEXT DEFAULT '09:00';
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS notify_updates BOOLEAN DEFAULT false;
+    ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_notification_sent TIMESTAMPTZ;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
     ALTER TABLE profiles ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free';
@@ -1341,6 +1342,8 @@ app.post("/api/profile/avatar", requireAuth, async (req, res) => {
 
 // ── Push Notification Preferences ────────────────────────────────────────────
 app.post("/api/profile/notify", requireAuth, (req, res) => withTables(async () => {
+  console.log('[notify-save] userId:', req.userId);
+  console.log('[notify-save] body:', req.body);
   const { notify_daily, notify_time, notify_updates } = req.body;
   await pool.query(`
     INSERT INTO profiles (user_id, notify_daily, notify_time, notify_updates)
@@ -1380,9 +1383,6 @@ async function sendDailyPostReminders() {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
   console.log('[notify] checking at', new Date().toISOString());
   try {
-    // Ensure last_notification_sent column exists
-    await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_notification_sent TIMESTAMPTZ`);
-
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     const { rows: usersToNotify } = await pool.query(`
