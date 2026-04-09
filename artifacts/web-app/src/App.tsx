@@ -5184,42 +5184,41 @@ export default function App() {
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
               style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
-              {/* LEFT: filename + edit icon */}
-              <div className="flex items-center gap-1 min-w-0 flex-1 mr-2">
+              {/* LEFT: filename pill + date below */}
+              <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
                 {(liveItem.display_name || liveItem.name) && (
                   <button
                     onClick={() => { setRenameSheet(liveItem); setRenameInput(liveItem.display_name ?? liveItem.name); }}
-                    className="flex items-center gap-1 text-left max-w-full group">
-                    <span className="text-white/90 text-sm font-medium truncate">{liveItem.display_name ?? liveItem.name}</span>
-                    <svg className="w-3 h-3 text-white/40 group-hover:text-white/70 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 text-left max-w-full group self-start">
+                    <span className="text-white/90 text-xs font-medium truncate">{liveItem.display_name ?? liveItem.name}</span>
+                    <svg className="w-3 h-3 text-white/40 group-hover:text-white/80 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>
                     </svg>
                   </button>
                 )}
+                {(dateStr || timeStr) && (
+                  <span className="text-white/45 text-[11px] leading-none pl-1">
+                    {dateStr}{dateStr && timeStr ? " · " : ""}{timeStr}
+                  </span>
+                )}
               </div>
-              {/* CENTER: date + time */}
-              {(dateStr || timeStr) && (
-                <span className="text-white/40 text-[11px] leading-none text-center flex-shrink-0 mx-1">
-                  {dateStr}{dateStr && timeStr ? " · " : ""}{timeStr}
-                </span>
-              )}
               {/* RIGHT: counter + close */}
-              <div className="flex items-center gap-2 flex-shrink-0 ml-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {viewerNavList.length > 1 && (
-                  <span className="text-white/60 text-xs tabular-nums bg-white/[0.07] px-2.5 py-1 rounded-full">
+                  <span className="text-white/60 text-xs tabular-nums bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
                     {viewerNavIdx + 1} / {viewerNavList.length}
                   </span>
                 )}
                 <button onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}
-                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
+                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
                   ✕
                 </button>
               </div>
             </div>
 
             {/* Main content — flex column, tap dark bg to close */}
-            <div className="flex-1 flex flex-col justify-center gap-3 pt-16 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
+            <div className="flex-1 flex flex-col justify-center gap-3 pt-20 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
 
               {/* ── Swipeable strip ── */}
               {/* Outer: relative wrapper for clip + badge overlays */}
