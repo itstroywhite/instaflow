@@ -2487,37 +2487,49 @@ export default function App() {
     if (!imageEditorItem) return;
     setEditorSaving(true);
     try {
+      // Load image — crossOrigin must be set before src to avoid cache-taint issues
       const img = new Image();
       img.crossOrigin = "anonymous";
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = () => reject(new Error("Image load failed"));
+        img.onerror = (e) => { console.error("[edit] Image load error:", e); reject(new Error("Image failed to load")); };
         img.src = imageEditorItem.dataUrl;
       });
+
+      // Center-crop based on selected ratio
       const ratioMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
       const ratio = ratioMap[editorCropRatio];
       let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
       if (ratio !== null) {
-        if (sw / sh > ratio) { sw = sh * ratio; sx = (img.naturalWidth - sw) / 2; }
-        else { sh = sw / ratio; sy = (img.naturalHeight - sh) / 2; }
+        if (sw / sh > ratio) { sw = Math.round(sh * ratio); sx = Math.round((img.naturalWidth - sw) / 2); }
+        else { sh = Math.round(sw / ratio); sy = Math.round((img.naturalHeight - sh) / 2); }
       }
+
+      // Draw to canvas with filters applied
       const canvas = document.createElement("canvas");
-      canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+      canvas.width = sw; canvas.height = sh;
       const ctx = canvas.getContext("2d")!;
       ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
       ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("Blob error")), "image/jpeg", 0.92));
-      const storagePath = `${imageEditorItem.id}_edited_${Date.now()}.jpg`;
-      const { data: uploadData, error: uploadError } = await supabase!.storage.from("media").upload(storagePath, blob, { upsert: true, contentType: "image/jpeg" });
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase!.storage.from("media").getPublicUrl(uploadData.path);
-      await apiPatch(`/media/${imageEditorItem.id}`, { dataUrl: publicUrl });
-      setMediaItems(prev => prev.map(m => m.id === imageEditorItem.id ? { ...m, dataUrl: publicUrl } : m));
-      showGlobalToast("Edit saved");
+
+      // Convert to base64 (0.75 quality to keep size manageable)
+      const base64 = canvas.toDataURL("image/jpeg", 0.75);
+      console.log("[edit] Canvas output size (chars):", base64.length);
+
+      // Upload via server endpoint (avoids client-side CORS/taint issues)
+      const uploadResult = await apiPost("/upload", { dataUrl: base64, id: imageEditorItem.id }) as { url?: string; error?: string };
+      if (!uploadResult?.url) throw new Error(uploadResult?.error ?? "Upload returned no URL");
+      console.log("[edit] Uploaded to:", uploadResult.url);
+
+      // Update the DB record and local state
+      await apiPatch(`/media/${imageEditorItem.id}`, { dataUrl: uploadResult.url });
+      setMediaItems(prev => prev.map(m => m.id === imageEditorItem.id ? { ...m, dataUrl: uploadResult.url! } : m));
+      showGlobalToast("Edit saved ✓");
       setImageEditorItem(null);
     } catch (err) {
-      console.error("Edit save failed:", err);
-      showGlobalToast("Failed to save edit — please try again");
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[edit] Save failed:", msg, err);
+      showGlobalToast(`Edit failed: ${msg.slice(0, 60)}`);
     } finally {
       setEditorSaving(false);
     }
@@ -5321,8 +5333,8 @@ export default function App() {
             </div>
 
             {/* Image preview */}
-            <div className="flex-shrink-0 flex items-center justify-center px-4 pb-3" style={{ height: "52%" }}>
-              <div className="relative w-full h-full flex items-center justify-center">
+            <div className="flex-shrink-0 flex items-center justify-center px-4 pb-3" style={{ height: "52%", minHeight: 0 }}>
+              {editorCropRatio === "Original" ? (
                 <img
                   src={imageEditorItem.dataUrl}
                   alt="editing"
@@ -5331,19 +5343,40 @@ export default function App() {
                     maxHeight: "100%",
                     objectFit: "contain",
                     filter: cssFilter,
-                    aspectRatio: cropAspect[editorCropRatio],
                     transition: "filter 0.15s ease",
                     borderRadius: 12,
                   }}
                 />
-              </div>
+              ) : (
+                <div style={{
+                  aspectRatio: cropAspect[editorCropRatio],
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  overflow: "hidden",
+                  borderRadius: 12,
+                  flexShrink: 0,
+                }}>
+                  <img
+                    src={imageEditorItem.dataUrl}
+                    alt="editing"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                      filter: cssFilter,
+                      transition: "filter 0.15s ease",
+                    }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Controls panel */}
             <div className="flex-1 overflow-y-auto pb-8">
 
               {/* Filter presets row */}
-              <div className="px-4 mb-5">
+              <div className="px-4 mb-1">
                 <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2.5 font-semibold">Filters</p>
                 <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
                   {allPresetRows.map((p) => {
@@ -5378,6 +5411,20 @@ export default function App() {
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Back to original */}
+              <div className="px-4 mb-4 flex justify-center">
+                <button
+                  onClick={() => {
+                    setEditorFilter("Original");
+                    setEditorBrightness(100); setEditorContrast(100); setEditorSaturation(100);
+                    setEditorWarmth(0); setEditorSharpness(100);
+                    setEditorCropRatio("Original");
+                  }}
+                  className="text-xs text-white/40 hover:text-white/70 transition-colors flex items-center gap-1 py-1 px-3">
+                  ↺ Back to original
+                </button>
               </div>
 
               {/* Adjustment sliders — Pro */}
@@ -5420,10 +5467,10 @@ export default function App() {
                     <button
                       key={r}
                       onClick={() => setEditorCropRatio(r)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                         editorCropRatio === r
                           ? "bg-[hsl(263,70%,55%)] border-[hsl(263,70%,55%)] text-white"
-                          : "border-white/15 text-white/60 hover:border-white/30"
+                          : "bg-[hsl(220,14%,15%)] border-white/10 text-white/60 hover:border-white/25 hover:text-white/80"
                       }`}>
                       {r}
                     </button>
