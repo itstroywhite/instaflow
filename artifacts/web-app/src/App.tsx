@@ -2668,7 +2668,7 @@ export default function App() {
           const newFolderId = generateId();
           try {
             await apiPost("/folders", { id: newFolderId, name: "Edited", mediaIds: [newId] });
-            editedFolder = { id: newFolderId, name: "Edited", mediaIds: [newId] };
+            editedFolder = { id: newFolderId, name: "Edited", mediaIds: [newId], createdAt: new Date().toISOString() };
             setFolders(prev => [...prev, editedFolder!]);
           } catch {}
         } else {
@@ -5474,8 +5474,8 @@ export default function App() {
         const cropRatios = ["Original", "1:1", "4:5", "9:16", "16:9"];
         const cropAspect: Record<string, string> = { "Original": "auto", "1:1": "1/1", "4:5": "4/5", "9:16": "9/16", "16:9": "16/9" };
         const allPresetRows = [
-          ...FILTER_PRESETS.map(p => ({ ...p, custom: false })),
-          ...customPresets.map(p => ({ ...p, pro: false, custom: true })),
+          ...FILTER_PRESETS.map(p => ({ ...p, custom: false, id: undefined as number | undefined })),
+          ...customPresets.map(p => ({ ...p, pro: false as boolean, custom: true })),
         ];
         return (
           <div className="fixed inset-0 z-50 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
