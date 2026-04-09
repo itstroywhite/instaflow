@@ -270,10 +270,42 @@ function postStatusClasses(post: ApprovedPost) {
 // In development (Replit) it defaults to "" so relative /api/... paths are used via the Vite proxy.
 const API_BASE = (import.meta.env.VITE_API_URL ?? "").replace(/\/$/, "");
 
+// ── Session refresh coordination ──────────────────────────────────────────────
+let _pendingRefresh: Promise<boolean> | null = null;
+let _sessionExpiredHandler: (() => void) | null = null;
+let _reloadDataHandler: (() => void) | null = null;
+
+async function tryRefreshSession(): Promise<boolean> {
+  if (!supabase) return false;
+  if (_pendingRefresh) return _pendingRefresh;
+  _pendingRefresh = supabase.auth.refreshSession()
+    .then(({ data }) => { _pendingRefresh = null; return !!data.session; })
+    .catch(() => { _pendingRefresh = null; return false; });
+  return _pendingRefresh;
+}
+
 async function getAuthToken(): Promise<string | null> {
   if (!supabase) return null;
   const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+  const session = data.session;
+
+  // No session at all — attempt a refresh before giving up
+  if (!session) {
+    const ok = await tryRefreshSession();
+    if (!ok) return null;
+    const { data: d2 } = await supabase.auth.getSession();
+    return d2.session?.access_token ?? null;
+  }
+
+  // Proactively refresh if the token expires in the next 60 seconds
+  const expiresAt = session.expires_at ?? 0;
+  if (Date.now() / 1000 > expiresAt - 60) {
+    await tryRefreshSession();
+    const { data: d2 } = await supabase.auth.getSession();
+    return d2.session?.access_token ?? session.access_token;
+  }
+
+  return session.access_token;
 }
 
 async function authHeaders(extra: Record<string, string> = {}): Promise<Record<string, string>> {
@@ -283,23 +315,28 @@ async function authHeaders(extra: Record<string, string> = {}): Promise<Record<s
   return headers;
 }
 
-function handle401(status: number) {
-  if (status === 401) {
-    supabase?.auth.signOut();
+async function handle401(status: number) {
+  if (status !== 401) return;
+  // Try to refresh the session once
+  const ok = await tryRefreshSession();
+  if (!ok) {
+    // Refresh failed — session is truly expired
+    _sessionExpiredHandler?.();
   }
+  // If refresh succeeded the next API call will use the new token automatically
 }
 
 async function apiGet<T>(path: string): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { headers });
-  handle401(res.status);
+  await handle401(res.status);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPost(path: string, body: object) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers, body: JSON.stringify(body) });
-  handle401(res.status);
+  await handle401(res.status);
   if (!res.ok) {
     const err: any = new Error(`POST ${path} failed: ${res.status}`);
     err.status = res.status;
@@ -315,7 +352,7 @@ async function apiPostWithTimeout(path: string, body: object, timeoutMs: number)
   try {
     const res = await fetch(`${API_BASE}/api${path}`, { method: "POST", headers, body: JSON.stringify(body), signal: controller.signal });
     clearTimeout(timer);
-    handle401(res.status);
+    await handle401(res.status);
     if (!res.ok) {
       const err: any = new Error(`POST ${path} failed: ${res.status}`);
       err.status = res.status;
@@ -347,14 +384,14 @@ async function getImageDimensions(file: File): Promise<string> {
 async function apiPatch(path: string, body: object) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { method: "PATCH", headers, body: JSON.stringify(body) });
-  handle401(res.status);
+  await handle401(res.status);
   if (!res.ok) throw new Error(`PATCH ${path} failed: ${res.status}`);
   return res.json();
 }
 async function apiPut(path: string, body: object) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { method: "PUT", headers, body: JSON.stringify(body) });
-  handle401(res.status);
+  await handle401(res.status);
   if (!res.ok) {
     const err: any = new Error(`PUT ${path} failed: ${res.status}`);
     err.status = res.status;
@@ -366,7 +403,7 @@ async function apiPut(path: string, body: object) {
 async function apiDelete(path: string) {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/api${path}`, { method: "DELETE", headers });
-  handle401(res.status);
+  await handle401(res.status);
   if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
   return res.json();
 }
@@ -956,18 +993,53 @@ export default function App() {
   // ── Auth ──────────────────────────────────────────────────────────────────
   const [session, setSession] = useState<Session | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const loadAllRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!supabase) { setAuthLoading(false); return; }
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+
+    // Register module-level callbacks so global helpers can reach React state
+    _sessionExpiredHandler = () => {
+      showGlobalToast("Session expired — please log in again");
+      supabase?.auth.signOut();
+    };
+    _reloadDataHandler = () => {
+      loadAllRef.current?.();
+    };
+
+    // Initial session check — try refresh if no valid session found
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        setSession(data.session);
+      } else {
+        const { data: refreshed } = await supabase.auth.refreshSession().catch(() => ({ data: { session: null } }));
+        setSession(refreshed.session ?? null);
+        if (!refreshed.session) {
+          console.log("[auth] No session and refresh failed — showing login");
+        }
+      }
       setAuthLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    })();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
+      if (event === "TOKEN_REFRESHED" && newSession) {
+        // Token was silently refreshed — reload all data with the new token
+        console.log("[auth] Token refreshed — reloading data");
+        loadAllRef.current?.();
+      }
+      if (event === "SIGNED_OUT" && !newSession) {
+        showGlobalToast("Session expired — please log in again");
+      }
     });
-    return () => subscription.unsubscribe();
-  }, []);
+
+    return () => {
+      subscription.unsubscribe();
+      _sessionExpiredHandler = null;
+      _reloadDataHandler = null;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [mediaLoading, setMediaLoading] = useState(true);
@@ -1379,8 +1451,10 @@ export default function App() {
       } catch (err) { console.error("Failed to load", err); showGlobalToast("Couldn't load data — pull to refresh"); }
       finally { setMediaLoading(false); }
     }
+    // Store in ref so the auth listener can trigger a reload after token refresh
+    loadAllRef.current = () => { setMediaLoading(true); loadAll(); };
     loadAll();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Profile fetch + handlers ─────────────────────────────────────────────
   useEffect(() => {
