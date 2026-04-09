@@ -778,112 +778,84 @@ function LazyImg({ src, alt, className, onError }: { src: string; alt?: string; 
 }
 
 function TimePicker({ value, onChange, className }: { value: string; onChange: (v: string) => void; className?: string }) {
-  const [open, setOpen] = useState(false);
-  const [inputText, setInputText] = useState("");
-  const listRef = useRef<HTMLDivElement>(null);
-
-  const times: string[] = [];
-  for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 15) {
-      times.push(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`);
-    }
-  }
-
-  function formatDisplay(t: string) {
-    if (!t) return "Select time";
-    const [hStr, mStr] = t.split(":");
-    const h = parseInt(hStr, 10);
-    const ampm = h >= 12 ? "PM" : "AM";
-    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${h12}:${mStr} ${ampm}`;
-  }
-
-  function getNearestTime() {
+  function defaultTime(): [number, number] {
     const now = new Date();
-    const h = now.getHours();
-    const rawM = now.getMinutes();
-    const m = Math.ceil(rawM / 15) * 15;
-    if (m >= 60) {
-      const nh = (h + 1) % 24;
-      return `${String(nh).padStart(2, "0")}:00`;
-    }
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+    let h = now.getHours(), m = Math.ceil(now.getMinutes() / 5) * 5;
+    if (m >= 60) { m = 0; h = (h + 1) % 24; }
+    return [h, m];
   }
+  const [dH, dM] = defaultTime();
+  const parts = value ? value.split(":").map(Number) : [dH, dM];
+  const curH = parts[0] ?? dH;
+  const curM = parts[1] ?? dM;
+  const ITEM_H = 40;
+  const hourRef = useRef<HTMLDivElement>(null);
+  const minRef = useRef<HTMLDivElement>(null);
+  const hTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (open && listRef.current) {
-      const target = value || getNearestTime();
-      const idx = times.indexOf(target);
-      const scrollIdx = idx !== -1 ? idx : times.indexOf(getNearestTime());
-      if (scrollIdx !== -1) {
-        const children = listRef.current.children;
-        if (children[scrollIdx]) (children[scrollIdx] as HTMLElement).scrollIntoView({ block: "center" });
-      }
-    }
-  }, [open]);
+    const t = setTimeout(() => {
+      hourRef.current?.scrollTo({ top: curH * ITEM_H });
+      minRef.current?.scrollTo({ top: curM * ITEM_H });
+    }, 0);
+    return () => clearTimeout(t);
+  }, []);
 
-  function parseInput(text: string): string | null {
-    const t = text.trim();
-    const match24 = t.match(/^(\d{1,2}):(\d{2})$/);
-    if (match24) {
-      const h = parseInt(match24[1]);
-      const m = parseInt(match24[2]);
-      if (h >= 0 && h < 24 && m >= 0 && m < 60)
-        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    }
-    const match12 = t.match(/^(\d{1,2}):(\d{2})\s*(am|pm)$/i);
-    if (match12) {
-      let h = parseInt(match12[1]);
-      const m = parseInt(match12[2]);
-      const period = match12[3].toLowerCase();
-      if (period === "pm" && h !== 12) h += 12;
-      if (period === "am" && h === 12) h = 0;
-      if (h >= 0 && h < 24 && m >= 0 && m < 60)
-        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-    }
-    return null;
+  useEffect(() => {
+    hourRef.current?.scrollTo({ top: curH * ITEM_H, behavior: "smooth" });
+  }, [curH]);
+  useEffect(() => {
+    minRef.current?.scrollTo({ top: curM * ITEM_H, behavior: "smooth" });
+  }, [curM]);
+
+  function onHScroll() {
+    if (hTimer.current) clearTimeout(hTimer.current);
+    hTimer.current = setTimeout(() => {
+      if (!hourRef.current) return;
+      const idx = Math.round(hourRef.current.scrollTop / ITEM_H);
+      const newH = Math.max(0, Math.min(23, idx));
+      hourRef.current.scrollTo({ top: newH * ITEM_H, behavior: "smooth" });
+      onChange(`${String(newH).padStart(2, "0")}:${String(curM).padStart(2, "0")}`);
+    }, 120);
+  }
+  function onMScroll() {
+    if (mTimer.current) clearTimeout(mTimer.current);
+    mTimer.current = setTimeout(() => {
+      if (!minRef.current) return;
+      const idx = Math.round(minRef.current.scrollTop / ITEM_H);
+      const newM = Math.max(0, Math.min(59, idx));
+      minRef.current.scrollTo({ top: newM * ITEM_H, behavior: "smooth" });
+      onChange(`${String(curH).padStart(2, "0")}:${String(newM).padStart(2, "0")}`);
+    }, 120);
   }
 
-  function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Enter") {
-      const parsed = parseInput(inputText);
-      if (parsed) { onChange(parsed); setInputText(""); setOpen(false); }
-    }
-    if (e.key === "Escape") { setOpen(false); setInputText(""); }
+  const colScroll: React.CSSProperties = { height: "100%", overflowY: "scroll", scrollbarWidth: "none", scrollSnapType: "y mandatory" };
+  const highlight: React.CSSProperties = { position: "absolute", left: 0, right: 0, top: ITEM_H, height: ITEM_H, background: "hsl(263 70% 65% / 0.12)", borderTop: "1px solid hsl(263 70% 65% / 0.35)", borderBottom: "1px solid hsl(263 70% 65% / 0.35)", pointerEvents: "none", zIndex: 10 };
+
+  function col(ref: React.RefObject<HTMLDivElement>, onScroll: () => void, count: number, cur: number) {
+    return (
+      <div className="relative flex-1 overflow-hidden rounded-xl bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,20%)]" style={{ height: ITEM_H * 3 }}>
+        <div style={highlight} />
+        <div ref={ref} onScroll={onScroll} style={colScroll}>
+          <div style={{ height: ITEM_H, scrollSnapAlign: "start", flexShrink: 0 }} />
+          {Array.from({ length: count }, (_, i) => (
+            <div key={i} style={{ height: ITEM_H, scrollSnapAlign: "start" }}
+              className={`flex items-center justify-center text-base font-semibold select-none transition-colors ${i === cur ? "text-[hsl(263,70%,78%)]" : "text-[hsl(220,10%,40%)]"}`}>
+              {String(i).padStart(2, "0")}
+            </div>
+          ))}
+          <div style={{ height: ITEM_H * 2, scrollSnapAlign: "start" }} />
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="relative">
-      <button type="button" onClick={() => { setOpen((o) => !o); setInputText(""); }} className={className} style={{ textAlign: "left", cursor: "pointer" }}>
-        {formatDisplay(value)}
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => { setOpen(false); setInputText(""); }} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-xl shadow-2xl overflow-hidden" style={{ width: 150 }}>
-            <div className="p-2 border-b border-[hsl(220,13%,22%)]">
-              <input
-                type="text"
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                placeholder={formatDisplay(value) || "e.g. 14:30"}
-                autoFocus
-                className="w-full bg-[hsl(220,14%,18%)] border border-[hsl(220,13%,28%)] rounded-lg px-2 py-1 text-xs text-[hsl(220,10%,85%)] placeholder-[hsl(220,10%,45%)] focus:outline-none focus:border-[hsl(263,70%,55%)]"
-              />
-            </div>
-            <div ref={listRef} style={{ maxHeight: 192, overflowY: "auto" }}>
-              {times.map((t) => (
-                <button type="button" key={t} onClick={() => { onChange(t); setInputText(""); setOpen(false); }}
-                  className={`w-full px-3 py-1.5 text-sm text-left transition-colors
-                    ${value === t ? "bg-[hsl(263,70%,65%)] text-white font-semibold" : "text-[hsl(220,10%,72%)] hover:bg-[hsl(220,14%,22%)]"}`}>
-                  {formatDisplay(t)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
+    <div className={`flex items-center gap-2 ${className ?? ""}`}>
+      {col(hourRef, onHScroll, 24, curH)}
+      <span className="text-[hsl(220,10%,35%)] font-bold text-lg select-none">:</span>
+      {col(minRef, onMScroll, 60, curM)}
     </div>
   );
 }
@@ -1107,6 +1079,7 @@ export default function App() {
   const [videoDisabledBanner, setVideoDisabledBanner] = useState(false);
   const [approvedPosts, setApprovedPosts] = useState<ApprovedPost[]>([]);
   const [appSettings, setAppSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [settingsDraft, setSettingsDraft] = useState<AppSettings | null>(null);
 
   const [screen, setScreen] = useState<Screen>(() => {
     const saved = localStorage.getItem(LAST_TAB_KEY) as Screen | null;
@@ -1209,6 +1182,7 @@ export default function App() {
   const [confirmDeleteFolder, setConfirmDeleteFolder] = useState(false);
   const [confirmRemoveItem, setConfirmRemoveItem] = useState<MediaItem | null>(null);
   const [folderAddMode, setFolderAddMode] = useState(false);
+  const [folderPoolMedia, setFolderPoolMedia] = useState<MediaItem[]>([]);
   const [folderAddSourceSheet, setFolderAddSourceSheet] = useState(false);
   const [folderItemContextMenu, setFolderItemContextMenu] = useState<MediaItem | null>(null);
   const [poolItemContextMenu, setPoolItemContextMenu] = useState<MediaItem | null>(null);
@@ -1447,6 +1421,28 @@ export default function App() {
   useEffect(() => {
     if (session) fetchScheduleRecs();
   }, [session, fetchScheduleRecs]);
+
+  // Init settings draft when entering settings screen; clear when leaving
+  useEffect(() => {
+    if (screen === "settings") setSettingsDraft({ ...appSettings });
+    else setSettingsDraft(null);
+  }, [screen]); // eslint-disable-line
+
+  // Fetch all media when entering folder-add mode
+  useEffect(() => {
+    if (folderAddMode) {
+      apiGet<{ items: any[] }>("/media?limit=1000").then((data) => {
+        const items: MediaItem[] = (data.items ?? []).map((m: any) => ({
+          id: m.id, name: m.name, tag: m.tag, dataUrl: m.url, used: m.used ?? false,
+          fileHash: m.file_hash ?? "", fileSize: m.file_size ?? 0, dimensions: m.dimensions ?? "",
+          media_type: m.media_type ?? "image", thumbnail_url: m.thumbnail_url ?? "", duration: m.duration ?? 0,
+        }));
+        setFolderPoolMedia(items);
+      }).catch(() => setFolderPoolMedia([]));
+    } else {
+      setFolderPoolMedia([]);
+    }
+  }, [folderAddMode]); // eslint-disable-line
 
   // ── Schedule: fetch real-time score (debounced 500ms) ────────────────────
   function fetchTimeScore(date: string, time: string, setter: (s: TimeScore) => void) {
@@ -3224,7 +3220,10 @@ export default function App() {
   async function handleSaveSettings() {
     setSettingsSaving(true); setSettingsSaved(false); setSettingsSaveFailed(false);
     try {
-      await saveSettingsToDB(appSettings);
+      const s = settingsDraft ?? appSettings;
+      await saveSettingsToDB(s);
+      setAppSettings(s);
+      setSettingsDraft(null);
       await apiPost("/profile/notify", { notify_daily: notifyDaily, notify_time: notifyTime, notify_updates: notifyUpdates }).catch(() => {});
       setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2500);
     }
@@ -3234,6 +3233,10 @@ export default function App() {
     }
     finally { setSettingsSaving(false); }
   }
+  const updateDraft = (updater: (s: AppSettings) => AppSettings) => {
+    setSettingsDraft((prev) => updater(prev ?? appSettings));
+  };
+  const hasUnsavedSettings = settingsDraft !== null && JSON.stringify(settingsDraft) !== JSON.stringify(appSettings);
   async function resetNotificationTime() {
     const next = { ...appSettings, notificationTime: DEFAULT_NOTIFICATION_TIME };
     setAppSettings(next);
@@ -3328,6 +3331,7 @@ export default function App() {
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
+  const sd = settingsDraft ?? appSettings;
   return (
     <div className="min-h-screen bg-[hsl(220,14%,8%)] text-[hsl(220,10%,95%)] font-sans">
       {/* Global toast */}
@@ -3870,10 +3874,10 @@ export default function App() {
 
                 {/* ── Media items ── */}
                 {(() => {
-                  // Fix 2: in folderAddMode show pool items not already in the folder
+                  // Fix 2: in folderAddMode show ALL pool items not already in the folder
                   const displayItems = openFolder
                     ? (folderAddMode
-                        ? mediaItems.filter((m) => !openFolder.mediaIds.includes(m.id) && !m.used)
+                        ? (folderPoolMedia.length > 0 ? folderPoolMedia : mediaItems).filter((m) => !openFolder.mediaIds.includes(m.id))
                         : mediaItems.filter((m) => openFolder.mediaIds.includes(m.id)))
                     : mediaSearchResults !== null
                       ? mediaSearchResults
@@ -5036,8 +5040,8 @@ export default function App() {
               <p className="text-sm font-semibold">📸 Instagram Profile</p>
               <div>
                 <p className={`text-xs ${dimText} mb-1.5`}>Your Instagram username (used in post previews)</p>
-                <input value={appSettings.instagramUsername}
-                  onChange={(e) => setAppSettings((s) => ({ ...s, instagramUsername: e.target.value.replace(/[^a-zA-Z0-9._]/g, "").toLowerCase() }))}
+                <input value={sd.instagramUsername}
+                  onChange={(e) => updateDraft((s) => ({ ...s, instagramUsername: e.target.value.replace(/[^a-zA-Z0-9._]/g, "").toLowerCase() }))}
                   placeholder="yourhandle"
                   className={`w-full ${inputCls}`} />
               </div>
@@ -5049,7 +5053,7 @@ export default function App() {
               <div>
                 <p className={`text-xs ${dimText} mb-1.5`}>Daily carousel reminder <span className="text-[hsl(220,10%,35%)]">(default {DEFAULT_NOTIFICATION_TIME})</span></p>
                 <div className="flex gap-2 items-center">
-                  <input type="time" value={appSettings.notificationTime} onChange={(e) => setAppSettings((s) => ({ ...s, notificationTime: e.target.value }))} className={inputCls} />
+                  <input type="time" value={sd.notificationTime} onChange={(e) => updateDraft((s) => ({ ...s, notificationTime: e.target.value }))} className={inputCls} />
                   <button onClick={resetNotificationTime} className={`text-xs px-3 py-2 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] hover:text-white transition-colors`}>↺ Reset</button>
                 </div>
               </div>
@@ -5070,8 +5074,9 @@ export default function App() {
                   rows={5}
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
-                  value={appSettings.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
-                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
+                  value={sd.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
+                  onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
+                  onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
                 <p className={`text-[10px] ${dimText} mt-1`}>This is the base instruction sent to the AI for every caption.</p>
@@ -5079,17 +5084,17 @@ export default function App() {
 
               <div>
                 <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Tone{plan === "free" && <DiamondBadge />}</p>
-                <input value={appSettings.captionSettings.tone}
+                <input value={sd.captionSettings.tone}
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Caption tone") : undefined}
-                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } })); }}
+                  onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } })); }}
                   placeholder="e.g. cool, modern, lowercase" className={`w-full ${inputCls} mb-2 ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
                 <div className="flex flex-wrap gap-1.5">
                   {SUGGESTED_TONES.map((t) => {
-                    const active = appSettings.captionSettings.tone.includes(t);
+                    const active = sd.captionSettings.tone.includes(t);
                     return <button key={t}
                       disabled={plan === "free"}
-                      onClick={plan === "free" ? () => openProGate("Caption tone") : () => setAppSettings((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
+                      onClick={plan === "free" ? () => openProGate("Caption tone") : () => updateDraft((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
                       className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
                   })}
                 </div>
@@ -5100,23 +5105,23 @@ export default function App() {
                   <input value={newHashtagInput}
                     readOnly={plan === "free"}
                     onChange={(e) => { if (plan === "free") return; setNewHashtagInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "")); }}
-                    onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                    onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                     placeholder="Add hashtag…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
-                  <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                  <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                     className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white">Add</button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-2">
-                  {SUGGESTED_HASHTAGS.filter((h) => !appSettings.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
-                    <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
+                  {SUGGESTED_HASHTAGS.filter((h) => !sd.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
+                    <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
                       className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>+ #{h}</button>
                   ))}
                 </div>
-                {appSettings.captionSettings.hashtags.length > 0 && (
+                {sd.captionSettings.hashtags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {appSettings.captionSettings.hashtags.map((h) => (
+                    {sd.captionSettings.hashtags.map((h) => (
                       <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] flex items-center gap-1">
                         #{h}
-                        <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
+                        <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
                           className="text-[hsl(263,70%,50%)] hover:text-red-400 text-[10px]">✕</button>
                       </span>
                     ))}
@@ -5129,8 +5134,9 @@ export default function App() {
                   rows={2}
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Additional caption instructions") : undefined}
-                  value={appSettings.captionSettings.customInstructions ?? ""}
-                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
+                  value={sd.captionSettings.customInstructions ?? ""}
+                  onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
+                  onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   placeholder="e.g. Always mention the city. Avoid the word 'journey'."
                   className={`w-full ${inputCls} resize-none ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
@@ -5182,25 +5188,25 @@ export default function App() {
                 <p className={`text-xs ${dimText} mb-1.5`}>Active tags{plan === "free" && <DiamondBadge />}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {allAvailableTags.map((tag) => (
-                    <span key={tag} className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${tagColor(tag, appSettings.customTags)}`}>
+                    <span key={tag} className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 ${tagColor(tag, sd.customTags)}`}>
                       {tagIcon(tag)} {tagLabel(tag)}
                       <button onClick={() => {
                         if (plan === "free") { openProGate("Managing active tags"); return; }
                         BASE_TAGS.includes(tag)
-                          ? setAppSettings((s) => ({ ...s, hiddenBaseTags: [...s.hiddenBaseTags, tag] }))
-                          : setAppSettings((s) => ({ ...s, customTags: s.customTags.filter((t) => t !== tag) }));
+                          ? updateDraft((s) => ({ ...s, hiddenBaseTags: [...s.hiddenBaseTags, tag] }))
+                          : updateDraft((s) => ({ ...s, customTags: s.customTags.filter((t) => t !== tag) }));
                       }}
                         className="opacity-60 hover:opacity-100 hover:text-red-400 text-[10px]">✕</button>
                     </span>
                   ))}
                 </div>
               </div>
-              {appSettings.hiddenBaseTags.length > 0 && (
+              {sd.hiddenBaseTags.length > 0 && (
                 <div>
                   <p className={`text-xs ${dimText} mb-1.5`}>Hidden tags</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {appSettings.hiddenBaseTags.map((tag) => (
-                      <button key={tag} onClick={() => setAppSettings((s) => ({ ...s, hiddenBaseTags: s.hiddenBaseTags.filter((t) => t !== tag) }))}
+                    {sd.hiddenBaseTags.map((tag) => (
+                      <button key={tag} onClick={() => updateDraft((s) => ({ ...s, hiddenBaseTags: s.hiddenBaseTags.filter((t) => t !== tag) }))}
                         className={`text-xs px-2.5 py-1.5 rounded-lg border ${border} ${dimText} opacity-50 hover:opacity-100 hover:bg-[hsl(220,14%,16%)]`}>
                         {tagIcon(tag)} {tagLabel(tag)} ↺
                       </button>
@@ -5223,10 +5229,10 @@ export default function App() {
                 <div className="flex gap-2 flex-wrap">
                   {(["random", 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20] as const).map((opt) => {
                     const val: number | "random" = opt;
-                    const active = appSettings.carouselSize === val;
+                    const active = sd.carouselSize === val;
                     return (
                       <button key={String(opt)}
-                        onClick={() => setAppSettings((s) => ({ ...s, carouselSize: val }))}
+                        onClick={() => updateDraft((s) => ({ ...s, carouselSize: val }))}
                         className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium
                           ${active ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)] text-white" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
                         {opt === "random" ? "🎲 Random" : String(opt)}
@@ -5234,7 +5240,7 @@ export default function App() {
                     );
                   })}
                 </div>
-                {appSettings.carouselSize === "random" && (
+                {sd.carouselSize === "random" && (
                   <p className={`text-[10px] ${dimText} mt-1`}>AI picks 2–12 slides based on available media.</p>
                 )}
               </div>
@@ -5247,11 +5253,11 @@ export default function App() {
                     { rule: "tag-sequence" as const, icon: "🔢", label: "Follow tag sequence", desc: "Define the exact order by tag" },
                     { rule: "ai-free" as const, icon: "🤖", label: "AI chooses freely", desc: "AI picks the best order" },
                   ]).map(({ rule, icon, label, desc }) => {
-                    const active = appSettings.slideOrderRule === rule;
+                    const active = sd.slideOrderRule === rule;
                     return (
                       <button key={rule}
                         disabled={plan === "free"}
-                        onClick={plan === "free" ? undefined : () => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
+                        onClick={plan === "free" ? undefined : () => updateDraft((s) => ({ ...s, slideOrderRule: rule }))}
                         className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
                           plan === "free" ? `${border} opacity-50 cursor-not-allowed` :
                           active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
@@ -5268,33 +5274,33 @@ export default function App() {
                   })}
                 </div>
                 {/* Tag sequence editor — hidden for free plan */}
-                {appSettings.slideOrderRule === "tag-sequence" && plan !== "free" && (
+                {sd.slideOrderRule === "tag-sequence" && plan !== "free" && (
                   <div className="mt-3 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
                     <p className={`text-[10px] font-medium ${dimText}`}>Drag tags to define order (first = first slide):</p>
                     <div className="flex flex-wrap gap-1.5">
                       {allAvailableTags.map((tag) => {
-                        const idx = appSettings.tagSequence.indexOf(tag);
+                        const idx = sd.tagSequence.indexOf(tag);
                         const inSeq = idx !== -1;
                         return (
                           <button key={tag}
-                            onClick={() => setAppSettings((s) => ({
+                            onClick={() => updateDraft((s) => ({
                               ...s,
                               tagSequence: inSeq
                                 ? s.tagSequence.filter((t) => t !== tag)
                                 : [...s.tagSequence, tag]
                             }))}
                             className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all
-                              ${inSeq ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                              ${inSeq ? tagColor(tag, sd.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
                             {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
                             {tagIcon(tag)} {tagLabel(tag)}
                           </button>
                         );
                       })}
                     </div>
-                    {appSettings.tagSequence.length > 0 && (
+                    {sd.tagSequence.length > 0 && (
                       <div className="flex items-center gap-2">
-                        <p className={`text-[10px] ${dimText} flex-1`}>Sequence: {appSettings.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
-                        <button onClick={() => setAppSettings((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
+                        <p className={`text-[10px] ${dimText} flex-1`}>Sequence: {sd.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
+                        <button onClick={() => updateDraft((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
                       </div>
                     )}
                   </div>
@@ -5306,11 +5312,11 @@ export default function App() {
                 <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[hsl(220,10%,35%)]">— AI prioritizes these</span>{plan === "free" && <DiamondBadge />}</p>
                 <div className="flex flex-wrap gap-2">
                   {allAvailableTags.map((tag) => {
-                    const active = appSettings.preferredTags.includes(tag);
+                    const active = sd.preferredTags.includes(tag);
                     return <button key={tag}
                       disabled={plan === "free"}
-                      onClick={plan === "free" ? () => openProGate("Preferred content tags") : () => setAppSettings((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      onClick={plan === "free" ? () => openProGate("Preferred content tags") : () => updateDraft((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, sd.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
                       {tagIcon(tag)} {tagLabel(tag)}
                     </button>;
                   })}
@@ -5323,8 +5329,9 @@ export default function App() {
                 <textarea
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Custom AI instructions") : undefined}
-                  value={appSettings.aiCustomPreferences}
-                  onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
+                  value={sd.aiCustomPreferences}
+                  onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
+                  onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   rows={2}
                   placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
                   className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
@@ -5353,6 +5360,9 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
+              {hasUnsavedSettings && (
+                <p className="text-xs text-amber-400 text-center font-medium">● Unsaved changes</p>
+              )}
               <button onClick={handleSaveSettings} disabled={settingsSaving}
                 className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
                 {settingsSaving ? "Saving…" : settingsSaveFailed ? "✗ Failed — try again" : settingsSaved ? "✓ Saved!" : "Save Settings"}
@@ -7806,8 +7816,9 @@ export default function App() {
                       rows={5}
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
-                      value={appSettings.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
-                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
+                      value={sd.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
+                      onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
+                      onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                       className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                     />
                     <p className={`text-[10px] ${dimText} mt-1`}>Base instruction sent to the AI for every caption.</p>
@@ -7815,17 +7826,17 @@ export default function App() {
 
                   <div>
                     <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Tone{plan === "free" && <DiamondBadge />}</p>
-                    <input value={appSettings.captionSettings.tone}
+                    <input value={sd.captionSettings.tone}
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Caption tone") : undefined}
-                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } })); }}
+                      onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, tone: e.target.value } })); }}
                       placeholder="e.g. cool, modern, lowercase" className={`w-full ${inputCls} mb-2 ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
                     <div className="flex flex-wrap gap-1.5">
                       {SUGGESTED_TONES.map((t) => {
-                        const active = appSettings.captionSettings.tone.includes(t);
+                        const active = sd.captionSettings.tone.includes(t);
                         return <button key={t}
                           disabled={plan === "free"}
-                          onClick={plan === "free" ? () => openProGate("Caption tone") : () => setAppSettings((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
+                          onClick={plan === "free" ? () => openProGate("Caption tone") : () => updateDraft((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
                           className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
                       })}
                     </div>
@@ -7837,23 +7848,23 @@ export default function App() {
                       <input value={newHashtagInput}
                         readOnly={plan === "free"}
                         onChange={(e) => { if (plan === "free") return; setNewHashtagInput(e.target.value.replace(/[^a-zA-Z0-9_]/g, "")); }}
-                        onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                        onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                         placeholder="Add hashtag…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
-                      <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !appSettings.captionSettings.hashtags.includes(v)) { setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
+                      <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                         className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white">Add</button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
-                      {SUGGESTED_HASHTAGS.filter((h) => !appSettings.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
-                        <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
+                      {SUGGESTED_HASHTAGS.filter((h) => !sd.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
+                        <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
                           className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>+ #{h}</button>
                       ))}
                     </div>
-                    {appSettings.captionSettings.hashtags.length > 0 && (
+                    {sd.captionSettings.hashtags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {appSettings.captionSettings.hashtags.map((h) => (
+                        {sd.captionSettings.hashtags.map((h) => (
                           <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] flex items-center gap-1">
                             #{h}
-                            <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
+                            <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
                               className="text-[hsl(263,70%,50%)] hover:text-red-400 text-[10px]">✕</button>
                           </span>
                         ))}
@@ -7867,8 +7878,9 @@ export default function App() {
                       rows={2}
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Additional caption instructions") : undefined}
-                      value={appSettings.captionSettings.customInstructions ?? ""}
-                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
+                      value={sd.captionSettings.customInstructions ?? ""}
+                      onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, customInstructions: e.target.value } })); }}
+                      onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                       placeholder="e.g. Always mention the city. Avoid the word 'journey'."
                       className={`w-full ${inputCls} resize-none ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                     />
@@ -7974,8 +7986,9 @@ export default function App() {
                     <textarea
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Custom AI instructions") : undefined}
-                      value={appSettings.aiCustomPreferences}
-                      onChange={(e) => { if (plan === "free") return; setAppSettings((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
+                      value={sd.aiCustomPreferences}
+                      onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
+                      onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                       rows={2}
                       placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
                       className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
@@ -8168,6 +8181,9 @@ export default function App() {
 
                 {/* Save */}
                 <div className="space-y-2">
+                  {hasUnsavedSettings && (
+                    <p className="text-xs text-amber-400 text-center font-medium">● Unsaved changes</p>
+                  )}
                   <button onClick={handleSaveSettings} disabled={settingsSaving}
                     className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
                     {settingsSaving ? "Saving…" : settingsSaveFailed ? "✗ Failed — try again" : settingsSaved ? "✓ Saved!" : "Save Preferences"}

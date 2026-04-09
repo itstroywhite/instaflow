@@ -477,16 +477,12 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
   let isDuplicate = false;
   try {
     if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); }
-    if (fileHash && typeof fileHash === "string" && fileHash.length > 0) {
+    const hasHash = fileHash && typeof fileHash === "string" && fileHash.length > 0;
+    const hasSizeDims = fileSize > 0 && dimensions;
+    if (hasHash || hasSizeDims) {
       const dupCheck = await pool.query(
-        `SELECT id FROM media_items WHERE user_id = $1 AND file_hash = $2 LIMIT 1`,
-        [userId, fileHash]
-      );
-      if (dupCheck.rowCount > 0) isDuplicate = true;
-    } else if (fileSize > 0 && dimensions) {
-      const dupCheck = await pool.query(
-        `SELECT id FROM media_items WHERE user_id = $1 AND file_size = $2 AND dimensions = $3 LIMIT 1`,
-        [userId, fileSize, dimensions]
+        `SELECT id FROM media_items WHERE user_id = $1 AND (file_hash = $2 OR (file_size = $3 AND dimensions = $4)) LIMIT 1`,
+        [userId, hasHash ? fileHash : null, hasSizeDims ? fileSize : null, hasSizeDims ? dimensions : null]
       );
       if (dupCheck.rowCount > 0) isDuplicate = true;
     }
