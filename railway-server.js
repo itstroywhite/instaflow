@@ -1390,6 +1390,14 @@ async function sendDailyPostReminders() {
       FROM profiles p
       WHERE p.notify_daily = true
     `);
+    const messages = [
+      { title: "InstaFlow 📸", body: "Ready to create your next post? Your audience is waiting!" },
+      { title: "InstaFlow ✨", body: "Time to share something great today. Open InstaFlow!" },
+      { title: "InstaFlow 🚀", body: "Your daily post reminder — let's create something amazing!" },
+      { title: "InstaFlow 💡", body: "Got something to share? Now's the perfect time to post!" },
+      { title: "InstaFlow 🎯", body: "Stay consistent! Create your post for today." },
+    ];
+
     for (const user of usersToNotify) {
       try {
         const tz = user.timezone || "UTC";
@@ -1401,23 +1409,29 @@ async function sendDailyPostReminders() {
         );
         if (diffMinutes > 1) continue;
         // Avoid duplicate notifications — only send if last sent > 23 hours ago
-        if (user.last_notification_sent) {
-          const hoursSinceLast = (now - new Date(user.last_notification_sent)) / (1000 * 60 * 60);
+        const lastSent = user.last_notification_sent ? new Date(user.last_notification_sent) : null;
+        console.log('[notify] last sent:', lastSent);
+        if (lastSent) {
+          const hoursSinceLast = (now - lastSent) / (1000 * 60 * 60);
           if (hoursSinceLast < 23) continue;
         }
-        // Check if they have posts scheduled for today
-        const { rows: posts } = await pool.query(
-          "SELECT id FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved' LIMIT 1",
-          [user.user_id, todayStr]
-        );
-        if (posts.length === 0) continue;
         // Get their subscriptions
         const { rows: subs } = await pool.query(
           "SELECT subscription FROM push_subscriptions WHERE user_id = $1", [user.user_id]
         );
         if (subs.length === 0) continue;
-        console.log('[notify] sending to user:', user.user_id, 'at', notifyTime);
-        const payload = JSON.stringify({ title: "InstaFlow", body: "📅 You have posts scheduled for today!" });
+        // Pick a random motivational message
+        const msg = { ...messages[Math.floor(Math.random() * messages.length)] };
+        // If they have posts scheduled for today, append the count
+        const { rows: posts } = await pool.query(
+          "SELECT COUNT(*) AS count FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved'",
+          [user.user_id, todayStr]
+        );
+        const postCount = parseInt(posts[0].count, 10);
+        if (postCount > 0) msg.body += ` You have ${postCount} post${postCount !== 1 ? "s" : ""} scheduled for today.`;
+        console.log('[notify] sending to user:', user.user_id);
+        console.log('[notify] message:', msg.title, msg.body);
+        const payload = JSON.stringify({ title: msg.title, body: msg.body });
         await Promise.allSettled(subs.map(s => webpush.sendNotification(s.subscription, payload)));
         // Record last sent time to prevent duplicates
         await pool.query(
