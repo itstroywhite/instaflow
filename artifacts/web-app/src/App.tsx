@@ -2967,7 +2967,7 @@ export default function App() {
               <>
                 <div className="text-7xl mb-6">🖼️</div>
                 <h1 className="text-2xl font-bold mb-2">Your Media Pool</h1>
-                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Upload your photos and videos. AI tags them automatically. You can rename files and search by name or tag.</p>
+                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Upload your photos and videos. AI tags them automatically. You can rename files, edit tags and search by name or tag.</p>
                 <div className="w-full max-w-xs bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,20%)] rounded-2xl p-4">
                   <div className="grid grid-cols-3 gap-2">
                     {["🌅","🤳","🍕","🎵","🌿","👫"].map((e, i) => (
