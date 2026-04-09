@@ -2625,13 +2625,15 @@ export default function App() {
 
   async function renderEditorCanvas(): Promise<string> {
     if (!imageEditorItem) throw new Error("No image");
-    // Step 1 — Load image fresh with crossOrigin
+    // Step 1 — Load image via server-side proxy to avoid CORS canvas taint on iOS Safari
     const img = new Image();
     img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = (e) => { console.error("[edit] image load error:", e); reject(new Error("Image failed to load")); };
-      img.src = imageEditorItem.dataUrl;
+      const proxyUrl = `${API_BASE}/api/media/proxy?url=${encodeURIComponent(imageEditorItem.dataUrl)}`;
+      console.log('[edit] loading via proxy:', proxyUrl);
+      img.src = proxyUrl;
     });
 
     // Step 2 — Calculate crop source rectangle
@@ -2697,6 +2699,7 @@ export default function App() {
     // Step 5 — Export
     const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
     console.log("[edit] dataUrl length:", dataUrl.length);
+    console.log('[edit] canvas tainted check - dataUrl starts with data:image:', dataUrl.startsWith('data:image'));
     return dataUrl;
   }
 

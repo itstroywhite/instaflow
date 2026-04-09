@@ -351,6 +351,25 @@ app.get("/api/healthz", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+// ── Media proxy (avoids CORS taint on iOS Safari canvas) ─────────────────────
+
+app.get("/api/media/proxy", async (req, res) => {
+  const { url } = req.query;
+  if (!url || typeof url !== "string") return res.status(400).json({ error: "url query param required" });
+  try {
+    const upstream = await fetch(url);
+    if (!upstream.ok) return res.status(upstream.status).json({ error: "upstream fetch failed" });
+    const contentType = upstream.headers.get("content-type") || "application/octet-stream";
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Content-Type", contentType);
+    const buffer = await upstream.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    console.error("[proxy] error fetching media:", err);
+    res.status(500).json({ error: "proxy error" });
+  }
+});
+
 // ── Media ────────────────────────────────────────────────────────────────────
 
 app.get("/api/media/count", requireAuth, async (req, res) => {
