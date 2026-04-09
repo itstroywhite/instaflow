@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -140,6 +140,29 @@ function formatDayShort(dateStr: string) {
 }
 function isVideo(dataUrl: string, mediaType?: string | null) {
   return mediaType === "video" || dataUrl.startsWith("data:video/") || /\.(mp4|mov|avi|webm)(\?|$)/i.test(dataUrl);
+}
+
+const FILTER_PRESETS = [
+  { name: "Original", brightness: 100, contrast: 100, saturation: 100, warmth:   0, sharpness: 100, pro: false },
+  { name: "Vivid",    brightness: 100, contrast: 110, saturation: 150, warmth:   0, sharpness: 100, pro: false },
+  { name: "Muted",    brightness: 105, contrast: 100, saturation:  70, warmth:   0, sharpness: 100, pro: false },
+  { name: "B&W",      brightness: 100, contrast: 100, saturation:   0, warmth:   0, sharpness: 100, pro: false },
+  { name: "Warm",     brightness: 100, contrast: 100, saturation: 120, warmth:  60, sharpness: 100, pro: true  },
+  { name: "Cool",     brightness: 100, contrast: 100, saturation:  80, warmth: -90, sharpness: 100, pro: true  },
+  { name: "Fade",     brightness: 120, contrast:  80, saturation:  80, warmth:   0, sharpness: 100, pro: true  },
+  { name: "Sharp",    brightness: 100, contrast: 130, saturation: 110, warmth:   0, sharpness: 130, pro: true  },
+] as const;
+
+function buildEditorCssFilter(brightness: number, contrast: number, saturation: number, warmth: number, sharpness: number): string {
+  const effectiveContrast = contrast + Math.max(0, sharpness - 100) * 0.3;
+  const parts = [
+    `brightness(${brightness / 100})`,
+    `contrast(${effectiveContrast / 100})`,
+    `saturate(${saturation / 100})`,
+  ];
+  if (warmth > 0) parts.push(`sepia(${(warmth / 100) * 0.5})`);
+  else if (warmth < 0) parts.push(`hue-rotate(${warmth * 2}deg)`);
+  return parts.join(" ");
 }
 function fmtDuration(secs: number) {
   const m = Math.floor(secs / 60);
@@ -1135,6 +1158,23 @@ export default function App() {
   const [viewerDragging, setViewerDragging] = useState(false);
   const [swipeHintVisible, setSwipeHintVisible] = useState(false);
   const [viewerTagPickerOpen, setViewerTagPickerOpen] = useState(false);
+
+  // Image editor
+  const [imageEditorItem, setImageEditorItem] = useState<MediaItem | null>(null);
+  const [editorFilter, setEditorFilter] = useState("Original");
+  const [editorBrightness, setEditorBrightness] = useState(100);
+  const [editorContrast, setEditorContrast] = useState(100);
+  const [editorSaturation, setEditorSaturation] = useState(100);
+  const [editorWarmth, setEditorWarmth] = useState(0);
+  const [editorSharpness, setEditorSharpness] = useState(100);
+  const [editorCropRatio, setEditorCropRatio] = useState("Original");
+  const [editorSaving, setEditorSaving] = useState(false);
+  const [savePresetOpen, setSavePresetOpen] = useState(false);
+  const [presetNameInput, setPresetNameInput] = useState("");
+  const [customPresets, setCustomPresets] = useState<Array<{ name: string; brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number }>>(() => {
+    try { return JSON.parse(localStorage.getItem("instaflow_editor_presets") ?? "[]"); } catch { return []; }
+  });
+
   const viewerSwipeStartX = useRef<number | null>(null);
   const viewerRafRef = useRef<number | null>(null);
   const viewerPendingX = useRef(0);
@@ -2426,6 +2466,80 @@ export default function App() {
     setUpgradeModalData({ reasons: [feature], canContinue: false, onContinue: () => {} });
     setUpgradeModalOpen(true);
   }
+
+  function openImageEditor(item: MediaItem) {
+    setImageEditorItem(item);
+    setEditorFilter("Original");
+    setEditorBrightness(100); setEditorContrast(100); setEditorSaturation(100);
+    setEditorWarmth(0); setEditorSharpness(100);
+    setEditorCropRatio("Original");
+    setSavePresetOpen(false); setPresetNameInput("");
+  }
+
+  function applyEditorPreset(preset: { name: string; brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number }) {
+    setEditorFilter(preset.name);
+    setEditorBrightness(preset.brightness); setEditorContrast(preset.contrast);
+    setEditorSaturation(preset.saturation); setEditorWarmth(preset.warmth);
+    setEditorSharpness(preset.sharpness);
+  }
+
+  async function applyEditsAndSave() {
+    if (!imageEditorItem) return;
+    setEditorSaving(true);
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Image load failed"));
+        img.src = imageEditorItem.dataUrl;
+      });
+      const ratioMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
+      const ratio = ratioMap[editorCropRatio];
+      let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+      if (ratio !== null) {
+        if (sw / sh > ratio) { sw = sh * ratio; sx = (img.naturalWidth - sw) / 2; }
+        else { sh = sw / ratio; sy = (img.naturalHeight - sh) / 2; }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(sw); canvas.height = Math.round(sh);
+      const ctx = canvas.getContext("2d")!;
+      ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob>((res, rej) => canvas.toBlob(b => b ? res(b) : rej(new Error("Blob error")), "image/jpeg", 0.92));
+      const storagePath = `${imageEditorItem.id}_edited_${Date.now()}.jpg`;
+      const { data: uploadData, error: uploadError } = await supabase!.storage.from("media").upload(storagePath, blob, { upsert: true, contentType: "image/jpeg" });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase!.storage.from("media").getPublicUrl(uploadData.path);
+      await apiPatch(`/media/${imageEditorItem.id}`, { dataUrl: publicUrl });
+      setMediaItems(prev => prev.map(m => m.id === imageEditorItem.id ? { ...m, dataUrl: publicUrl } : m));
+      showGlobalToast("Edit saved");
+      setImageEditorItem(null);
+    } catch (err) {
+      console.error("Edit save failed:", err);
+      showGlobalToast("Failed to save edit — please try again");
+    } finally {
+      setEditorSaving(false);
+    }
+  }
+
+  function saveCustomPreset(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const preset = { name: trimmed, brightness: editorBrightness, contrast: editorContrast, saturation: editorSaturation, warmth: editorWarmth, sharpness: editorSharpness };
+    const next = [...customPresets.filter(p => p.name !== trimmed), preset].slice(-5);
+    setCustomPresets(next);
+    localStorage.setItem("instaflow_editor_presets", JSON.stringify(next));
+    setSavePresetOpen(false); setPresetNameInput("");
+    showGlobalToast(`Preset "${trimmed}" saved`);
+  }
+
+  function deleteCustomPreset(name: string) {
+    const next = customPresets.filter(p => p.name !== name);
+    setCustomPresets(next);
+    localStorage.setItem("instaflow_editor_presets", JSON.stringify(next));
+  }
+
   function handleSingleNewMedia() {
     const unused = mediaItems.filter((m) => !m.used && !m.analyzing);
     if (!unused.length) return;
@@ -5132,6 +5246,13 @@ export default function App() {
                       <Tag className="w-5 h-5" stroke="white" fill="none" />
                       <span className="text-[10px] text-white/60">Tag</span>
                     </button>
+                    {!isVideo(viewerItem.dataUrl, viewerItem.media_type) && (
+                      <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-white/8 transition-colors active:opacity-60"
+                        onClick={() => { const item = viewerItem; setViewerItem(null); openImageEditor(item); }}>
+                        <Sliders className="w-5 h-5" stroke="white" fill="none" />
+                        <span className="text-[10px] text-white/60">Edit</span>
+                      </button>
+                    )}
                     <button className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-xl hover:bg-red-500/15 transition-colors active:opacity-60"
                       onClick={() => { const item = viewerItem; setViewerItem(null); handleDeleteMedia(item.id); }}>
                       <Trash2 className="w-5 h-5" stroke="#ef4444" fill="none" />
@@ -5168,6 +5289,189 @@ export default function App() {
                         {liveTag === tag && <span className="ml-auto text-xs">✓</span>}
                       </button>
                     ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── IMAGE EDITOR ── */}
+      {imageEditorItem && (() => {
+        const cssFilter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
+        const cropRatios = ["Original", "1:1", "4:5", "9:16", "16:9"];
+        const cropAspect: Record<string, string> = { "Original": "auto", "1:1": "1/1", "4:5": "4/5", "9:16": "9/16", "16:9": "16/9" };
+        const allPresetRows = [
+          ...FILTER_PRESETS.map(p => ({ ...p, custom: false })),
+          ...customPresets.map(p => ({ ...p, pro: false, custom: true })),
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+            {/* Top bar */}
+            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pt-10 pb-3">
+              <button onClick={() => setImageEditorItem(null)} className="text-white/70 hover:text-white text-sm px-3 py-1.5 rounded-full border border-white/10 bg-black/30 transition-colors">Cancel</button>
+              <span className="text-sm font-semibold text-white/90">Edit Photo</span>
+              <button
+                onClick={applyEditsAndSave}
+                disabled={editorSaving}
+                className="text-sm font-semibold px-4 py-1.5 rounded-full bg-[hsl(263,70%,55%)] text-white hover:bg-[hsl(263,70%,60%)] transition-colors disabled:opacity-50">
+                {editorSaving ? "Saving…" : "Save"}
+              </button>
+            </div>
+
+            {/* Image preview */}
+            <div className="flex-shrink-0 flex items-center justify-center px-4 pb-3" style={{ height: "52%" }}>
+              <div className="relative w-full h-full flex items-center justify-center">
+                <img
+                  src={imageEditorItem.dataUrl}
+                  alt="editing"
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    objectFit: "contain",
+                    filter: cssFilter,
+                    aspectRatio: cropAspect[editorCropRatio],
+                    transition: "filter 0.15s ease",
+                    borderRadius: 12,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Controls panel */}
+            <div className="flex-1 overflow-y-auto pb-8">
+
+              {/* Filter presets row */}
+              <div className="px-4 mb-5">
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2.5 font-semibold">Filters</p>
+                <div className="flex gap-2.5 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                  {allPresetRows.map((p) => {
+                    const isProLocked = p.pro && plan === "free";
+                    const isSelected = editorFilter === p.name;
+                    return (
+                      <button
+                        key={p.name}
+                        onClick={() => {
+                          if (isProLocked) { openProGate(`${p.name} filter`); return; }
+                          applyEditorPreset(p);
+                        }}
+                        onContextMenu={(e) => { e.preventDefault(); if (p.custom) deleteCustomPreset(p.name); }}
+                        style={{ minWidth: 64 }}
+                        className={`flex flex-col items-center gap-1.5 flex-shrink-0 ${isSelected ? "opacity-100" : "opacity-70 hover:opacity-90"}`}>
+                        <div className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? "border-[hsl(263,70%,55%)]" : "border-transparent"}`}>
+                          <img
+                            src={imageEditorItem.dataUrl}
+                            alt={p.name}
+                            style={{
+                              width: "100%", height: "100%", objectFit: "cover", display: "block",
+                              filter: buildEditorCssFilter(p.brightness, p.contrast, p.saturation, p.warmth, p.sharpness),
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-white/70 text-center leading-tight whitespace-nowrap relative">
+                          {p.name}
+                          {isProLocked && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}
+                          {p.custom && <span className="ml-0.5 text-white/30">·</span>}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Adjustment sliders — Pro */}
+              <div className="px-4 mb-5">
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[10px] text-white/40 uppercase tracking-wider font-semibold">Adjustments</p>
+                  {plan === "free" && <span className="text-[9px] text-[hsl(263,70%,65%)]">💎 Pro</span>}
+                </div>
+                {([
+                  { label: "Brightness", value: editorBrightness, set: setEditorBrightness, min: 0, max: 200 },
+                  { label: "Contrast",   value: editorContrast,   set: setEditorContrast,   min: 0, max: 200 },
+                  { label: "Saturation", value: editorSaturation, set: setEditorSaturation, min: 0, max: 200 },
+                  { label: "Warmth",     value: editorWarmth,     set: setEditorWarmth,     min: -100, max: 100 },
+                  { label: "Sharpness",  value: editorSharpness,  set: setEditorSharpness,  min: 0, max: 200 },
+                ] as { label: string; value: number; set: (v: number) => void; min: number; max: number }[]).map(({ label, value, set, min, max }) => (
+                  <div key={label} className="mb-3">
+                    <div className="flex justify-between mb-1">
+                      <span className="text-xs text-white/60">{label}</span>
+                      <span className="text-xs text-white/40 tabular-nums">{value}</span>
+                    </div>
+                    <input
+                      type="range" min={min} max={max} value={value}
+                      onChange={(e) => {
+                        if (plan === "free") { openProGate("Adjustment sliders"); return; }
+                        set(Number(e.target.value));
+                        setEditorFilter("Custom");
+                      }}
+                      onClick={plan === "free" ? () => openProGate("Adjustment sliders") : undefined}
+                      style={{ width: "100%", accentColor: "hsl(263,70%,55%)", opacity: plan === "free" ? 0.4 : 1 }}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Crop — Free */}
+              <div className="px-4 mb-5">
+                <p className="text-[10px] text-white/40 uppercase tracking-wider mb-2.5 font-semibold">Crop</p>
+                <div className="flex gap-2 flex-wrap">
+                  {cropRatios.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setEditorCropRatio(r)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                        editorCropRatio === r
+                          ? "bg-[hsl(263,70%,55%)] border-[hsl(263,70%,55%)] text-white"
+                          : "border-white/15 text-white/60 hover:border-white/30"
+                      }`}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Save as Preset — Pro */}
+              <div className="px-4">
+                <button
+                  onClick={() => {
+                    if (plan === "free") { openProGate("Custom filter presets"); return; }
+                    if (customPresets.length >= 5) { showGlobalToast("Max 5 custom presets — long-press one to delete"); return; }
+                    setSavePresetOpen(true);
+                  }}
+                  className="w-full py-2.5 rounded-xl border border-white/10 text-xs text-white/60 hover:border-white/20 hover:text-white/80 transition-all flex items-center justify-center gap-2">
+                  {plan === "free" && <span className="text-[hsl(263,70%,65%)]">💎</span>}
+                  Save current settings as Preset
+                </button>
+                {customPresets.length > 0 && (
+                  <p className="text-[9px] text-white/30 text-center mt-2">Long-press a custom preset to delete it</p>
+                )}
+              </div>
+            </div>
+
+            {/* Save as Preset bottom sheet */}
+            {savePresetOpen && (
+              <div className="absolute inset-0 z-10 flex flex-col justify-end" onClick={() => setSavePresetOpen(false)}>
+                <div className="absolute inset-0 bg-black/60" />
+                <div className="relative bg-[hsl(220,14%,12%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5" onClick={e => e.stopPropagation()}>
+                  <p className="text-sm font-semibold mb-4">Name your preset</p>
+                  <input
+                    type="text"
+                    value={presetNameInput}
+                    onChange={e => setPresetNameInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveCustomPreset(presetNameInput); }}
+                    placeholder="e.g. My Vibe"
+                    autoFocus
+                    className="w-full bg-[hsl(220,14%,18%)] border border-[hsl(220,13%,25%)] rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 outline-none mb-4"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={() => setSavePresetOpen(false)} className="flex-1 py-3 rounded-xl border border-white/10 text-sm text-white/60">Cancel</button>
+                    <button
+                      onClick={() => saveCustomPreset(presetNameInput)}
+                      disabled={!presetNameInput.trim()}
+                      className="flex-1 py-3 rounded-xl bg-[hsl(263,70%,55%)] text-white text-sm font-semibold disabled:opacity-40">
+                      Save
+                    </button>
                   </div>
                 </div>
               </div>
