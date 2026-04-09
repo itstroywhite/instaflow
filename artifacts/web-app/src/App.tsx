@@ -2625,42 +2625,79 @@ export default function App() {
 
   async function renderEditorCanvas(): Promise<string> {
     if (!imageEditorItem) throw new Error("No image");
+    // Step 1 — Load image fresh with crossOrigin
     const img = new Image();
     img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
-      img.onerror = (e) => { console.error("[edit] Image load error:", e); reject(new Error("Image failed to load")); };
+      img.onerror = (e) => { console.error("[edit] image load error:", e); reject(new Error("Image failed to load")); };
       img.src = imageEditorItem.dataUrl;
     });
-    const ratioMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
-    const ratio = ratioMap[editorCropRatio];
-    let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
-    if (ratio !== null) {
-      if (sw / sh > ratio) {
-        sw = Math.round(sh * ratio);
-        sx = Math.round((cropOffset.x / 100) * (img.naturalWidth - sw));
+
+    // Step 2 — Calculate crop source rectangle
+    const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
+    const cropAspect = cropAspectMap[editorCropRatio];
+    let srcX = 0, srcY = 0, srcW = img.naturalWidth, srcH = img.naturalHeight;
+    if (cropAspect !== null) {
+      const naturalAspect = img.naturalWidth / img.naturalHeight;
+      if (cropAspect < naturalAspect) {
+        srcW = Math.round(img.naturalHeight * cropAspect);
+        srcX = Math.round(((img.naturalWidth - srcW) * cropOffset.x) / 100);
       } else {
-        sh = Math.round(sw / ratio);
-        sy = Math.round((cropOffset.y / 100) * (img.naturalHeight - sh));
+        srcH = Math.round(img.naturalWidth / cropAspect);
+        srcY = Math.round(((img.naturalHeight - srcH) * cropOffset.y) / 100);
       }
-      sx = Math.max(0, Math.min(sx, img.naturalWidth - sw));
-      sy = Math.max(0, Math.min(sy, img.naturalHeight - sh));
+      srcX = Math.max(0, Math.min(srcX, img.naturalWidth - srcW));
+      srcY = Math.max(0, Math.min(srcY, img.naturalHeight - srcH));
     }
     const canvas = document.createElement("canvas");
-    canvas.width = sw; canvas.height = sh;
+    canvas.width = Math.round(srcW);
+    canvas.height = Math.round(srcH);
+    console.log("[edit] canvas size:", canvas.width, canvas.height);
+
+    // Step 3 — Build filter string: preset layer + slider adjustments
+    // Preset layer (base visual look — slider values already reflect this when preset is active,
+    // but we explicitly add the named preset's CSS so it survives even if sliders were reset)
+    const presetCssMap: Record<string, string> = {
+      "Original": "",
+      "Vivid":    "saturate(1.5) contrast(1.1)",
+      "Moody":    "saturate(0.7) brightness(0.9) contrast(1.1)",
+      "B&W":      "grayscale(1) contrast(1.05)",
+      "Warm":     "sepia(0.25) saturate(1.2)",
+      "Cool":     "hue-rotate(200deg) saturate(0.8) brightness(1.05)",
+      "Fade":     "brightness(1.2) contrast(0.8) saturate(0.8)",
+      "Sharp":    "contrast(1.3) saturate(1.1)",
+    };
+    const filterParts: string[] = [];
+    const presetCss = presetCssMap[editorFilter] ?? "";
+    if (presetCss) filterParts.push(presetCss);
+    // Slider adjustments (user's fine-tuning on top of the preset layer)
+    const sliderBrightness  = editorBrightness / 100;
+    const sliderSaturate    = editorSaturation / 100;
+    const effectiveContrast = (editorContrast + Math.max(0, editorSharpness - 100) * 0.3) / 100;
+    filterParts.push(`brightness(${sliderBrightness})`);
+    filterParts.push(`contrast(${effectiveContrast})`);
+    filterParts.push(`saturate(${sliderSaturate})`);
+    if (editorWarmth > 0)  filterParts.push(`sepia(${(editorWarmth / 100) * 0.5})`);
+    else if (editorWarmth < 0) filterParts.push(`hue-rotate(${editorWarmth * 2}deg)`);
+    const fullFilterStr = filterParts.join(" ");
+    console.log("[edit] filter applied:", fullFilterStr);
+
+    // Step 4 — Draw with crop, applying filter
     const ctx = canvas.getContext("2d")!;
-    const isDefaultFilter = editorBrightness === 100 && editorContrast === 100 && editorSaturation === 100 && editorWarmth === 0 && editorSharpness === 100;
-    if (isDefaultFilter) {
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
-    } else if (ctxFilterSupported()) {
-      ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    if (ctxFilterSupported()) {
+      ctx.filter = fullFilterStr;
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
     } else {
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      // Pixel-level fallback for Safari < 18 where ctx.filter is a no-op
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
       applyPixelFilters(ctx, editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
     }
-    console.log("[edit] saved — method:", isDefaultFilter ? "passthrough" : ctxFilterSupported() ? "ctx.filter" : "pixel", "— size:", canvas.toDataURL("image/jpeg", 0.88).length);
-    return canvas.toDataURL("image/jpeg", 0.88);
+
+    // Step 5 — Export
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
+    console.log("[edit] dataUrl length:", dataUrl.length);
+    return dataUrl;
   }
 
   async function handleEditorSave() {
