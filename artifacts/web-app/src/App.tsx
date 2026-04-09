@@ -1243,9 +1243,13 @@ export default function App() {
   const [editorSaving, setEditorSaving] = useState(false);
   const [savePresetOpen, setSavePresetOpen] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState("");
-  const [customPresets, setCustomPresets] = useState<Array<{ name: string; brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number }>>(() => {
-    try { return JSON.parse(localStorage.getItem("instaflow_editor_presets") ?? "[]"); } catch { return []; }
-  });
+  const [customPresets, setCustomPresets] = useState<Array<{ id?: number; name: string; brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number }>>([]);
+  const [cropOffset, setCropOffset] = useState({ x: 50, y: 50 });
+  const cropDragRef = useRef<{ startTouchY: number; startTouchX: number; startOffsetY: number; startOffsetX: number } | null>(null);
+  const editorImgContainerRef = useRef<HTMLDivElement>(null);
+  const [editorSaveSheet, setEditorSaveSheet] = useState(false);
+  const [editorSaveStep, setEditorSaveStep] = useState<"mode" | "folder">("mode");
+  const editorPendingUrlRef = useRef<string | null>(null);
 
   const viewerSwipeStartX = useRef<number | null>(null);
   const viewerRafRef = useRef<number | null>(null);
@@ -2553,7 +2557,13 @@ export default function App() {
     setEditorBrightness(100); setEditorContrast(100); setEditorSaturation(100);
     setEditorWarmth(0); setEditorSharpness(100);
     setEditorCropRatio("Original");
+    setCropOffset({ x: 50, y: 50 });
     setSavePresetOpen(false); setPresetNameInput("");
+    setEditorSaveSheet(false);
+    editorPendingUrlRef.current = null;
+    apiGet<Array<{ id: number; name: string; brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number }>>("/presets")
+      .then(data => setCustomPresets(data))
+      .catch(() => {});
   }
 
   function applyEditorPreset(preset: { name: string; brightness: number; contrast: number; saturation: number; warmth: number; sharpness: number }) {
@@ -2563,73 +2573,138 @@ export default function App() {
     setEditorSharpness(preset.sharpness);
   }
 
-  async function applyEditsAndSave() {
+  async function renderEditorCanvas(): Promise<string> {
+    if (!imageEditorItem) throw new Error("No image");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = (e) => { console.error("[edit] Image load error:", e); reject(new Error("Image failed to load")); };
+      img.src = imageEditorItem.dataUrl;
+    });
+    const ratioMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
+    const ratio = ratioMap[editorCropRatio];
+    let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
+    if (ratio !== null) {
+      if (sw / sh > ratio) {
+        sw = Math.round(sh * ratio);
+        sx = Math.round((cropOffset.x / 100) * (img.naturalWidth - sw));
+      } else {
+        sh = Math.round(sw / ratio);
+        sy = Math.round((cropOffset.y / 100) * (img.naturalHeight - sh));
+      }
+      sx = Math.max(0, Math.min(sx, img.naturalWidth - sw));
+      sy = Math.max(0, Math.min(sy, img.naturalHeight - sh));
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = sw; canvas.height = sh;
+    const ctx = canvas.getContext("2d")!;
+    ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+    console.log("[edit] Canvas output size (chars):", canvas.toDataURL("image/jpeg", 0.75).length);
+    return canvas.toDataURL("image/jpeg", 0.75);
+  }
+
+  async function handleEditorSave() {
     if (!imageEditorItem) return;
     setEditorSaving(true);
     try {
-      // Load image — crossOrigin must be set before src to avoid cache-taint issues
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = (e) => { console.error("[edit] Image load error:", e); reject(new Error("Image failed to load")); };
-        img.src = imageEditorItem.dataUrl;
-      });
-
-      // Center-crop based on selected ratio
-      const ratioMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
-      const ratio = ratioMap[editorCropRatio];
-      let sw = img.naturalWidth, sh = img.naturalHeight, sx = 0, sy = 0;
-      if (ratio !== null) {
-        if (sw / sh > ratio) { sw = Math.round(sh * ratio); sx = Math.round((img.naturalWidth - sw) / 2); }
-        else { sh = Math.round(sw / ratio); sy = Math.round((img.naturalHeight - sh) / 2); }
-      }
-
-      // Draw to canvas with filters applied
-      const canvas = document.createElement("canvas");
-      canvas.width = sw; canvas.height = sh;
-      const ctx = canvas.getContext("2d")!;
-      ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
-      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-
-      // Convert to base64 (0.75 quality to keep size manageable)
-      const base64 = canvas.toDataURL("image/jpeg", 0.75);
-      console.log("[edit] Canvas output size (chars):", base64.length);
-
-      // Upload via server endpoint (avoids client-side CORS/taint issues)
-      const uploadResult = await apiPost("/upload", { dataUrl: base64, id: imageEditorItem.id }) as { url?: string; error?: string };
-      if (!uploadResult?.url) throw new Error(uploadResult?.error ?? "Upload returned no URL");
-      console.log("[edit] Uploaded to:", uploadResult.url);
-
-      // Update the DB record and local state
-      await apiPatch(`/media/${imageEditorItem.id}`, { dataUrl: uploadResult.url });
-      setMediaItems(prev => prev.map(m => m.id === imageEditorItem.id ? { ...m, dataUrl: uploadResult.url! } : m));
-      showGlobalToast("Edit saved ✓");
-      setImageEditorItem(null);
+      const dataUrl = await renderEditorCanvas();
+      editorPendingUrlRef.current = dataUrl;
+      setEditorSaveStep("mode");
+      setEditorSaveSheet(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error("[edit] Save failed:", msg, err);
+      console.error("[edit] Render failed:", msg, err);
       showGlobalToast(`Edit failed: ${msg.slice(0, 60)}`);
     } finally {
       setEditorSaving(false);
     }
   }
 
-  function saveCustomPreset(name: string) {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    const preset = { name: trimmed, brightness: editorBrightness, contrast: editorContrast, saturation: editorSaturation, warmth: editorWarmth, sharpness: editorSharpness };
-    const next = [...customPresets.filter(p => p.name !== trimmed), preset].slice(-5);
-    setCustomPresets(next);
-    localStorage.setItem("instaflow_editor_presets", JSON.stringify(next));
-    setSavePresetOpen(false); setPresetNameInput("");
-    showGlobalToast(`Preset "${trimmed}" saved`);
+  async function saveEditorReplace() {
+    const dataUrl = editorPendingUrlRef.current;
+    if (!imageEditorItem || !dataUrl) return;
+    setEditorSaveSheet(false);
+    setEditorSaving(true);
+    try {
+      const uploadResult = await apiPost("/upload", { dataUrl, id: imageEditorItem.id }) as { url?: string; error?: string };
+      if (!uploadResult?.url) throw new Error(uploadResult?.error ?? "Upload returned no URL");
+      console.log("[edit] Replaced at:", uploadResult.url);
+      await apiPatch(`/media/${imageEditorItem.id}`, { dataUrl: uploadResult.url });
+      setMediaItems(prev => prev.map(m => m.id === imageEditorItem.id ? { ...m, dataUrl: uploadResult.url! } : m));
+      showGlobalToast("Edit saved ✓");
+      setImageEditorItem(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[edit] Replace failed:", msg, err);
+      showGlobalToast(`Save failed: ${msg.slice(0, 60)}`);
+    } finally {
+      setEditorSaving(false);
+    }
   }
 
-  function deleteCustomPreset(name: string) {
-    const next = customPresets.filter(p => p.name !== name);
-    setCustomPresets(next);
-    localStorage.setItem("instaflow_editor_presets", JSON.stringify(next));
+  async function saveEditorCopy(saveToEdited: boolean) {
+    const dataUrl = editorPendingUrlRef.current;
+    if (!imageEditorItem || !dataUrl) return;
+    setEditorSaveSheet(false);
+    setEditorSaving(true);
+    try {
+      const newId = generateId();
+      const baseName = (imageEditorItem.display_name ?? imageEditorItem.name).replace(/\.\w+$/, "");
+      const newName = `${baseName} (Edited)`;
+      const newItem: MediaItem = { id: newId, name: newName, tag: imageEditorItem.tag, analyzing: false, dataUrl, used: false };
+      setMediaItems(prev => [...prev, newItem]);
+      const uploadResult = await apiPostWithTimeout("/media/upload", {
+        id: newId, name: newName, dataUrl, tag: imageEditorItem.tag ?? "other",
+        fileHash: "", fileSize: 0, dimensions: "",
+      }, 60_000) as { dataUrl?: string };
+      const storedUrl = (uploadResult as any)?.dataUrl ?? dataUrl;
+      if (storedUrl !== dataUrl) setMediaItems(prev => prev.map(m => m.id === newId ? { ...m, dataUrl: storedUrl } : m));
+      setMediaTotal(t => t + 1);
+      if (saveToEdited) {
+        let editedFolder = folders.find(f => f.name === "Edited");
+        if (!editedFolder) {
+          const newFolderId = generateId();
+          try {
+            await apiPost("/folders", { id: newFolderId, name: "Edited", mediaIds: [newId] });
+            editedFolder = { id: newFolderId, name: "Edited", mediaIds: [newId] };
+            setFolders(prev => [...prev, editedFolder!]);
+          } catch {}
+        } else {
+          const newIds = [...new Set([...editedFolder.mediaIds, newId])];
+          setFolders(prev => prev.map(f => f.id === editedFolder!.id ? { ...f, mediaIds: newIds } : f));
+          try { await apiPatch(`/folders/${editedFolder.id}`, { mediaIds: newIds }); } catch {}
+        }
+      }
+      showGlobalToast(`Copy saved${saveToEdited ? " to Edited folder" : ""} ✓`);
+      setImageEditorItem(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[edit] Copy save failed:", msg, err);
+      showGlobalToast(`Save failed: ${msg.slice(0, 60)}`);
+    } finally {
+      setEditorSaving(false);
+    }
+  }
+
+  async function saveCustomPreset(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const settings = { brightness: editorBrightness, contrast: editorContrast, saturation: editorSaturation, warmth: editorWarmth, sharpness: editorSharpness };
+    setSavePresetOpen(false); setPresetNameInput("");
+    try {
+      const result = await apiPost("/presets", { name: trimmed, settings }) as { id: number; name: string };
+      setCustomPresets(prev => [...prev.filter(p => p.name !== trimmed), { id: result.id, name: trimmed, ...settings }].slice(-5));
+      showGlobalToast(`Preset "${trimmed}" saved`);
+    } catch {
+      showGlobalToast("Could not save preset");
+    }
+  }
+
+  async function deleteCustomPreset(id: number | undefined, name: string) {
+    setCustomPresets(prev => prev.filter(p => p.name !== name));
+    if (id !== undefined) { try { await apiDelete(`/presets/${id}`); } catch {} }
   }
 
   function handleSingleNewMedia() {
@@ -5409,7 +5484,7 @@ export default function App() {
               <button onClick={() => setImageEditorItem(null)} className="text-white/70 hover:text-white text-sm px-3 py-1.5 rounded-full border border-white/10 bg-black/30 transition-colors">Cancel</button>
               <span className="text-sm font-semibold text-white/90">Edit Photo</span>
               <button
-                onClick={applyEditsAndSave}
+                onClick={handleEditorSave}
                 disabled={editorSaving}
                 className="text-sm font-semibold px-4 py-1.5 rounded-full bg-[hsl(263,70%,55%)] text-white hover:bg-[hsl(263,70%,60%)] transition-colors disabled:opacity-50">
                 {editorSaving ? "Saving…" : "Save"}
@@ -5432,14 +5507,51 @@ export default function App() {
                   }}
                 />
               ) : (
-                <div style={{
-                  aspectRatio: cropAspect[editorCropRatio],
-                  maxWidth: "100%",
-                  maxHeight: "100%",
-                  overflow: "hidden",
-                  borderRadius: 12,
-                  flexShrink: 0,
-                }}>
+                <div
+                  ref={editorImgContainerRef}
+                  style={{
+                    aspectRatio: cropAspect[editorCropRatio],
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    overflow: "hidden",
+                    borderRadius: 12,
+                    flexShrink: 0,
+                    position: "relative",
+                    cursor: "grab",
+                    border: "2px solid rgba(255,255,255,0.35)",
+                    boxSizing: "border-box",
+                  }}
+                  onTouchStart={(e) => {
+                    cropDragRef.current = { startTouchY: e.touches[0].clientY, startTouchX: e.touches[0].clientX, startOffsetY: cropOffset.y, startOffsetX: cropOffset.x };
+                  }}
+                  onTouchMove={(e) => {
+                    if (!cropDragRef.current || !editorImgContainerRef.current) return;
+                    const rect = editorImgContainerRef.current.getBoundingClientRect();
+                    const dy = e.touches[0].clientY - cropDragRef.current.startTouchY;
+                    const dx = e.touches[0].clientX - cropDragRef.current.startTouchX;
+                    setCropOffset({
+                      x: Math.max(0, Math.min(100, cropDragRef.current.startOffsetX + (dx / rect.width) * 100)),
+                      y: Math.max(0, Math.min(100, cropDragRef.current.startOffsetY + (dy / rect.height) * 100)),
+                    });
+                  }}
+                  onTouchEnd={() => { cropDragRef.current = null; }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    cropDragRef.current = { startTouchY: e.clientY, startTouchX: e.clientX, startOffsetY: cropOffset.y, startOffsetX: cropOffset.x };
+                  }}
+                  onMouseMove={(e) => {
+                    if (!cropDragRef.current || !editorImgContainerRef.current) return;
+                    const rect = editorImgContainerRef.current.getBoundingClientRect();
+                    const dy = e.clientY - cropDragRef.current.startTouchY;
+                    const dx = e.clientX - cropDragRef.current.startTouchX;
+                    setCropOffset({
+                      x: Math.max(0, Math.min(100, cropDragRef.current.startOffsetX + (dx / rect.width) * 100)),
+                      y: Math.max(0, Math.min(100, cropDragRef.current.startOffsetY + (dy / rect.height) * 100)),
+                    });
+                  }}
+                  onMouseUp={() => { cropDragRef.current = null; }}
+                  onMouseLeave={() => { cropDragRef.current = null; }}
+                >
                   <img
                     src={imageEditorItem.dataUrl}
                     alt="editing"
@@ -5447,11 +5559,16 @@ export default function App() {
                       width: "100%",
                       height: "100%",
                       objectFit: "cover",
+                      objectPosition: `${cropOffset.x}% ${cropOffset.y}%`,
                       display: "block",
                       filter: cssFilter,
                       transition: "filter 0.15s ease",
+                      pointerEvents: "none",
                     }}
                   />
+                  <div style={{ position: "absolute", bottom: 6, left: "50%", transform: "translateX(-50%)", zIndex: 1, pointerEvents: "none" }}>
+                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", background: "rgba(0,0,0,0.45)", padding: "2px 10px", borderRadius: 999, whiteSpace: "nowrap" }}>↕ drag to reposition</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -5473,7 +5590,7 @@ export default function App() {
                           if (isProLocked) { openProGate(`${p.name} filter`); return; }
                           applyEditorPreset(p);
                         }}
-                        onContextMenu={(e) => { e.preventDefault(); if (p.custom) deleteCustomPreset(p.name); }}
+                        onContextMenu={(e) => { e.preventDefault(); if (p.custom) deleteCustomPreset(p.id, p.name); }}
                         style={{ minWidth: 64 }}
                         className={`flex flex-col items-center gap-1.5 flex-shrink-0 ${isSelected ? "opacity-100" : "opacity-70 hover:opacity-90"}`}>
                         <div className={`w-14 h-14 rounded-xl overflow-hidden border-2 transition-all ${isSelected ? "border-[hsl(263,70%,55%)]" : "border-transparent"}`}>
@@ -5550,7 +5667,7 @@ export default function App() {
                   {cropRatios.map((r) => (
                     <button
                       key={r}
-                      onClick={() => setEditorCropRatio(r)}
+                      onClick={() => { setEditorCropRatio(r); setCropOffset({ x: 50, y: 50 }); }}
                       className={`px-3 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                         editorCropRatio === r
                           ? "bg-[hsl(263,70%,55%)] border-[hsl(263,70%,55%)] text-white"
@@ -5604,6 +5721,54 @@ export default function App() {
                       Save
                     </button>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Save mode sheet — replace original vs save as copy */}
+            {editorSaveSheet && (
+              <div className="absolute inset-0 z-20 flex flex-col justify-end" onClick={() => setEditorSaveSheet(false)}>
+                <div className="absolute inset-0 bg-black/70" />
+                <div className="relative bg-[hsl(220,14%,12%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5" onClick={e => e.stopPropagation()}>
+                  {editorSaveStep === "mode" ? (
+                    <>
+                      <p className="text-sm font-semibold text-white/90 mb-1 text-center">Save edited image</p>
+                      <p className="text-xs text-white/40 text-center mb-5">How would you like to save your edits?</p>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => setEditorSaveStep("folder")}
+                          className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,55%)] text-white text-sm font-semibold flex flex-col items-center gap-0.5">
+                          <span>Save as Copy</span>
+                          <span className="text-[11px] font-normal text-white/70">Original stays untouched · New item added to pool</span>
+                        </button>
+                        <button
+                          onClick={saveEditorReplace}
+                          className="w-full py-3.5 rounded-xl border border-white/15 bg-white/[0.04] text-white/80 text-sm font-medium flex flex-col items-center gap-0.5">
+                          <span>Replace Original</span>
+                          <span className="text-[11px] font-normal text-red-400/80">This cannot be undone</span>
+                        </button>
+                        <button onClick={() => setEditorSaveSheet(false)} className="py-2 text-xs text-white/30 hover:text-white/50 transition-colors">Cancel</button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-white/90 mb-1 text-center">Save to "Edited" folder?</p>
+                      <p className="text-xs text-white/40 text-center mb-5">Keep your edited images organised in one place</p>
+                      <div className="flex flex-col gap-3">
+                        <button
+                          onClick={() => saveEditorCopy(true)}
+                          className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,55%)] text-white text-sm font-semibold">
+                          Yes — save to Edited folder
+                        </button>
+                        <button
+                          onClick={() => saveEditorCopy(false)}
+                          className="w-full py-3.5 rounded-xl border border-white/15 bg-white/[0.04] text-white/80 text-sm font-medium">
+                          No — just add to pool
+                        </button>
+                        <button onClick={() => setEditorSaveSheet(false)} className="py-2 text-xs text-white/30 hover:text-white/50 transition-colors">Cancel</button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )}
