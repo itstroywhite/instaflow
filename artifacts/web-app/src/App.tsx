@@ -788,7 +788,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   const parts = value ? value.split(":").map(Number) : [dH, dM];
   const curH = parts[0] ?? dH;
   const curM = parts[1] ?? dM;
-  const ITEM_H = 32;
+  const ITEM_H = 36;
   const hourRef = useRef<HTMLDivElement>(null);
   const minRef = useRef<HTMLDivElement>(null);
   const hTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3475,7 +3475,7 @@ export default function App() {
       )}
 
       {/* NAV */}
-      <nav className={`border-b ${border} px-4 py-2.5 grid grid-cols-3 items-center sticky top-0 z-20 bg-[hsl(220,14%,8%)]`}>
+      <nav className={`border-b ${border} px-4 py-2.5 grid grid-cols-3 items-center fixed top-0 left-0 right-0 z-50 bg-[hsl(220,14%,8%)]`}>
         <div className="flex flex-col leading-tight tracking-tight font-bold">
           <span className="text-sm">Insta</span>
           <span className="text-sm">Flow</span>
@@ -3543,7 +3543,7 @@ export default function App() {
       )}
 
       <main
-        className="max-w-2xl mx-auto px-4 py-6"
+        className="max-w-2xl mx-auto px-4 pb-6 pt-16"
         onTouchStart={(e) => {
           pullStartY.current = e.touches[0].clientY;
         }}
@@ -4490,12 +4490,12 @@ export default function App() {
             {carouselItems.length > 0 && (
               <div className={`${card} p-5 space-y-3`}>
                 <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Schedule</span>
-                <div className="flex gap-3 flex-wrap">
-                  <div className="flex flex-col gap-0.5">
+                <div className="flex flex-row items-end gap-3">
+                  <div className="flex flex-col gap-1">
                     <label className={`text-[10px] ${dimText}`}>Date</label>
                     <DatePicker value={scheduleDate} onChange={(v) => { setScheduleDate(v); fetchTimeScore(v, scheduleTime, setCarouselTimeScore); }} className={inputCls} />
                   </div>
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1">
                     <label className={`text-[10px] ${dimText}`}>Time</label>
                     <TimePicker value={scheduleTime} onChange={(v) => { setScheduleTime(v); fetchTimeScore(scheduleDate, v, setCarouselTimeScore); }} className={inputCls} />
                   </div>
@@ -4680,12 +4680,12 @@ export default function App() {
             {/* 5. SCHEDULE + APPROVE — mirrors Carousel */}
             <div className={`${card} p-5 space-y-3`}>
               <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Schedule</span>
-              <div className="flex gap-3 flex-wrap">
-                <div className="flex flex-col gap-0.5">
+              <div className="flex flex-row items-end gap-3">
+                <div className="flex flex-col gap-1">
                   <label className={`text-[10px] ${dimText}`}>Date</label>
                   <DatePicker value={singleScheduleDate} onChange={(v) => { setSingleScheduleDate(v); fetchTimeScore(v, singleScheduleTime, setSingleTimeScore); }} className={inputCls} />
                 </div>
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-1">
                   <label className={`text-[10px] ${dimText}`}>Time</label>
                   <TimePicker value={singleScheduleTime} onChange={(v) => { setSingleScheduleTime(v); fetchTimeScore(singleScheduleDate, v, setSingleTimeScore); }} className={inputCls} />
                 </div>
@@ -4973,18 +4973,12 @@ export default function App() {
                     const dayPosts = postsByDate[dk] ?? [];
                     const isToday = dk === todayStr();
                     const isSelected = calendarDaySelected === dk;
-                    const dow = new Date(dk + "T12:00:00").getDay();
-                    const bestRec = plan !== "free" ? scheduleRecs.find((r) => r.dayOfWeek === dow) : null;
                     return (
                       <button key={dk} onClick={() => setCalendarDaySelected(isSelected ? null : dk)}
                         className={`rounded-lg py-1.5 flex flex-col items-center gap-1 transition-colors min-h-[48px] ${isSelected ? "bg-[hsl(263,70%,65%)/20] border border-[hsl(263,70%,65%)/40]" : isToday ? `border ${border} bg-[hsl(220,14%,14%)]` : "hover:bg-[hsl(220,14%,14%)]"}`}>
                         <span className={`text-xs font-medium ${isToday ? "text-[hsl(263,70%,75%)]" : dimText}`}>{day}</span>
                         <div className="flex flex-wrap gap-0.5 justify-center max-w-[32px]">
                           {dayPosts.slice(0, 3).map((p, pi) => <span key={pi} className={`w-1.5 h-1.5 rounded-full ${postStatusClasses(p).dot}`} />)}
-                          {dayPosts.length === 0 && bestRec && (
-                            <span title={`${bestRec.emoji} ${bestRec.label}`}
-                              className={`w-1.5 h-1.5 rounded-full ${bestRec.score >= 0.8 ? "bg-green-400/50" : bestRec.score >= 0.6 ? "bg-[hsl(263,70%,65%)/40]" : "bg-amber-400/30"}`} />
-                          )}
                         </div>
                       </button>
                     );
