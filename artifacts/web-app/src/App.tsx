@@ -164,6 +164,54 @@ function buildEditorCssFilter(brightness: number, contrast: number, saturation: 
   else if (warmth < 0) parts.push(`hue-rotate(${warmth * 2}deg)`);
   return parts.join(" ");
 }
+
+function applyPixelFilters(ctx: CanvasRenderingContext2D, brightness: number, contrast: number, saturation: number, warmth: number, sharpness: number) {
+  const w = ctx.canvas.width, h = ctx.canvas.height;
+  const imageData = ctx.getImageData(0, 0, w, h);
+  const d = imageData.data;
+  const effectiveContrast = contrast + Math.max(0, sharpness - 100) * 0.3;
+  const b = brightness / 100;
+  const c = effectiveContrast / 100;
+  const s = saturation / 100;
+  for (let i = 0; i < d.length; i += 4) {
+    let r = d[i], g = d[i + 1], bl = d[i + 2];
+    if (warmth > 0) {
+      const sepia = warmth * 0.005;
+      const nr = Math.min(255, r * (1 - sepia) + (r * 0.393 + g * 0.769 + bl * 0.189) * sepia);
+      const ng = Math.min(255, g * (1 - sepia) + (r * 0.349 + g * 0.686 + bl * 0.168) * sepia);
+      const nb = Math.min(255, bl * (1 - sepia) + (r * 0.272 + g * 0.534 + bl * 0.131) * sepia);
+      r = nr; g = ng; bl = nb;
+    } else if (warmth < 0) {
+      const hueDeg = warmth * 2;
+      const hrad = hueDeg * Math.PI / 180;
+      const cos = Math.cos(hrad), sin = Math.sin(hrad);
+      const nr = Math.max(0, Math.min(255, r * (0.213 + cos * 0.787 - sin * 0.213) + g * (0.715 - cos * 0.715 - sin * 0.715) + bl * (0.072 - cos * 0.072 + sin * 0.928)));
+      const ng = Math.max(0, Math.min(255, r * (0.213 - cos * 0.213 + sin * 0.143) + g * (0.715 + cos * 0.285 + sin * 0.140) + bl * (0.072 - cos * 0.072 - sin * 0.283)));
+      const nb = Math.max(0, Math.min(255, r * (0.213 - cos * 0.213 - sin * 0.787) + g * (0.715 - cos * 0.715 + sin * 0.715) + bl * (0.072 + cos * 0.928 + sin * 0.072)));
+      r = nr; g = ng; bl = nb;
+    }
+    r *= b; g *= b; bl *= b;
+    r = (r / 255 - 0.5) * c + 0.5; g = (g / 255 - 0.5) * c + 0.5; bl = (bl / 255 - 0.5) * c + 0.5;
+    r *= 255; g *= 255; bl *= 255;
+    const grey = 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+    r = grey + (r - grey) * s; g = grey + (g - grey) * s; bl = grey + (bl - grey) * s;
+    d[i]     = Math.max(0, Math.min(255, Math.round(r)));
+    d[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
+    d[i + 2] = Math.max(0, Math.min(255, Math.round(bl)));
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function ctxFilterSupported(): boolean {
+  try {
+    const c = document.createElement("canvas");
+    c.width = 1; c.height = 1;
+    const x = c.getContext("2d");
+    if (!x) return false;
+    x.filter = "brightness(2)";
+    return x.filter === "brightness(2)";
+  } catch { return false; }
+}
 function fmtDuration(secs: number) {
   const m = Math.floor(secs / 60);
   const s = Math.floor(secs % 60);
@@ -2601,10 +2649,18 @@ export default function App() {
     const canvas = document.createElement("canvas");
     canvas.width = sw; canvas.height = sh;
     const ctx = canvas.getContext("2d")!;
-    ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-    console.log("[edit] Canvas output size (chars):", canvas.toDataURL("image/jpeg", 0.75).length);
-    return canvas.toDataURL("image/jpeg", 0.75);
+    const isDefaultFilter = editorBrightness === 100 && editorContrast === 100 && editorSaturation === 100 && editorWarmth === 0 && editorSharpness === 100;
+    if (isDefaultFilter) {
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    } else if (ctxFilterSupported()) {
+      ctx.filter = buildEditorCssFilter(editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    } else {
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+      applyPixelFilters(ctx, editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
+    }
+    console.log("[edit] saved — method:", isDefaultFilter ? "passthrough" : ctxFilterSupported() ? "ctx.filter" : "pixel", "— size:", canvas.toDataURL("image/jpeg", 0.88).length);
+    return canvas.toDataURL("image/jpeg", 0.88);
   }
 
   async function handleEditorSave() {
