@@ -4644,25 +4644,6 @@ export default function App() {
                 <p className={`${dimText} text-sm`}>{scheduledPosts.length} post{scheduledPosts.length !== 1 ? "s" : ""}{draftPosts.length > 0 ? ` · ${draftPosts.length} draft${draftPosts.length !== 1 ? "s" : ""}` : ""}</p>
               </div>
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={async () => {
-                    if (plan === "free") { openProGate("Calendar Export (.ics)"); return; }
-                    try {
-                      const res = await fetch(`${API_BASE}/api/posts/export/ical`, { headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } });
-                      const text = await res.text();
-                      const blob = new Blob([text], { type: "text/calendar" });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement("a");
-                      a.href = url; a.download = "instaflow-schedule.ics"; a.click();
-                      URL.revokeObjectURL(url);
-                      showGlobalToast("Calendar exported!");
-                    } catch { showGlobalToast("Export failed. Try again."); }
-                  }}
-                  className={`flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}
-                  title={plan === "free" ? "Pro feature — upgrade to export" : "Export to .ics"}>
-                  <Download className="w-3.5 h-3.5" />
-                  Export{plan === "free" && <DiamondBadge />}
-                </button>
                 {(["list", "week", "month"] as const).map((v) => (
                   <button key={v} onClick={() => setCalendarView(v)}
                     className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${calendarView === v ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
@@ -4789,12 +4770,35 @@ export default function App() {
               </div>
             ) : calendarView === "list" ? (
               <div className="space-y-5">
-                {calendarListGroups.map((mg) => (
+                {calendarListGroups.map((mg, mgIdx) => (
                   <div key={mg.ym}>
                     <p className="text-sm font-semibold mb-3">{mg.label}</p>
-                    {mg.weeks.map((wg) => (
+                    {mg.weeks.map((wg, wgIdx) => (
                       <div key={wg.week} className="mb-4">
-                        <p className={`text-xs ${dimText} mb-2 font-medium`}>CW {wg.week}</p>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className={`text-xs ${dimText} font-medium`}>CW {wg.week}</p>
+                          {mgIdx === 0 && wgIdx === 0 && (
+                            <button
+                              onClick={async () => {
+                                if (plan === "free") { openProGate("Calendar Export (.ics)"); return; }
+                                try {
+                                  const res = await fetch(`${API_BASE}/api/posts/export/ical`, { headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } });
+                                  const text = await res.text();
+                                  const blob = new Blob([text], { type: "text/calendar" });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url; a.download = "instaflow-schedule.ics"; a.click();
+                                  URL.revokeObjectURL(url);
+                                  showGlobalToast("Calendar exported!");
+                                } catch { showGlobalToast("Export failed. Try again."); }
+                              }}
+                              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}
+                              title={plan === "free" ? "Pro feature — upgrade to export" : "Export to .ics"}>
+                              <Download className="w-3 h-3" />
+                              Export{plan === "free" && <DiamondBadge />}
+                            </button>
+                          )}
+                        </div>
                         <div className="space-y-2 pl-2">
                           {wg.posts.map((post) => {
                             const sc = postStatusClasses(post);
