@@ -1183,6 +1183,7 @@ export default function App() {
   const [newHashtagInput, setNewHashtagInput] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsSaveFailed, setSettingsSaveFailed] = useState(false);
 
   // Calendar
   const [calendarView, setCalendarView] = useState<"month" | "list" | "week">("list");
@@ -1378,6 +1379,7 @@ export default function App() {
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
+  const [profileSaveFailed, setProfileSaveFailed] = useState(false);
   const [profileNewPassword, setProfileNewPassword] = useState("");
   const [profileConfirmPassword, setProfileConfirmPassword] = useState("");
   const [profilePasswordSaving, setProfilePasswordSaving] = useState(false);
@@ -1654,7 +1656,7 @@ export default function App() {
   }
 
   async function handleSaveProfile() {
-    setProfileSaving(true);
+    setProfileSaving(true); setProfileSaved(false); setProfileSaveFailed(false);
     try {
       const saved = await apiPost("/profile", {
         display_name: profileDisplayName || null,
@@ -1669,7 +1671,11 @@ export default function App() {
       setProfileSaved(true);
       showGlobalToast("Profile saved!");
       setTimeout(() => setProfileSaved(false), 2000);
-    } catch { showGlobalToast("Failed to save profile"); }
+    } catch {
+      showGlobalToast("Failed to save profile");
+      setProfileSaveFailed(true);
+      setTimeout(() => setProfileSaveFailed(false), 2000);
+    }
     finally { setProfileSaving(false); }
   }
 
@@ -3216,13 +3222,16 @@ export default function App() {
     ]);
   }
   async function handleSaveSettings() {
-    setSettingsSaving(true); setSettingsSaved(false);
+    setSettingsSaving(true); setSettingsSaved(false); setSettingsSaveFailed(false);
     try {
       await saveSettingsToDB(appSettings);
       await apiPost("/profile/notify", { notify_daily: notifyDaily, notify_time: notifyTime, notify_updates: notifyUpdates }).catch(() => {});
       setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2500);
     }
-    catch (err) { console.error("Save settings failed:", err); }
+    catch (err) {
+      console.error("Save settings failed:", err);
+      setSettingsSaveFailed(true); setTimeout(() => setSettingsSaveFailed(false), 2500);
+    }
     finally { setSettingsSaving(false); }
   }
   async function resetNotificationTime() {
@@ -5344,14 +5353,9 @@ export default function App() {
             </div>
 
             <div className="space-y-2">
-              {settingsSaved && (
-                <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
-                  <span className="text-emerald-400 text-sm font-semibold">✓ Settings saved!</span>
-                </div>
-              )}
               <button onClick={handleSaveSettings} disabled={settingsSaving}
-                className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all ${settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"} disabled:opacity-60`}>
-                {settingsSaving ? "Saving…" : settingsSaved ? "✓ Saved!" : "Save Settings"}
+                className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
+                {settingsSaving ? "Saving…" : settingsSaveFailed ? "✗ Failed — try again" : settingsSaved ? "✓ Saved!" : "Save Settings"}
               </button>
               <p className={`text-xs ${dimText} text-center`}>{mediaItems.length} items in pool · {approvedPosts.length} posts</p>
               {supabase && session && (
@@ -7277,8 +7281,8 @@ export default function App() {
                         placeholder="Your name"
                         className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
                       <button onClick={handleSaveProfile} disabled={profileSaving}
-                        className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
-                        {profileSaving ? "…" : "Save"}
+                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)]"}`}>
+                        {profileSaving ? "…" : profileSaveFailed ? "✗" : profileSaved ? "✓" : "Save"}
                       </button>
                     </div>
                   </div>
@@ -7639,8 +7643,8 @@ export default function App() {
                         placeholder="Your name"
                         className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
                       <button onClick={handleSaveProfile} disabled={profileSaving}
-                        className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
-                        {profileSaving ? "…" : "Save"}
+                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)]"}`}>
+                        {profileSaving ? "…" : profileSaveFailed ? "✗" : profileSaved ? "✓" : "Save"}
                       </button>
                     </div>
                   </div>
@@ -7651,8 +7655,8 @@ export default function App() {
                         placeholder="@yourusername"
                         className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
                       <button onClick={handleSaveProfile} disabled={profileSaving}
-                        className="px-3 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-medium disabled:opacity-50">
-                        {profileSaving ? "…" : "Save"}
+                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)]"}`}>
+                        {profileSaving ? "…" : profileSaveFailed ? "✗" : profileSaved ? "✓" : "Save"}
                       </button>
                     </div>
                   </div>
@@ -7765,8 +7769,8 @@ export default function App() {
                     </select>
                   </div>
                   <button onClick={handleSaveProfile} disabled={profileSaving}
-                    className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-medium disabled:opacity-50">
-                    {profileSaving ? "Saving…" : profileSaved ? "✓ Saved!" : "Save Regional Settings"}
+                    className={`w-full py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
+                    {profileSaving ? "Saving…" : profileSaveFailed ? "✗ Failed — try again" : profileSaved ? "✓ Saved!" : "Save Regional Settings"}
                   </button>
                 </div>
                 {/* Danger zone */}
@@ -8164,14 +8168,9 @@ export default function App() {
 
                 {/* Save */}
                 <div className="space-y-2">
-                  {settingsSaved && (
-                    <div className="flex items-center justify-center gap-2 py-2 rounded-xl bg-emerald-500/15 border border-emerald-500/30">
-                      <span className="text-emerald-400 text-sm font-semibold">✓ Settings saved!</span>
-                    </div>
-                  )}
                   <button onClick={handleSaveSettings} disabled={settingsSaving}
-                    className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all ${settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"} disabled:opacity-60`}>
-                    {settingsSaving ? "Saving…" : settingsSaved ? "✓ Saved!" : "Save Preferences"}
+                    className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
+                    {settingsSaving ? "Saving…" : settingsSaveFailed ? "✗ Failed — try again" : settingsSaved ? "✓ Saved!" : "Save Preferences"}
                   </button>
                 </div>
               </div>

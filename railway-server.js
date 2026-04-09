@@ -1375,15 +1375,18 @@ app.post("/api/push/test", requireAuth, (req, res) => withTables(async () => {
   res.json({ sent, total: rows.length });
 }, res));
 
-// ── Hourly push notification scheduler ───────────────────────────────────────
+// ── Push notification scheduler (runs every minute) ───────────────────────────
 async function sendDailyPostReminders() {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
+  console.log('[notify] checking at', new Date().toISOString());
   try {
+    // Ensure last_notification_sent column exists
+    await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS last_notification_sent TIMESTAMPTZ`);
+
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
-    // Get users who have notify_daily=true and whose reminder time matches the current hour+minute (within 5 min window)
     const { rows: usersToNotify } = await pool.query(`
-      SELECT p.user_id, p.notify_time, p.timezone
+      SELECT p.user_id, p.notify_time, p.timezone, p.last_notification_sent
       FROM profiles p
       WHERE p.notify_daily = true
     `);
@@ -1391,8 +1394,17 @@ async function sendDailyPostReminders() {
       try {
         const tz = user.timezone || "UTC";
         const userNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
-        const [hh, mm] = (user.notify_time || "09:00").split(":").map(Number);
-        if (userNow.getHours() !== hh || Math.abs(userNow.getMinutes() - mm) > 4) continue;
+        const notifyTime = user.notify_time || "09:00";
+        const [targetH, targetM] = notifyTime.split(':').map(Number);
+        const diffMinutes = Math.abs(
+          (userNow.getHours() * 60 + userNow.getMinutes()) - (targetH * 60 + targetM)
+        );
+        if (diffMinutes > 1) continue;
+        // Avoid duplicate notifications — only send if last sent > 23 hours ago
+        if (user.last_notification_sent) {
+          const hoursSinceLast = (now - new Date(user.last_notification_sent)) / (1000 * 60 * 60);
+          if (hoursSinceLast < 23) continue;
+        }
         // Check if they have posts scheduled for today
         const { rows: posts } = await pool.query(
           "SELECT id FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved' LIMIT 1",
@@ -1404,14 +1416,20 @@ async function sendDailyPostReminders() {
           "SELECT subscription FROM push_subscriptions WHERE user_id = $1", [user.user_id]
         );
         if (subs.length === 0) continue;
+        console.log('[notify] sending to user:', user.user_id, 'at', notifyTime);
         const payload = JSON.stringify({ title: "InstaFlow", body: "📅 You have posts scheduled for today!" });
         await Promise.allSettled(subs.map(s => webpush.sendNotification(s.subscription, payload)));
+        // Record last sent time to prevent duplicates
+        await pool.query(
+          "UPDATE profiles SET last_notification_sent = NOW() WHERE user_id = $1",
+          [user.user_id]
+        );
       } catch (userErr) {
-        console.error("[push-scheduler] error for user:", userErr.message);
+        console.error("[notify] error for user:", user.user_id, userErr.message);
       }
     }
   } catch (err) {
-    console.error("[push-scheduler] error:", err.message);
+    console.error("[notify] error:", err.message);
   }
 }
 
@@ -1749,7 +1767,7 @@ app.listen(PORT, () => {
   console.log(`Supabase auth: ${supabaseAdmin ? "configured" : "NOT configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY"}`);
   ensureAvatarsBucket();
   // Run push reminder check every 5 minutes (scheduler fires near the user's configured time)
-  setInterval(sendDailyPostReminders, 5 * 60 * 1000);
+  setInterval(sendDailyPostReminders, 60 * 1000);
   // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
   const SELF_URL = 'https://instaflow-api.onrender.com/api/healthz';
   setInterval(async () => {
