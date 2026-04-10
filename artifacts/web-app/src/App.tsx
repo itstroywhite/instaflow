@@ -6396,6 +6396,13 @@ export default function App() {
 
       {/* ── INSTAGRAM PREVIEW MODAL (Feature 1) ── */}
       {previewPost && (
+        <>
+        {/* X close — sibling outside z-40 stacking context so it sits above nav (z-50) */}
+        <button
+          onClick={() => setPreviewPost(null)}
+          style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top) + 16px)', right: '16px', zIndex: 201 }}
+          className="w-11 h-11 rounded-full bg-black/70 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white text-xl leading-none"
+        >✕</button>
         <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm"
           onClick={() => setPreviewPost(null)}>
           {/* Scrollable content — starts below fixed nav bar */}
@@ -6447,10 +6454,10 @@ export default function App() {
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
                       );
                     })()}
-                    {/* Tag badge — top-left overlay */}
-                    {previewItems[0]?.tag && (
+                    {/* Tag badge — top-left overlay, per current slide */}
+                    {previewItems[previewSlide]?.tag && (
                       <div className="absolute top-3 left-3 bg-purple-600/80 text-white text-xs px-2.5 py-1 rounded-full font-medium backdrop-blur-sm pointer-events-none">
-                        {previewItems[0].tag}
+                        {previewItems[previewSlide].tag}
                       </div>
                     )}
                     {/* Slide counter — top-right overlay */}
@@ -6546,6 +6553,7 @@ export default function App() {
             )}
           </div>
         </div>
+        </>
       )}
 
       {/* ── DISCARD CHANGES CONFIRMATION ── */}
