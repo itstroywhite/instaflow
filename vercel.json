@@ -2,5 +2,9 @@
   "buildCommand": "cd artifacts/web-app && npm install && npm run build",
   "outputDirectory": "artifacts/web-app/dist/public",
   "installCommand": "npm install",
-  "framework": null
+  "framework": null,
+  "env": {
+    "PORT": "3000",
+    "BASE_PATH": "/"
+  }
 }
