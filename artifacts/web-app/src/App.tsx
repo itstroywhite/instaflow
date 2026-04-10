@@ -2676,19 +2676,106 @@ export default function App() {
 
   async function renderEditorCanvas(): Promise<string> {
     if (!imageEditorItem) throw new Error("No image");
-    // Step 1 — Load image via server-side proxy to avoid CORS canvas taint on iOS Safari
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+
+    // ── Shared: build filter string ──────────────────────────────────────────
+    const presetCssMap: Record<string, string> = {
+      "Original": "",
+      "Vivid":    "saturate(1.5) contrast(1.1)",
+      "Moody":    "saturate(0.7) brightness(0.9) contrast(1.1)",
+      "B&W":      "grayscale(1) contrast(1.05)",
+      "Warm":     "sepia(0.25) saturate(1.2)",
+      "Cool":     "hue-rotate(200deg) saturate(0.8) brightness(1.05)",
+      "Fade":     "brightness(1.2) contrast(0.8) saturate(0.8)",
+      "Sharp":    "contrast(1.3) saturate(1.1)",
+    };
+    const filterParts: string[] = [];
+    const presetCss = presetCssMap[editorFilter] ?? "";
+    if (presetCss) filterParts.push(presetCss);
+    const sliderBrightness  = editorBrightness / 100;
+    const sliderSaturate    = editorSaturation / 100;
+    const effectiveContrast = (editorContrast + Math.max(0, editorSharpness - 100) * 0.3) / 100;
+    filterParts.push(`brightness(${sliderBrightness})`);
+    filterParts.push(`contrast(${effectiveContrast})`);
+    filterParts.push(`saturate(${sliderSaturate})`);
+    if (editorWarmth > 0)  filterParts.push(`sepia(${(editorWarmth / 100) * 0.5})`);
+    else if (editorWarmth < 0) filterParts.push(`hue-rotate(${editorWarmth * 2}deg)`);
+    const fullFilterStr = filterParts.join(" ");
+
+    const proxyUrl = `${API_BASE}/api/media/proxy?url=${encodeURIComponent(imageEditorItem.dataUrl)}`;
+
+    // ── iOS path: fetch as blob → ImageBitmap → canvas (no CORS taint) ──────
+    if (isIOS) {
+      console.log('[edit-ios] fetching blob from proxy...');
+      const response = await fetch(proxyUrl);
+      const blob = await response.blob();
+      console.log('[edit-ios] blob size:', blob.size);
+
+      // Attempt createImageBitmap; fall back to blob URL + Image() if unavailable
+      let source: ImageBitmap | HTMLImageElement;
+      let naturalWidth: number, naturalHeight: number;
+      try {
+        const bmp = await createImageBitmap(blob);
+        console.log('[edit-ios] imageBitmap:', bmp.width, 'x', bmp.height);
+        source = bmp;
+        naturalWidth = bmp.width;
+        naturalHeight = bmp.height;
+      } catch {
+        console.log('[edit-ios] createImageBitmap unavailable, falling back to blob URL + Image()');
+        const blobUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("Blob image load failed"));
+          img.src = blobUrl;
+        });
+        URL.revokeObjectURL(blobUrl);
+        source = img;
+        naturalWidth = img.naturalWidth;
+        naturalHeight = img.naturalHeight;
+      }
+
+      // Crop calculation
+      const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4/5, "9:16": 9/16, "16:9": 16/9 };
+      const cropAspect = cropAspectMap[editorCropRatio];
+      let srcX = 0, srcY = 0, srcW = naturalWidth, srcH = naturalHeight;
+      if (cropAspect !== null) {
+        const naturalAspect = naturalWidth / naturalHeight;
+        if (cropAspect < naturalAspect) {
+          srcW = Math.round(naturalHeight * cropAspect);
+          srcX = Math.round(((naturalWidth - srcW) * cropOffset.x) / 100);
+        } else {
+          srcH = Math.round(naturalWidth / cropAspect);
+          srcY = Math.round(((naturalHeight - srcH) * cropOffset.y) / 100);
+        }
+        srcX = Math.max(0, Math.min(srcX, naturalWidth - srcW));
+        srcY = Math.max(0, Math.min(srcY, naturalHeight - srcH));
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(srcW);
+      canvas.height = Math.round(srcH);
+      const ctx = canvas.getContext('2d')!;
+      ctx.filter = fullFilterStr;
+      console.log('[edit-ios] filter applied:', ctx.filter);
+      ctx.drawImage(source as CanvasImageSource, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      console.log('[edit-ios] canvas dataUrl length:', dataUrl.length);
+      return dataUrl;
+    }
+
+    // ── Non-iOS path: crossOrigin Image() via proxy ──────────────────────────
     const img = new Image();
     img.crossOrigin = "anonymous";
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = (e) => { console.error("[edit] image load error:", e); reject(new Error("Image failed to load")); };
-      const proxyUrl = `${API_BASE}/api/media/proxy?url=${encodeURIComponent(imageEditorItem.dataUrl)}`;
       console.log('[edit] loading via proxy:', proxyUrl);
       img.src = proxyUrl;
     });
 
-    // Step 2 — Calculate crop source rectangle
-    const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "16:9": 16 / 9 };
+    const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4/5, "9:16": 9/16, "16:9": 16/9 };
     const cropAspect = cropAspectMap[editorCropRatio];
     let srcX = 0, srcY = 0, srcW = img.naturalWidth, srcH = img.naturalHeight;
     if (cropAspect !== null) {
@@ -2707,50 +2794,19 @@ export default function App() {
     canvas.width = Math.round(srcW);
     canvas.height = Math.round(srcH);
     console.log("[edit] canvas size:", canvas.width, canvas.height);
-
-    // Step 3 — Build filter string: preset layer + slider adjustments
-    // Preset layer (base visual look — slider values already reflect this when preset is active,
-    // but we explicitly add the named preset's CSS so it survives even if sliders were reset)
-    const presetCssMap: Record<string, string> = {
-      "Original": "",
-      "Vivid":    "saturate(1.5) contrast(1.1)",
-      "Moody":    "saturate(0.7) brightness(0.9) contrast(1.1)",
-      "B&W":      "grayscale(1) contrast(1.05)",
-      "Warm":     "sepia(0.25) saturate(1.2)",
-      "Cool":     "hue-rotate(200deg) saturate(0.8) brightness(1.05)",
-      "Fade":     "brightness(1.2) contrast(0.8) saturate(0.8)",
-      "Sharp":    "contrast(1.3) saturate(1.1)",
-    };
-    const filterParts: string[] = [];
-    const presetCss = presetCssMap[editorFilter] ?? "";
-    if (presetCss) filterParts.push(presetCss);
-    // Slider adjustments (user's fine-tuning on top of the preset layer)
-    const sliderBrightness  = editorBrightness / 100;
-    const sliderSaturate    = editorSaturation / 100;
-    const effectiveContrast = (editorContrast + Math.max(0, editorSharpness - 100) * 0.3) / 100;
-    filterParts.push(`brightness(${sliderBrightness})`);
-    filterParts.push(`contrast(${effectiveContrast})`);
-    filterParts.push(`saturate(${sliderSaturate})`);
-    if (editorWarmth > 0)  filterParts.push(`sepia(${(editorWarmth / 100) * 0.5})`);
-    else if (editorWarmth < 0) filterParts.push(`hue-rotate(${editorWarmth * 2}deg)`);
-    const fullFilterStr = filterParts.join(" ");
     console.log("[edit] filter applied:", fullFilterStr);
 
-    // Step 4 — Draw with crop, applying filter
     const ctx = canvas.getContext("2d")!;
     if (ctxFilterSupported()) {
       ctx.filter = fullFilterStr;
       ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
     } else {
-      // Pixel-level fallback for Safari < 18 where ctx.filter is a no-op
       ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
       applyPixelFilters(ctx, editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
     }
 
-    // Step 5 — Export
     const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
     console.log("[edit] dataUrl length:", dataUrl.length);
-    console.log('[edit] canvas tainted check - dataUrl starts with data:image:', dataUrl.startsWith('data:image'));
     return dataUrl;
   }
 
