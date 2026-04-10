@@ -1,10 +1,6 @@
 {
-  "buildCommand": "pnpm --filter @workspace/web-app run build",
+  "buildCommand": "cd artifacts/web-app && PORT=3000 BASE_PATH=/ pnpm run build",
   "outputDirectory": "artifacts/web-app/dist/public",
   "installCommand": "pnpm install --no-frozen-lockfile",
-  "framework": null,
-  "env": {
-    "PORT": "3000",
-    "BASE_PATH": "/"
-  }
+  "framework": null
 }
