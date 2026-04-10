@@ -4177,11 +4177,7 @@ export default function App() {
                             <span className="text-black text-[9px] font-bold">{bulkSelectedIds.indexOf(item.id) + 1}</span>
                           </div>
                         )}
-                        {item.display_name && !bulkMode && !selectionMode && !folderAddMode && (
-                          <div className="absolute bottom-0 left-0 right-0 px-1.5 pt-3 pb-1 bg-gradient-to-t from-black/65 to-transparent pointer-events-none">
-                            <p className="text-[9px] text-white/80 truncate leading-tight">{item.display_name}</p>
-                          </div>
-                        )}
+
                         </div>
                       </div>
                     );
