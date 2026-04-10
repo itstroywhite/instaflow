@@ -1,7 +1,7 @@
 {
-  "buildCommand": "pnpm install && cd artifacts/web-app && PORT=3000 BASE_PATH=/ pnpm run build",
+  "buildCommand": "cd artifacts/web-app && pnpm run build",
   "outputDirectory": "artifacts/web-app/dist/public",
-  "installCommand": "npm install -g pnpm@10",
+  "installCommand": "pnpm install --no-frozen-lockfile",
   "framework": null,
   "env": {
     "PORT": "3000",
