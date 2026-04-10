@@ -788,7 +788,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   const parts = value ? value.split(":").map(Number) : [dH, dM];
   const curH = parts[0] ?? dH;
   const curM = parts[1] ?? dM;
-  const ITEM_H = 36;
+  const ITEM_H = 20;
   const hourRef = useRef<HTMLDivElement>(null);
   const minRef = useRef<HTMLDivElement>(null);
   const hTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -831,9 +831,8 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   }
 
   const colStyle: React.CSSProperties = {
-    height: ITEM_H, width: 40, overflowY: "scroll", scrollbarWidth: "none",
-    scrollSnapType: "y mandatory", borderRadius: 8,
-    background: "hsl(220,14%,9%)", border: "1px solid hsl(220,13%,20%)",
+    height: ITEM_H, width: 38, overflowY: "scroll", scrollbarWidth: "none",
+    scrollSnapType: "y mandatory",
   };
 
   function col(ref: React.RefObject<HTMLDivElement>, onScroll: () => void, count: number, cur: number) {
@@ -4754,18 +4753,20 @@ export default function App() {
         {/* ════ CALENDAR ════ */}
         {screen === "calendar" && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-bold">Calendar</h1>
-                <p className={`${dimText} text-sm`}>{scheduledPosts.length} post{scheduledPosts.length !== 1 ? "s" : ""}{draftPosts.length > 0 ? ` · ${draftPosts.length} draft${draftPosts.length !== 1 ? "s" : ""}` : ""}</p>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {(["list", "week", "month"] as const).map((v) => (
-                  <button key={v} onClick={() => setCalendarView(v)}
-                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${calendarView === v ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                    {v === "list" ? "☰ List" : v === "week" ? "📆 Week" : "📅 Month"}
-                  </button>
-                ))}
+            <div className="sticky top-16 z-20 bg-[hsl(220,14%,8%)] -mx-4 px-4 pt-2 pb-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold">Calendar</h1>
+                  <p className={`${dimText} text-sm`}>{scheduledPosts.length} post{scheduledPosts.length !== 1 ? "s" : ""}{draftPosts.length > 0 ? ` · ${draftPosts.length} draft${draftPosts.length !== 1 ? "s" : ""}` : ""}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {(["list", "week", "month"] as const).map((v) => (
+                    <button key={v} onClick={() => setCalendarView(v)}
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${calendarView === v ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      {v === "list" ? "☰ List" : v === "week" ? "📆 Week" : "📅 Month"}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex gap-3 text-xs">

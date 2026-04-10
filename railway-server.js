@@ -276,18 +276,8 @@ async function ensureTables() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
-}
-
-// One-time cleanup: delete all posts for a specific user (test data removal)
-async function oneTimePostCleanup() {
-  try {
-    const r = await pool.query(
-      "DELETE FROM approved_posts WHERE user_id = '1ed0fef8-adda-43b7-bfcc-74c2702bf01c'"
-    );
-    if (r.rowCount > 0) console.log(`[cleanup] Removed ${r.rowCount} test posts for user 1ed0fef8`);
-  } catch (err) {
-    console.error("[cleanup] One-time post cleanup error:", err.message);
-  }
+  await pool.query(`DELETE FROM approved_posts WHERE user_id = '1ed0fef8-adda-43b7-bfcc-74c2702bf01c'`);
+  console.log('[cleanup] deleted all posts for test user');
 }
 
 // One-time startup dedup: removes exact hash duplicates (keeps oldest), then falls back to size+dims.
@@ -332,7 +322,7 @@ async function cleanupDuplicates() {
 let tablesReady = false;
 async function withTables(fn, res) {
   try {
-    if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); oneTimePostCleanup(); }
+    if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); }
     await fn();
   } catch (err) {
     if (err?.code === "ECONNREFUSED" || err?.code === "ECONNRESET" || err?.code === "57P03") {
@@ -488,7 +478,7 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
   // client's in-memory state doesn't know about it yet.
   let isDuplicate = false;
   try {
-    if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); oneTimePostCleanup(); }
+    if (!tablesReady) { await ensureTables(); tablesReady = true; cleanupDuplicates(); }
     const hasHash = fileHash && typeof fileHash === "string" && fileHash.length > 0;
     const hasSizeDims = fileSize > 0 && dimensions;
     if (hasHash || hasSizeDims) {
