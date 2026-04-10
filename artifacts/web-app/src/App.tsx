@@ -2704,6 +2704,7 @@ export default function App() {
     const fullFilterStr = filterParts.join(" ");
 
     const proxyUrl = `${API_BASE}/api/media/proxy?url=${encodeURIComponent(imageEditorItem.dataUrl)}`;
+    const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4/5, "9:16": 9/16, "16:9": 16/9 };
 
     // ── iOS path: fetch as blob → ImageBitmap → canvas (no CORS taint) ──────
     if (isIOS) {
@@ -2737,7 +2738,6 @@ export default function App() {
       }
 
       // Crop calculation
-      const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4/5, "9:16": 9/16, "16:9": 16/9 };
       const cropAspect = cropAspectMap[editorCropRatio];
       let srcX = 0, srcY = 0, srcW = naturalWidth, srcH = naturalHeight;
       if (cropAspect !== null) {
@@ -2775,7 +2775,6 @@ export default function App() {
       img.src = proxyUrl;
     });
 
-    const cropAspectMap: Record<string, number | null> = { "Original": null, "1:1": 1, "4:5": 4/5, "9:16": 9/16, "16:9": 16/9 };
     const cropAspect = cropAspectMap[editorCropRatio];
     let srcX = 0, srcY = 0, srcW = img.naturalWidth, srcH = img.naturalHeight;
     if (cropAspect !== null) {
@@ -6325,14 +6324,21 @@ export default function App() {
       {previewPost && (
         <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm" onClick={() => setPreviewPost(null)}>
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-3 py-2 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setPreviewPost(null)}
+              className="flex items-center gap-1.5 px-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-sm font-medium transition-colors"
+              style={{ minHeight: 44 }}
+            >
+              <span className="text-base leading-none">←</span>
+              <span>Back</span>
+            </button>
             <div className="flex items-center gap-2.5">
-              <p className="text-sm font-semibold text-white">Post Preview</p>
               {getPostStatus(previewPost) === "posted" && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-semibold">✓ Posted</span>
               )}
             </div>
-            <button onClick={() => setPreviewPost(null)} className="text-white/60 hover:text-white text-xl w-8 h-8 flex items-center justify-center">✕</button>
+            <button onClick={() => setPreviewPost(null)} className="text-white/60 hover:text-white w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors text-xl">✕</button>
           </div>
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto flex flex-col items-center py-4" onClick={(e) => e.stopPropagation()}>
