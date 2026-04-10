@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-// v2026-04-10
+// v2026-04-10b
 import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Download, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2 } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
