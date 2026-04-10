@@ -5605,12 +5605,16 @@ export default function App() {
           ? new Date(viewerItem.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
           : "";
         return (
-          <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+          <div className="fixed inset-0 z-[60] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
-              style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
-              {/* LEFT: filename pill + date below */}
+              style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}>
+              {/* LEFT: Back button + filename pill + date below */}
               <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
+                <button onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}
+                  className="flex items-center gap-1 text-white/80 hover:text-white text-sm font-medium mb-1 self-start">
+                  <span className="text-base">←</span> Back
+                </button>
                 {(liveItem.display_name || liveItem.name) && (
                   <button
                     onClick={() => { setRenameSheet(liveItem); setRenameInput(liveItem.display_name ?? liveItem.name); }}
