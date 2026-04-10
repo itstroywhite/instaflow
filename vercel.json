@@ -1,7 +1,7 @@
 {
-  "buildCommand": "cd artifacts/web-app && npm install && npm run build",
+  "buildCommand": "pnpm install && cd artifacts/web-app && PORT=3000 BASE_PATH=/ pnpm run build",
   "outputDirectory": "artifacts/web-app/dist/public",
-  "installCommand": "npm install",
+  "installCommand": "npm install -g pnpm@10",
   "framework": null,
   "env": {
     "PORT": "3000",
