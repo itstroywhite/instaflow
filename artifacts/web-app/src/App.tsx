@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 // v2026-04-10b
-import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Download, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2, X } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Download, FolderPlus, Heart, LayoutTemplate, MoreHorizontal, Pause, Play, Plus, Sliders, Square, Tag, Trash2, X } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -1169,6 +1169,7 @@ export default function App() {
   const [previewSlide, setPreviewSlide] = useState(0);
   const [previewPostExtraMedia, setPreviewPostExtraMedia] = useState<MediaItem[]>([]);
   const [deleteConfirmPost, setDeleteConfirmPost] = useState<ApprovedPost | null>(null);
+  const [previewDotsOpen, setPreviewDotsOpen] = useState(false);
   const previewSwipeX = useRef<number | null>(null);
 
   // Folders
@@ -3611,7 +3612,7 @@ export default function App() {
         </div>
         <div className="flex items-center justify-center gap-0.5">
           {(["pool", "carousel", "calendar"] as Screen[]).map((s) => (
-            <button key={s} onClick={() => goToScreen(s)}
+            <button key={s} onClick={() => { setPreviewPost(null); setPreviewDotsOpen(false); goToScreen(s); }}
               className={`relative px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${screen === s ? activeNavCls : `${dimText} hover:text-[hsl(220,10%,80%)] hover:bg-[hsl(220,14%,14%)]`}`}>
               {s === "pool" ? "🗂 Pool" : s === "carousel" ? "📸 Today" : "📅 Cal"}
             </button>
@@ -6385,33 +6386,46 @@ export default function App() {
       {/* ── INSTAGRAM PREVIEW MODAL (Feature 1) ── */}
       {previewPost && (
         <>
-        {/* X close — sibling outside z-40 stacking context, above nav (z-50) */}
-        <button
-          onClick={() => setPreviewPost(null)}
-          style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top) + 70px)', right: '16px', zIndex: 201 }}
-          className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
-        ><X className="w-4 h-4 text-white" /></button>
         {/* Backdrop — pointer-events:none so nav bar remains clickable */}
         <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm" style={{ pointerEvents: 'none' }}>
           {/* Scrollable content — pointer-events:auto captures only card area */}
-          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) setPreviewPost(null); }}>
+          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) { setPreviewPost(null); setPreviewDotsOpen(false); } }}>
             {/* Instagram post card */}
             <div className="w-full max-w-sm bg-black text-white">
-              {/* Post header */}
-              <div className="flex items-center px-3 py-2.5">
-                {/* Avatar with IG gradient ring */}
-                <div className="relative flex-shrink-0 mr-2.5">
+              {/* Post header — Instagram style */}
+              <div className="flex items-center px-3 py-2.5 gap-2">
+                {/* Avatar */}
+                <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full p-[2px]" style={{ background: "linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" }}>
                     <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
-                      <div className="w-full h-full rounded-full" style={{ background: "linear-gradient(135deg,#667eea,#764ba2)" }} />
+                      {profile?.avatar_url
+                        ? <img src={profile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
+                        : <span className="text-white text-xs font-bold">{(igUsername ?? "?")[0]?.toUpperCase()}</span>}
                     </div>
                   </div>
                 </div>
+                {/* Username + date */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold leading-tight text-white">{igUsername}</p>
                   <p className="text-[11px] text-white/50 leading-tight">{formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>
                 </div>
-                <button className="ml-2 text-white/60 text-lg leading-none px-1">···</button>
+                {/* Three dots + X */}
+                <div className="flex items-center gap-1 relative">
+                  <button onClick={() => setPreviewDotsOpen((o) => !o)} className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors rounded-full hover:bg-white/10">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </button>
+                  {previewDotsOpen && (
+                    <div className="absolute right-8 top-0 bg-[hsl(220,14%,13%)] border border-white/10 rounded-xl shadow-xl overflow-hidden z-10 w-36" onClick={(e) => e.stopPropagation()}>
+                      <button className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors border-b border-white/10"
+                        onClick={() => { setPreviewDotsOpen(false); const p = previewPost; setPreviewPost(null); setEditingPost(p); goToScreen("carousel"); }}>Edit</button>
+                      <button className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/10 transition-colors"
+                        onClick={() => { setPreviewDotsOpen(false); setDeleteConfirmPost(previewPost); setPreviewPost(null); }}>Delete</button>
+                    </div>
+                  )}
+                  <button onClick={() => { setPreviewPost(null); setPreviewDotsOpen(false); }} className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors rounded-full hover:bg-white/10">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               {/* Image / carousel */}
@@ -6442,9 +6456,11 @@ export default function App() {
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
                       );
                     })()}
-                    {/* Tag badge — top-left overlay, per current slide, media pool style */}
+                    {/* Tag badge — exact match to media pool viewer style */}
                     {previewItems[previewSlide]?.tag && (
-                      <div className="absolute top-2 left-2 bg-purple-500/80 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full pointer-events-none flex items-center gap-1">
+                      <div
+                        style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
+                        className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 leading-none flex items-center gap-1 pointer-events-none">
                         {tagIcon(previewItems[previewSlide].tag!)} {tagLabel(previewItems[previewSlide].tag!)}
                       </div>
                     )}
