@@ -2760,9 +2760,65 @@ export default function App() {
       canvas.width = Math.round(srcW);
       canvas.height = Math.round(srcH);
       const ctx = canvas.getContext('2d')!;
-      ctx.filter = fullFilterStr;
-      console.log('[edit-ios] filter applied:', ctx.filter);
+      // Draw image without any CSS filter (iOS ignores ctx.filter)
       ctx.drawImage(source as CanvasImageSource, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+
+      // Build pixel-level adjustment factors starting from slider values
+      let pixBrightness = editorBrightness / 100;
+      let pixContrast   = editorContrast   / 100;
+      let pixSaturation = editorSaturation / 100;
+      let pixWarmth     = editorWarmth;
+
+      // Layer preset adjustments on top (mirroring the CSS filter presets)
+      switch (editorFilter) {
+        case "Vivid":  pixSaturation *= 1.5;  pixContrast *= 1.1; break;
+        case "Moody":  pixSaturation *= 0.7;  pixBrightness *= 0.9; pixContrast *= 1.1; break;
+        case "Warm":   pixWarmth += 25;        pixSaturation *= 1.2; break;
+        case "Cool":   pixWarmth -= 25;        pixSaturation *= 0.8; break;
+        case "Fade":   pixBrightness *= 1.2;   pixContrast *= 0.8;   pixSaturation *= 0.8; break;
+        case "Sharp":  pixContrast *= 1.3;     pixSaturation *= 1.1; break;
+      }
+
+      console.log('[edit-ios] pixel pass — brightness:', pixBrightness.toFixed(2),
+        'contrast:', pixContrast.toFixed(2), 'sat:', pixSaturation.toFixed(2),
+        'warmth:', pixWarmth, 'filter:', editorFilter);
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const d = imageData.data;
+
+      for (let i = 0; i < d.length; i += 4) {
+        let r = d[i], g = d[i + 1], b = d[i + 2];
+
+        // Brightness
+        r *= pixBrightness; g *= pixBrightness; b *= pixBrightness;
+
+        // Contrast
+        r = (r - 128) * pixContrast + 128;
+        g = (g - 128) * pixContrast + 128;
+        b = (b - 128) * pixContrast + 128;
+
+        // Saturation
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = gray + (r - gray) * pixSaturation;
+        g = gray + (g - gray) * pixSaturation;
+        b = gray + (b - gray) * pixSaturation;
+
+        // Warmth (red/blue channel shift)
+        if (pixWarmth > 0) { r += pixWarmth * 0.5; b -= pixWarmth * 0.3; }
+        else if (pixWarmth < 0) { r += pixWarmth * 0.3; b -= pixWarmth * 0.5; }
+
+        // B&W preset — desaturate to luminance
+        if (editorFilter === "B&W") {
+          const bw = 0.299 * r + 0.587 * g + 0.114 * b;
+          r = g = b = bw;
+        }
+
+        d[i]     = Math.min(255, Math.max(0, r));
+        d[i + 1] = Math.min(255, Math.max(0, g));
+        d[i + 2] = Math.min(255, Math.max(0, b));
+      }
+
+      ctx.putImageData(imageData, 0, 0);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       console.log('[edit-ios] canvas dataUrl length:', dataUrl.length);
       return dataUrl;
@@ -6325,7 +6381,9 @@ export default function App() {
 
       {/* ── INSTAGRAM PREVIEW MODAL (Feature 1) ── */}
       {previewPost && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm" onClick={() => setPreviewPost(null)}>
+        <div className="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-sm"
+          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }}
+          onClick={() => setPreviewPost(null)}>
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             <button
@@ -6337,6 +6395,7 @@ export default function App() {
               <span>Back</span>
             </button>
             <div className="flex items-center gap-2.5">
+              <p className="text-xs text-white/50 font-medium">{previewPost.scheduledDate ?? previewPost.day}</p>
               {getPostStatus(previewPost) === "posted" && (
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-semibold">✓ Posted</span>
               )}
