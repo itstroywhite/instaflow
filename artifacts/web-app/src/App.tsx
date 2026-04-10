@@ -2084,6 +2084,15 @@ export default function App() {
           showGlobalToast("File too large — max 50MB");
           continue;
         }
+        // Duplicate check for videos: name + size match
+        const isDupVideo = mediaItems.some((m) =>
+          m.name === f.name && (!m.fileSize || m.fileSize === f.size)
+        );
+        if (isDupVideo) {
+          setDuplicatesBanner((prev) => [...prev, f.name]);
+          setTimeout(() => setDuplicatesBanner([]), 5000);
+          continue;
+        }
         const [thumbUrl, duration] = await Promise.all([captureVideoThumbnail(f), getVideoDurationFromFile(f)]);
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
@@ -5606,41 +5615,37 @@ export default function App() {
           : "";
         return (
           <div className="fixed inset-0 z-[60] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
-            {/* Top bar — single strip, nothing overlaps */}
+            {/* Top bar — Bild-2 style: filename+date left, counter+X right */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
               style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}>
-              {/* LEFT: Back button + filename pill + date below */}
-              <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
-                <button onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}
-                  className="flex items-center gap-1 text-white/80 hover:text-white text-sm font-medium mb-1 self-start">
-                  <span className="text-base">←</span> Back
-                </button>
+              {/* LEFT: filename pill + date */}
+              <div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-3">
                 {(liveItem.display_name || liveItem.name) && (
                   <button
                     onClick={() => { setRenameSheet(liveItem); setRenameInput(liveItem.display_name ?? liveItem.name); }}
-                    className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 text-left max-w-full group self-start">
-                    <span className="text-white/90 text-xs font-medium truncate">{liveItem.display_name ?? liveItem.name}</span>
-                    <svg className="w-3 h-3 text-white/40 group-hover:text-white/80 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    className="flex items-center gap-1.5 text-left max-w-full group self-start">
+                    <span className="text-white text-sm font-semibold truncate">{liveItem.display_name ?? liveItem.name}</span>
+                    <svg className="w-3.5 h-3.5 text-white/40 group-hover:text-white/80 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                       <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>
                     </svg>
                   </button>
                 )}
                 {(dateStr || timeStr) && (
-                  <span className="text-white/45 text-[11px] leading-none pl-1">
+                  <span className="text-white/50 text-[11px] leading-none">
                     {dateStr}{dateStr && timeStr ? " · " : ""}{timeStr}
                   </span>
                 )}
               </div>
               {/* RIGHT: counter + close */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
                 {viewerNavList.length > 1 && (
-                  <span className="text-white/60 text-xs tabular-nums bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
+                  <span className="text-white/70 text-xs tabular-nums bg-black/50 backdrop-blur-sm border border-white/15 rounded-full px-3 py-1">
                     {viewerNavIdx + 1} / {viewerNavList.length}
                   </span>
                 )}
                 <button onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}
-                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
+                  className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
                   ✕
                 </button>
               </div>
@@ -5691,10 +5696,10 @@ export default function App() {
                           key={viewerItem.id}
                           src={viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          autoPlay muted loop playsInline preload="metadata"
+                          playsInline preload="metadata"
                           controls controlsList="nodownload nofullscreen"
                           onError={(e) => console.error("Video load error:", e)}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "black" }}
                         />
                       ) : (
                         <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
