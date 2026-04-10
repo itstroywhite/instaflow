@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 // v2026-04-10b
-import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Download, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2 } from "lucide-react";
+import { AlertCircle, Check, ChevronLeft, ChevronRight, CircleUserRound, Download, FolderPlus, Heart, LayoutTemplate, Pause, Play, Plus, Sliders, Square, Tag, Trash2, X } from "lucide-react";
 import { createClient, Session } from "@supabase/supabase-js";
 import { MediaItem, ApprovedPost, AppSettings, CaptionSettings, PoolSort, MediaFolder } from "./types";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
@@ -4427,18 +4427,12 @@ export default function App() {
                     {isVideo(currentSlide.dataUrl, currentSlide.media_type) ? (
                       <video
                         key={currentSlide.id}
-                        src={currentSlide.dataUrl}
+                        src={currentSlide.url ?? currentSlide.dataUrl}
                         poster={currentSlide.thumbnail_url || (videoPosters[currentSlide.id] ?? undefined)}
-                        className="w-full h-full object-cover"
-                        autoPlay
-                        muted
-                        loop
-                        playsInline
-                        preload="auto"
-                        controls
-                        controlsList="nodownload nofullscreen"
+                        playsInline controls preload="metadata"
                         data-slide
-                        style={{ display: "block" }}
+                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        onError={(e) => console.error('[video] error:', e)}
                       />
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
                     {currentSlide.tag && <span style={{ padding: "1px 3px", fontSize: 8 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
@@ -4685,17 +4679,11 @@ export default function App() {
                 {isVideo(singlePostItem.dataUrl, singlePostItem.media_type)
                   ? <video
                       key={singlePostItem.id}
-                      src={singlePostItem.dataUrl}
+                      src={singlePostItem.url ?? singlePostItem.dataUrl}
                       poster={singlePostItem.thumbnail_url || (videoPosters[singlePostItem.id] ?? undefined)}
-                      className="w-full h-full object-cover"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      preload="auto"
-                      controls
-                      controlsList="nodownload nofullscreen"
-                      style={{ display: "block" }}
+                      playsInline controls preload="metadata"
+                      onError={(e) => console.error('[video] error:', e)}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                   : brokenImages.has(singlePostItem.id)
                     ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
@@ -5703,7 +5691,7 @@ export default function App() {
                           key={viewerItem.id}
                           src={viewerItem.url ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          autoPlay muted loop playsInline controls preload="auto"
+                          playsInline controls preload="metadata"
                           onError={(e) => console.error('[video] error:', e)}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
@@ -6397,16 +6385,16 @@ export default function App() {
       {/* ── INSTAGRAM PREVIEW MODAL (Feature 1) ── */}
       {previewPost && (
         <>
-        {/* X close — sibling outside z-40 stacking context so it sits above nav (z-50) */}
+        {/* X close — sibling outside z-40 stacking context, above nav (z-50) */}
         <button
           onClick={() => setPreviewPost(null)}
-          style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top) + 16px)', right: '16px', zIndex: 201 }}
-          className="w-11 h-11 rounded-full bg-black/70 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white text-xl leading-none"
-        >✕</button>
-        <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm"
-          onClick={() => setPreviewPost(null)}>
-          {/* Scrollable content — starts below fixed nav bar */}
-          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }} onClick={(e) => e.stopPropagation()}>
+          style={{ position: 'fixed', top: 'calc(env(safe-area-inset-top) + 70px)', right: '16px', zIndex: 201 }}
+          className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center"
+        ><X className="w-4 h-4 text-white" /></button>
+        {/* Backdrop — pointer-events:none so nav bar remains clickable */}
+        <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm" style={{ pointerEvents: 'none' }}>
+          {/* Scrollable content — pointer-events:auto captures only card area */}
+          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) setPreviewPost(null); }}>
             {/* Instagram post card */}
             <div className="w-full max-w-sm bg-black text-white">
               {/* Post header */}
@@ -6445,7 +6433,7 @@ export default function App() {
                         <video
                           src={item.url ?? item.dataUrl}
                           poster={item.thumbnail_url ?? undefined}
-                          controls autoPlay muted loop playsInline preload="auto"
+                          playsInline controls preload="metadata"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => console.error('[video] error:', e)}
                         />
@@ -6454,10 +6442,10 @@ export default function App() {
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
                       );
                     })()}
-                    {/* Tag badge — top-left overlay, per current slide */}
+                    {/* Tag badge — top-left overlay, per current slide, media pool style */}
                     {previewItems[previewSlide]?.tag && (
-                      <div className="absolute top-3 left-3 bg-purple-600/80 text-white text-xs px-2.5 py-1 rounded-full font-medium backdrop-blur-sm pointer-events-none">
-                        {previewItems[previewSlide].tag}
+                      <div className="absolute top-2 left-2 bg-purple-500/80 backdrop-blur-sm text-white text-xs px-2 py-0.5 rounded-full pointer-events-none flex items-center gap-1">
+                        {tagIcon(previewItems[previewSlide].tag!)} {tagLabel(previewItems[previewSlide].tag!)}
                       </div>
                     )}
                     {/* Slide counter — top-right overlay */}
