@@ -5624,7 +5624,7 @@ export default function App() {
           <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
-              style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
+              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }}>
               {/* LEFT: filename pill + date below */}
               <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
                 {(liveItem.display_name || liveItem.name) && (
