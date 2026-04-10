@@ -1383,7 +1383,6 @@ async function sendDailyPostReminders() {
   async function runCycle() {
     console.log('[notify] checking at', new Date().toISOString());
     const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
 
     // Fetch profiles via Supabase REST API (HTTPS — more reliable than direct PG on Render Free)
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -1416,14 +1415,20 @@ async function sendDailyPostReminders() {
 
     for (const user of usersToNotify) {
       try {
-        const tz = user.timezone || "UTC";
+        const tz = user.timezone || "Europe/Berlin";
         const userNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
+        // todayStr in the user's local timezone (not UTC) so post counts are correct
+        const userYear  = userNow.getFullYear();
+        const userMonth = String(userNow.getMonth() + 1).padStart(2, '0');
+        const userDay   = String(userNow.getDate()).padStart(2, '0');
+        const todayStr  = `${userYear}-${userMonth}-${userDay}`;
         const notifyTime = user.notify_time || "09:00";
         const [targetH, targetM] = notifyTime.split(':').map(Number);
         const diffMinutes = Math.abs(
           (userNow.getHours() * 60 + userNow.getMinutes()) - (targetH * 60 + targetM)
         );
-        if (diffMinutes > 1) continue;
+        // Allow 2-minute window to handle scheduler jitter
+        if (diffMinutes > 2) continue;
         // Avoid duplicate notifications — only send if last sent > 23 hours ago
         const lastSent = user.last_notification_sent ? new Date(user.last_notification_sent) : null;
         if (lastSent && (now - lastSent) / (1000 * 60 * 60) < 23) continue;
@@ -1434,7 +1439,7 @@ async function sendDailyPostReminders() {
         if (subs.length === 0) continue;
         // Pick a random motivational message
         const msg = { ...messages[Math.floor(Math.random() * messages.length)] };
-        // Append today's scheduled post count if any
+        // Append today's scheduled post count (using user-local date)
         const { rows: posts } = await pool.query(
           "SELECT COUNT(*) AS count FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved'",
           [user.user_id, todayStr]
