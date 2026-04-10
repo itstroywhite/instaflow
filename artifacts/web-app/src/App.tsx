@@ -6397,25 +6397,24 @@ export default function App() {
       {/* ── INSTAGRAM PREVIEW MODAL (Feature 1) ── */}
       {previewPost && (
         <div className="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-sm"
-          style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }}
           onClick={() => setPreviewPost(null)}>
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            {/* LEFT: filename + pencil + date below */}
             <button
-              onClick={() => setPreviewPost(null)}
-              className="flex items-center gap-1.5 px-3 rounded-full bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-sm font-medium transition-colors"
-              style={{ minHeight: 44 }}
+              className="flex flex-col items-start gap-0 flex-1 min-w-0 pr-2 py-1"
+              onClick={() => { if (previewItems[0]) { setRenameSheet(previewItems[0]); setRenameInput(previewItems[0].display_name ?? previewItems[0].name); } }}
             >
-              <span className="text-base leading-none">←</span>
-              <span>Back</span>
+              <div className="flex items-center gap-1.5 max-w-full">
+                <span className="text-white text-sm font-semibold truncate">{previewItems[0]?.display_name ?? previewItems[0]?.name ?? "Post"}</span>
+                <span className="text-white/40 text-[13px] flex-shrink-0">✎</span>
+              </div>
+              <span className="text-[11px] text-white/40 leading-tight">
+                {previewPost.createdAt ? new Date(previewPost.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+              </span>
             </button>
-            <div className="flex items-center gap-2.5">
-              <p className="text-xs text-white/50 font-medium">{previewPost.scheduledDate ?? previewPost.day}</p>
-              {getPostStatus(previewPost) === "posted" && (
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-semibold">✓ Posted</span>
-              )}
-            </div>
-            <button onClick={() => setPreviewPost(null)} className="text-white/60 hover:text-white w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors text-xl">✕</button>
+            {/* RIGHT: X close */}
+            <button onClick={() => setPreviewPost(null)} className="text-white/60 hover:text-white w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors text-xl flex-shrink-0">✕</button>
           </div>
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto flex flex-col items-center py-4" onClick={(e) => e.stopPropagation()}>
@@ -6463,9 +6462,16 @@ export default function App() {
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
                       );
                     })()}
+                    {/* Tag badge — top-left overlay */}
+                    {previewItems[0]?.tag && (
+                      <div className="absolute top-3 left-3 bg-purple-600/80 text-white text-xs px-2.5 py-1 rounded-full font-medium backdrop-blur-sm pointer-events-none">
+                        {previewItems[0].tag}
+                      </div>
+                    )}
+                    {/* Slide counter — top-right overlay */}
                     {previewItems.length > 1 && (
                       <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur-sm">
-                        {previewSlide + 1}/{previewItems.length}
+                        {previewSlide + 1} / {previewItems.length}
                       </div>
                     )}
                     {previewSlide > 0 && (
