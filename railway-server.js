@@ -1379,15 +1379,33 @@ app.post("/api/push/test", requireAuth, (req, res) => withTables(async () => {
 // ── Push notification scheduler (runs every minute) ───────────────────────────
 async function sendDailyPostReminders() {
   if (!process.env.VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) return;
-  console.log('[notify] checking at', new Date().toISOString());
-  try {
+
+  async function runCycle() {
+    console.log('[notify] checking at', new Date().toISOString());
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
-    const { rows: usersToNotify } = await pool.query(`
-      SELECT p.user_id, p.notify_time, p.timezone, p.last_notification_sent
-      FROM profiles p
-      WHERE p.notify_daily = true
-    `);
+
+    // Fetch profiles via Supabase REST API (HTTPS — more reliable than direct PG on Render Free)
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    let usersToNotify = [];
+    if (supabaseUrl && supabaseKey) {
+      const resp = await fetch(
+        `${supabaseUrl}/rest/v1/profiles?notify_daily=eq.true&select=user_id,notify_time,timezone,last_notification_sent`,
+        { headers: { apikey: supabaseKey, Authorization: `Bearer ${supabaseKey}` } }
+      );
+      if (!resp.ok) throw new Error(`[notify] Supabase REST ${resp.status}: ${await resp.text()}`);
+      usersToNotify = await resp.json();
+      console.log('[notify] profiles via REST:', usersToNotify.length);
+    } else {
+      // Fallback: direct pool query if Supabase env vars are not set
+      const { rows } = await pool.query(
+        `SELECT user_id, notify_time, timezone, last_notification_sent FROM profiles WHERE notify_daily = true`
+      );
+      usersToNotify = rows;
+      console.log('[notify] profiles via pool:', usersToNotify.length);
+    }
+
     const messages = [
       { title: "InstaFlow 📸", body: "Ready to create your next post? Your audience is waiting!" },
       { title: "InstaFlow ✨", body: "Time to share something great today. Open InstaFlow!" },
@@ -1408,40 +1426,49 @@ async function sendDailyPostReminders() {
         if (diffMinutes > 1) continue;
         // Avoid duplicate notifications — only send if last sent > 23 hours ago
         const lastSent = user.last_notification_sent ? new Date(user.last_notification_sent) : null;
-        console.log('[notify] last sent:', lastSent);
-        if (lastSent) {
-          const hoursSinceLast = (now - lastSent) / (1000 * 60 * 60);
-          if (hoursSinceLast < 23) continue;
-        }
-        // Get their subscriptions
+        if (lastSent && (now - lastSent) / (1000 * 60 * 60) < 23) continue;
+        // Get their push subscriptions
         const { rows: subs } = await pool.query(
           "SELECT subscription FROM push_subscriptions WHERE user_id = $1", [user.user_id]
         );
         if (subs.length === 0) continue;
         // Pick a random motivational message
         const msg = { ...messages[Math.floor(Math.random() * messages.length)] };
-        // If they have posts scheduled for today, append the count
+        // Append today's scheduled post count if any
         const { rows: posts } = await pool.query(
           "SELECT COUNT(*) AS count FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved'",
           [user.user_id, todayStr]
         );
         const postCount = parseInt(posts[0].count, 10);
         if (postCount > 0) msg.body += ` You have ${postCount} post${postCount !== 1 ? "s" : ""} scheduled for today.`;
-        console.log('[notify] sending to user:', user.user_id);
-        console.log('[notify] message:', msg.title, msg.body);
+        console.log('[notify] sending to user:', user.user_id, '|', msg.title);
         const payload = JSON.stringify({ title: msg.title, body: msg.body });
         await Promise.allSettled(subs.map(s => webpush.sendNotification(s.subscription, payload)));
-        // Record last sent time to prevent duplicates
         await pool.query(
-          "UPDATE profiles SET last_notification_sent = NOW() WHERE user_id = $1",
-          [user.user_id]
+          "UPDATE profiles SET last_notification_sent = NOW() WHERE user_id = $1", [user.user_id]
         );
       } catch (userErr) {
         console.error("[notify] error for user:", user.user_id, userErr.message);
       }
     }
+  }
+
+  // DNS-aware outer wrapper: retry once after 30 s on EAI_AGAIN / ENOTFOUND
+  try {
+    await runCycle();
   } catch (err) {
-    console.error("[notify] error:", err.message);
+    const isDns = err.message && (err.message.includes('EAI_AGAIN') || err.message.includes('ENOTFOUND'));
+    if (isDns) {
+      console.log('[notify] DNS error, retrying in 30 s:', err.message);
+      await new Promise(r => setTimeout(r, 30000));
+      try {
+        await runCycle();
+      } catch (retryErr) {
+        console.log('[notify] retry also failed, skipping cycle:', retryErr.message);
+      }
+    } else {
+      console.log('[notify] scheduler error (non-fatal):', err.message);
+    }
   }
 }
 
