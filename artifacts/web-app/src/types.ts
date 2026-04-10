@@ -29,7 +29,7 @@ export interface ApprovedPost {
   scheduledDate?: string | null;
   scheduledTime?: string | null;
   mediaIds?: string[];
-  status?: "draft" | "approved";
+  status?: "draft" | "approved" | "scheduled" | "posted";
   createdAt: string;
   timezone?: string;
   usedAICaption?: boolean;

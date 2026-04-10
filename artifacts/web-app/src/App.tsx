@@ -835,7 +835,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
     scrollSnapType: "y mandatory",
   };
 
-  function col(ref: React.RefObject<HTMLDivElement>, onScroll: () => void, count: number, cur: number) {
+  function col(ref: React.RefObject<HTMLDivElement | null>, onScroll: () => void, count: number, cur: number) {
     return (
       <div ref={ref} onScroll={onScroll} style={colStyle}>
         {Array.from({ length: count }, (_, i) => (
@@ -1435,6 +1435,7 @@ export default function App() {
           id: m.id, name: m.name, tag: m.tag, dataUrl: m.url, used: m.used ?? false,
           fileHash: m.file_hash ?? "", fileSize: m.file_size ?? 0, dimensions: m.dimensions ?? "",
           media_type: m.media_type ?? "image", thumbnail_url: m.thumbnail_url ?? "", duration: m.duration ?? 0,
+          analyzing: false,
         }));
         console.log("[folder-add] fetched:", items.length);
         setFolderPoolMedia(items);
@@ -1812,6 +1813,7 @@ export default function App() {
         window.scrollTo(0, scrollY);
       };
     }
+    return undefined;
   }, [upgradeModalOpen, folderAddSourceSheet, viewerTagPickerOpen, editorSaveSheet,
       discardConfirm, renameSheet, viewerItem, imageEditorItem, singlePickerOpen,
       folderPickerOpen, aiTypeModal, createPostModal]); // eslint-disable-line
@@ -2539,6 +2541,7 @@ export default function App() {
       const t = setTimeout(() => setSwipeHintVisible(false), 2000);
       return () => clearTimeout(t);
     }
+    return undefined;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!viewerItem]);
 
@@ -4954,7 +4957,7 @@ export default function App() {
                               onClick={async () => {
                                 if (plan === "free") { openProGate("Calendar Export (.ics)"); return; }
                                 try {
-                                  const res = await fetch(`${API_BASE}/api/posts/export/ical`, { headers: { Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}` } });
+                                  const res = await fetch(`${API_BASE}/api/posts/export/ical`, { headers: { Authorization: `Bearer ${(await supabase!.auth.getSession()).data.session?.access_token}` } });
                                   const text = await res.text();
                                   const blob = new Blob([text], { type: "text/calendar" });
                                   const url = URL.createObjectURL(blob);
