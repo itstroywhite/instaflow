@@ -2084,15 +2084,6 @@ export default function App() {
           showGlobalToast("File too large — max 50MB");
           continue;
         }
-        // Duplicate check for videos: name + size match
-        const isDupVideo = mediaItems.some((m) =>
-          m.name === f.name && (!m.fileSize || m.fileSize === f.size)
-        );
-        if (isDupVideo) {
-          setDuplicatesBanner((prev) => [...prev, f.name]);
-          setTimeout(() => setDuplicatesBanner([]), 5000);
-          continue;
-        }
         const [thumbUrl, duration] = await Promise.all([captureVideoThumbnail(f), getVideoDurationFromFile(f)]);
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
@@ -2861,16 +2852,31 @@ export default function App() {
     canvas.width = Math.round(srcW);
     canvas.height = Math.round(srcH);
     console.log("[edit] canvas size:", canvas.width, canvas.height);
-    console.log("[edit] filter applied:", fullFilterStr);
 
     const ctx = canvas.getContext("2d")!;
-    if (ctxFilterSupported()) {
-      ctx.filter = fullFilterStr;
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
-    } else {
-      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
-      applyPixelFilters(ctx, editorBrightness, editorContrast, editorSaturation, editorWarmth, editorSharpness);
+    ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, canvas.width, canvas.height);
+
+    // Pixel manipulation (bypasses ctx.filter for reliable cross-platform output)
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+    const bf = editorBrightness / 100;
+    const cf = editorContrast / 100;
+    const sf = editorSaturation / 100;
+    for (let i = 0; i < data.length; i += 4) {
+      let r = data[i], g = data[i + 1], b = data[i + 2];
+      r *= bf; g *= bf; b *= bf;
+      r = (r - 128) * cf + 128; g = (g - 128) * cf + 128; b = (b - 128) * cf + 128;
+      const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+      r = gray + (r - gray) * sf; g = gray + (g - gray) * sf; b = gray + (b - gray) * sf;
+      if (editorWarmth > 0) { r += editorWarmth * 0.5; b -= editorWarmth * 0.3; }
+      else if (editorWarmth < 0) { r += editorWarmth * 0.3; b -= editorWarmth * 0.5; }
+      if (editorFilter === "B&W") { const bw = 0.299 * r + 0.587 * g + 0.114 * b; r = g = b = bw; }
+      data[i]     = Math.min(255, Math.max(0, r));
+      data[i + 1] = Math.min(255, Math.max(0, g));
+      data[i + 2] = Math.min(255, Math.max(0, b));
     }
+    ctx.putImageData(imageData, 0, 0);
+    console.log("[edit] pixel pass done, brightness:", bf, "contrast:", cf, "sat:", sf);
 
     const dataUrl = canvas.toDataURL("image/jpeg", 0.88);
     console.log("[edit] dataUrl length:", dataUrl.length);
@@ -4177,7 +4183,11 @@ export default function App() {
                             <span className="text-black text-[9px] font-bold">{bulkSelectedIds.indexOf(item.id) + 1}</span>
                           </div>
                         )}
-
+                        {item.display_name && !bulkMode && !selectionMode && !folderAddMode && (
+                          <div className="absolute bottom-0 left-0 right-0 px-1.5 pt-3 pb-1 bg-gradient-to-t from-black/65 to-transparent pointer-events-none">
+                            <p className="text-[9px] text-white/80 truncate leading-tight">{item.display_name}</p>
+                          </div>
+                        )}
                         </div>
                       </div>
                     );
@@ -5610,43 +5620,45 @@ export default function App() {
           ? new Date(viewerItem.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
           : "";
         return (
-          <div className="fixed inset-0 z-[40] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
-            {/* Top bar — Bild-2 style: filename+date left, counter+X right */}
+          <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+            {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
-              style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}>
-              {/* LEFT: inline editable filename + date */}
-              <div className="flex flex-col gap-0.5 min-w-0 flex-1 mr-3">
-                <input
-                  key={liveItem.id}
-                  defaultValue={liveItem.display_name ?? liveItem.name}
-                  onBlur={(e) => { handleRenameMedia(liveItem, e.target.value); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="bg-transparent text-white text-sm font-semibold w-full outline-none border-b border-transparent focus:border-white/40 transition-colors truncate"
-                  style={{ minWidth: 0 }}
-                />
+              style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
+              {/* LEFT: filename pill + date below */}
+              <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
+                {(liveItem.display_name || liveItem.name) && (
+                  <button
+                    onClick={() => { setRenameSheet(liveItem); setRenameInput(liveItem.display_name ?? liveItem.name); }}
+                    className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 text-left max-w-full group self-start">
+                    <span className="text-white/90 text-xs font-medium truncate">{liveItem.display_name ?? liveItem.name}</span>
+                    <svg className="w-3 h-3 text-white/40 group-hover:text-white/80 flex-shrink-0 transition-colors" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/>
+                    </svg>
+                  </button>
+                )}
                 {(dateStr || timeStr) && (
-                  <span className="text-white/50 text-[11px] leading-none">
+                  <span className="text-white/45 text-[11px] leading-none pl-1">
                     {dateStr}{dateStr && timeStr ? " · " : ""}{timeStr}
                   </span>
                 )}
               </div>
               {/* RIGHT: counter + close */}
-              <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 {viewerNavList.length > 1 && (
-                  <span className="text-white/70 text-xs tabular-nums bg-black/50 backdrop-blur-sm border border-white/15 rounded-full px-3 py-1">
+                  <span className="text-white/60 text-xs tabular-nums bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">
                     {viewerNavIdx + 1} / {viewerNavList.length}
                   </span>
                 )}
                 <button onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}
-                  className="w-9 h-9 rounded-full bg-black/50 backdrop-blur-sm border border-white/15 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
+                  className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none transition-colors">
                   ✕
                 </button>
               </div>
             </div>
 
             {/* Main content — flex column, tap dark bg to close */}
-            <div className="flex-1 flex flex-col justify-center gap-3 pt-14 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
+            <div className="flex-1 flex flex-col justify-center gap-3 pt-20 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
 
               {/* ── Swipeable strip ── */}
               {/* Outer: relative wrapper for clip + badge overlays */}
@@ -5690,10 +5702,10 @@ export default function App() {
                           key={viewerItem.id}
                           src={viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          playsInline preload="metadata"
+                          autoPlay muted loop playsInline preload="metadata"
                           controls controlsList="nodownload nofullscreen"
                           onError={(e) => console.error("Video load error:", e)}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "black" }}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
                         <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
