@@ -5614,7 +5614,7 @@ export default function App() {
           ? new Date(viewerItem.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
           : "";
         return (
-          <div className="fixed inset-0 z-[60] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+          <div className="fixed inset-0 z-[40] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar — Bild-2 style: filename+date left, counter+X right */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
               style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}>
