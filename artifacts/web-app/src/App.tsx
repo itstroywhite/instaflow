@@ -5701,11 +5701,10 @@ export default function App() {
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         <video
                           key={viewerItem.id}
-                          src={viewerItem.dataUrl}
+                          src={viewerItem.url ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          autoPlay muted loop playsInline preload="metadata"
-                          controls controlsList="nodownload nofullscreen"
-                          onError={(e) => console.error("Video load error:", e)}
+                          autoPlay muted loop playsInline controls preload="auto"
+                          onError={(e) => console.error('[video] error:', e)}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
@@ -6397,28 +6396,10 @@ export default function App() {
 
       {/* ── INSTAGRAM PREVIEW MODAL (Feature 1) ── */}
       {previewPost && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-sm"
+        <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm"
           onClick={() => setPreviewPost(null)}>
-          {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-            {/* LEFT: filename + pencil + date below */}
-            <button
-              className="flex flex-col items-start gap-0 flex-1 min-w-0 pr-2 py-1"
-              onClick={() => { if (previewItems[0]) { setRenameSheet(previewItems[0]); setRenameInput(previewItems[0].display_name ?? previewItems[0].name); } }}
-            >
-              <div className="flex items-center gap-1.5 max-w-full">
-                <span className="text-white text-sm font-semibold truncate">{previewItems[0]?.display_name ?? previewItems[0]?.name ?? "Post"}</span>
-                <span className="text-white/40 text-[13px] flex-shrink-0">✎</span>
-              </div>
-              <span className="text-[11px] text-white/40 leading-tight">
-                {previewPost.createdAt ? new Date(previewPost.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
-              </span>
-            </button>
-            {/* RIGHT: X close */}
-            <button onClick={() => setPreviewPost(null)} className="text-white/60 hover:text-white w-11 h-11 flex items-center justify-center rounded-full hover:bg-white/10 active:bg-white/20 transition-colors text-xl flex-shrink-0">✕</button>
-          </div>
-          {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto flex flex-col items-center py-4" onClick={(e) => e.stopPropagation()}>
+          {/* Scrollable content — starts below fixed nav bar */}
+          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }} onClick={(e) => e.stopPropagation()}>
             {/* Instagram post card */}
             <div className="w-full max-w-sm bg-black text-white">
               {/* Post header */}
@@ -6453,13 +6434,16 @@ export default function App() {
                   <>
                     {(() => {
                       const item = previewItems[previewSlide];
-                      const src = item?.thumbnail_url && isVideo(item.dataUrl ?? "", item.media_type)
-                        ? item.thumbnail_url : item?.dataUrl ?? "";
                       return isVideo(item?.dataUrl ?? "", item?.media_type) ? (
-                        <video src={item.dataUrl} poster={item.thumbnail_url ?? undefined}
-                          className="w-full h-full object-cover" autoPlay muted loop playsInline />
+                        <video
+                          src={item.url ?? item.dataUrl}
+                          poster={item.thumbnail_url ?? undefined}
+                          controls autoPlay muted loop playsInline preload="auto"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => console.error('[video] error:', e)}
+                        />
                       ) : (
-                        <img src={src} alt="" className="w-full h-full object-cover"
+                        <img src={item?.dataUrl ?? ""} alt="" className="w-full h-full object-cover"
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
                       );
                     })()}
