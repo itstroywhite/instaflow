@@ -6400,7 +6400,7 @@ export default function App() {
         <div className="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-sm"
           onClick={() => setPreviewPost(null)}>
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 bg-black border-b border-white/10 flex-shrink-0" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-3 py-2 bg-black border-b border-white/10 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
             {/* LEFT: filename + pencil + date below */}
             <button
               className="flex flex-col items-start gap-0 flex-1 min-w-0 pr-2 py-1"
