@@ -114,14 +114,14 @@ function tagColor(tag: string, customTags: string[]) {
 }
 
 
-const DEFAULT_CAPTION_PROMPT = `You are writing ONE Instagram caption for a post. Do not describe individual images. Instead capture the overall mood, feeling, and vibe of the post as a whole. Write as if you are the person in the photos expressing how the moment felt. Keep it short, cool, lowercase, maximum 1-2 sentences plus maximum 2 hashtags on a new line.`;
+const DEFAULT_CAPTION_PROMPT = `You are a creative Instagram caption writer. Generate captions that are UNIQUE and specific to the actual content shown (use the provided content tags as context). Avoid generic phrases like "good vibes", "living my best life", "chasing dreams". Be specific, authentic, and match the visual content. Write as if you are the person in the moment. Keep it short and cool — maximum 1-2 sentences plus up to 2 relevant hashtags on a new line.`;
 const DEFAULT_CAPTION: CaptionSettings = {
-  tone: "cool, modern, lowercase", hashtags: [], maxLength: "short",
+  tone: "", hashtags: [], maxLength: "short",
   customInstructions: "", captionPrompt: DEFAULT_CAPTION_PROMPT,
 };
 const DEFAULT_SETTINGS: AppSettings = {
   notificationTime: DEFAULT_NOTIFICATION_TIME, defaultScheduleTime: DEFAULT_SCHEDULE_TIME,
-  preferredTags: ["me", "vibe", "food"], captionSettings: DEFAULT_CAPTION,
+  preferredTags: [], captionSettings: DEFAULT_CAPTION,
   customTags: [], hiddenBaseTags: [], instagramUsername: "", aiCustomPreferences: "",
   carouselSize: "random", slideOrderRule: "me-first", tagSequence: [],
 };
@@ -1210,6 +1210,7 @@ export default function App() {
 
   // Caption user ideas
   const [captionUserIdeas, setCaptionUserIdeas] = useState("");
+  const [captionUserIdeasOpen, setCaptionUserIdeasOpen] = useState(false);
 
   // Video upload progress
   const [videoUploadProgress, setVideoUploadProgress] = useState<{ current: number; total: number } | null>(null);
@@ -1326,6 +1327,7 @@ export default function App() {
   const [singleCaptionOptions, setSingleCaptionOptions] = useState<string[] | null>(null);
   const [singleCaptionIdx, setSingleCaptionIdx] = useState<number | null>(null);
   const [singleUserIdeas, setSingleUserIdeas] = useState("");
+  const [singleUserIdeasOpen, setSingleUserIdeasOpen] = useState(false);
   const [singleCaptionOptionsExpanded, setSingleCaptionOptionsExpanded] = useState(false);
   const singlePostFromScreen = useRef<Screen>("pool");
   const [singleToast, setSingleToast] = useState<string | null>(null);
@@ -1484,7 +1486,7 @@ export default function App() {
     async function loadAll() {
       try {
         const [mediaResp, posts, settings, rawFolders, countData] = await Promise.all([
-          apiGet<{ items: any[]; hasMore: boolean; total: number; page: number }>("/media?page=1"),
+          apiGet<{ items: any[] }>("/media?limit=1000"),
           apiGet<any[]>("/posts"),
           apiGet<Record<string, string>>("/settings"),
           apiGet<any[]>("/folders").catch(() => []),
@@ -1492,9 +1494,7 @@ export default function App() {
         ]);
         setMonthPostCount(countData.count ?? 0);
         const items: MediaItem[] = (mediaResp.items ?? []).map((i: any) => ({ ...i, analyzing: false }));
-        setMediaHasMore(mediaResp.hasMore ?? false);
-        setMediaPage(1);
-        setMediaTotal(mediaResp.total ?? items.length);
+        setMediaHasMore(false);
         const mediaIdsInPosts = new Set(posts.flatMap((p: any) => p.mediaIds ?? []));
         const toUnmark = items.filter((m) => m.used && !mediaIdsInPosts.has(m.id));
         if (toUnmark.length > 0) {
@@ -4035,9 +4035,19 @@ export default function App() {
                 )}
 
               <div className="grid grid-cols-3 gap-2"
-                onClick={selectionMode ? cancelSelection : undefined}
                 onPointerUp={() => setIsDragSelecting(false)}
-                onPointerLeave={() => setIsDragSelecting(false)}>
+                onPointerLeave={() => setIsDragSelecting(false)}
+                onTouchMove={(e) => {
+                  if (!isDragSelecting) return;
+                  const t = e.touches[0];
+                  const el = document.elementFromPoint(t.clientX, t.clientY);
+                  const mediaEl = el?.closest?.("[data-media-id]") as HTMLElement | null;
+                  const id = mediaEl?.dataset?.mediaId;
+                  if (!id) return;
+                  if (bulkMode) setBulkSelectedIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+                  if (selectionMode) setSelectedIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+                  if (folderAddMode) setFolderPendingIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+                }}>
 
                 {/* ── Media items ── */}
                 {(() => {
@@ -4089,18 +4099,21 @@ export default function App() {
                   );
                   const mappedItems = displayItems.map((item) => {
                     const isSelected = selectionMode ? selectedIds.includes(item.id) : bulkMode ? bulkSelectedIds.includes(item.id) : false;
-                    const isAnySelectActive = !!(bulkMode || selectionMode || folderAddMode);
                     return (
                       <div key={item.id}
+                        data-media-id={item.id}
                         onPointerDown={(e) => {
                           if (bulkMode) {
-                            e.currentTarget.setPointerCapture(e.pointerId);
                             setIsDragSelecting(true);
                             setBulkSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
                             return;
                           }
+                          if (selectionMode) {
+                            setIsDragSelecting(true);
+                            setSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
+                            return;
+                          }
                           if (folderAddMode) {
-                            e.currentTarget.setPointerCapture(e.pointerId);
                             setIsDragSelecting(true);
                             setFolderPendingIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
                             return;
@@ -4110,6 +4123,7 @@ export default function App() {
                         onPointerEnter={() => {
                           if (!isDragSelecting) return;
                           if (bulkMode) setBulkSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
+                          if (selectionMode) setSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
                           if (folderAddMode) setFolderPendingIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
                         }}
                         onPointerMove={checkLongPressMove}
@@ -4131,7 +4145,7 @@ export default function App() {
                           if (selectionMode) { e.stopPropagation(); toggleSelect(item.id); return; }
                           setViewerItem(item);
                         }}
-                        style={{ position: "relative", paddingBottom: "100%", touchAction: isAnySelectActive ? "none" : undefined }}
+                        style={{ position: "relative", paddingBottom: "100%", touchAction: isDragSelecting ? "none" : undefined }}
                         className={`rounded-xl overflow-hidden cursor-pointer transition-all select-none
                           ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[hsl(263,70%,65%)]" : ""}
                           ${(openFolder && folderAddMode && folderPendingIds.includes(item.id)) ? "ring-2 ring-emerald-400" : ""}
@@ -4211,15 +4225,6 @@ export default function App() {
                 })()}
               </div>
 
-              {/* ── Load More button (only in main pool, not inside a folder) ── */}
-              {!openFolder && mediaHasMore && (
-                <button
-                  onClick={loadMoreMedia}
-                  disabled={mediaLoadingMore}
-                  className="w-full mt-2 py-3 rounded-xl border border-[hsl(220,13%,22%)] text-sm text-[hsl(220,10%,55%)] hover:text-white hover:border-[hsl(220,13%,35%)] transition-colors disabled:opacity-50">
-                  {mediaLoadingMore ? "Loading…" : "Load More"}
-                </button>
-              )}
               </div>
             )}
           </div>
@@ -4519,6 +4524,18 @@ export default function App() {
                         style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, background: "rgba(0,0,0,0.8)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10, touchAction: "auto" }}>
                         <span style={{ color: "white", fontSize: 10, lineHeight: 1 }}>✕</span>
                       </button>
+                      {/* Tag badge — clickable if not scheduled/posted */}
+                      {item.tag && (() => {
+                        const canEdit = !editingPost || (editingPost.status === "draft");
+                        return (
+                          <button
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={(e) => { e.stopPropagation(); if (canEdit) setTagPickerItem(item); }}
+                            style={{ position: "absolute", top: 4, left: 4, zIndex: 10, touchAction: "auto", padding: "1px 4px", fontSize: 9, borderRadius: 6, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", color: "rgba(255,255,255,0.9)", border: "1px solid rgba(255,255,255,0.15)", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", gap: 2 }}>
+                            {tagIcon(item.tag)}
+                          </button>
+                        );
+                      })()}
                       <div style={{ position: "absolute", bottom: 4, left: 6 }}><span style={{ color: "white", fontSize: 9, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{displayIdx + 1}</span></div>
                     </div>
                   );
@@ -4564,6 +4581,24 @@ export default function App() {
                   style={{ resize: "none", overflow: "hidden", minHeight: 40 }}
                   className={`w-full bg-[hsl(220,14%,9%)] border ${carouselCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
                 />
+                {/* Your ideas collapsible */}
+                <div>
+                  <button onClick={() => setCaptionUserIdeasOpen((o) => !o)}
+                    className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-white transition-colors`}>
+                    <span>{captionUserIdeasOpen ? "▾" : "▸"}</span>
+                    <span>💡 Add your ideas <span className="opacity-60">(optional)</span></span>
+                  </button>
+                  {captionUserIdeasOpen && (
+                    <textarea
+                      value={captionUserIdeas}
+                      onChange={(e) => setCaptionUserIdeas(e.target.value)}
+                      placeholder="e.g. mention the rooftop, reference the music..."
+                      rows={2}
+                      style={{ resize: "none" }}
+                      className={`mt-2 w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,30%)] focus:border-[hsl(263,70%,65%)/40] transition-colors`}
+                    />
+                  )}
+                </div>
                 <button
                   onClick={() => handleGetCaptionOptions("fresh")}
                   disabled={generatingCaptions}
@@ -4753,6 +4788,24 @@ export default function App() {
                 style={{ resize: "none", overflow: "hidden", minHeight: 40 }}
                 className={`w-full bg-[hsl(220,14%,9%)] border ${singleCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
               />
+              {/* Your ideas collapsible */}
+              <div>
+                <button onClick={() => setSingleUserIdeasOpen((o) => !o)}
+                  className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-white transition-colors`}>
+                  <span>{singleUserIdeasOpen ? "▾" : "▸"}</span>
+                  <span>💡 Add your ideas <span className="opacity-60">(optional)</span></span>
+                </button>
+                {singleUserIdeasOpen && (
+                  <textarea
+                    value={singleUserIdeas}
+                    onChange={(e) => setSingleUserIdeas(e.target.value)}
+                    placeholder="e.g. mention the rooftop, reference the music..."
+                    rows={2}
+                    style={{ resize: "none" }}
+                    className={`mt-2 w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,30%)] focus:border-[hsl(263,70%,65%)/40] transition-colors`}
+                  />
+                )}
+              </div>
               <button
                 onClick={() => handleGenerateSingleCaption("fresh")}
                 disabled={singleGenerating}
@@ -5655,8 +5708,8 @@ export default function App() {
               <div className="w-full relative" style={{ aspectRatio: "4/5" }} onClick={(e) => e.stopPropagation()}>
                 {/* Clip zone with swipe handlers */}
                 <div
-                  className="absolute inset-0 overflow-hidden rounded-xl"
-                  style={{ cursor: viewerDragging ? "grabbing" : "grab", touchAction: "pan-y" }}
+                  className="absolute inset-0 rounded-xl"
+                  style={{ cursor: viewerDragging ? "grabbing" : "grab", touchAction: "pan-y", clipPath: "inset(0 round 12px)", WebkitClipPath: "inset(0 round 12px)" } as React.CSSProperties}
                   onTouchStart={(e) => onViewerDragStart(e.touches[0].clientX)}
                   onTouchMove={(e) => { e.stopPropagation(); onViewerDragMove(e.touches[0].clientX); }}
                   onTouchEnd={onViewerDragEnd}
@@ -6003,30 +6056,31 @@ export default function App() {
                       );
                     })}
 
-                    {/* + Save Preset tile — always the last item; hidden only when user has max 5 presets */}
-                    {customPresets.length < 5 && (
-                      <button
-                        onClick={() => {
-                          if (plan === "free") { openProGate("Custom filter presets"); return; }
-                          setSavePresetOpen(true);
-                        }}
-                        style={{ minWidth: 64, flexShrink: 0, opacity: 0.72 }}>
-                        <div className="flex flex-col items-center gap-1.5">
-                          <div
-                            style={{
-                              width: 56, height: 56, borderRadius: 12,
-                              border: "2px dashed rgba(255,255,255,0.35)",
-                              background: "rgba(255,255,255,0.04)",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                            }}>
-                            <span style={{ fontSize: 22, color: "rgba(255,255,255,0.55)", lineHeight: 1, userSelect: "none" }}>+</span>
+                    {/* + Save Preset tile — Free: none, Pro: max 3, Agency: unlimited */}
+                    {(() => {
+                      const maxPresets = plan === "agency" ? 999 : plan === "pro" ? 3 : 0;
+                      if (customPresets.length >= maxPresets) return null;
+                      return (
+                        <button
+                          onClick={() => setSavePresetOpen(true)}
+                          style={{ minWidth: 64, flexShrink: 0, opacity: 0.72 }}>
+                          <div className="flex flex-col items-center gap-1.5">
+                            <div
+                              style={{
+                                width: 56, height: 56, borderRadius: 12,
+                                border: "2px dashed rgba(255,255,255,0.35)",
+                                background: "rgba(255,255,255,0.04)",
+                                display: "flex", alignItems: "center", justifyContent: "center",
+                              }}>
+                              <span style={{ fontSize: 22, color: "rgba(255,255,255,0.55)", lineHeight: 1, userSelect: "none" }}>+</span>
+                            </div>
+                            <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", textAlign: "center", whiteSpace: "nowrap", lineHeight: 1.3 }}>
+                              Save Preset
+                            </span>
                           </div>
-                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)", textAlign: "center", whiteSpace: "nowrap", lineHeight: 1.3 }}>
-                            {plan === "free" ? "💎 " : ""}Save Preset
-                          </span>
-                        </div>
-                      </button>
-                    )}
+                        </button>
+                      );
+                    })()}
 
                   </div>
 
@@ -6404,10 +6458,12 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                {/* Username + date */}
+                {/* Username + date/status */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold leading-tight text-white">{igUsername}</p>
-                  <p className="text-[11px] text-white/50 leading-tight">{formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>
+                  {previewPost.status === "draft"
+                    ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-medium">Draft</span>
+                    : <p className="text-[11px] text-white/50 leading-tight">{formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>}
                 </div>
                 {/* Three dots + X */}
                 <div className="flex items-center gap-1 relative">
@@ -7166,31 +7222,23 @@ export default function App() {
         </div>
       )}
 
-      {/* ── FOLDER ADD SOURCE SHEET (Fix 2) ── */}
+      {/* ── FOLDER ADD SOURCE SHEET ── */}
       {folderAddSourceSheet && openFolder && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setFolderAddSourceSheet(false)}>
           <div className="absolute inset-0 bg-black/60" />
           <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-center pb-1">Add to <span className="text-[hsl(263,70%,70%)]">{openFolder.name}</span></p>
-            <button onClick={() => { setFolderAddSourceSheet(false); folderCameraInputRef.current?.click(); }}
+            <button onClick={() => { setFolderAddSourceSheet(false); folderFileInputRef.current?.click(); }}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
               <span className="text-2xl">📷</span>
               <div className="text-left">
-                <p className="text-sm font-semibold">Take Photo</p>
-                <p className={`text-xs ${dimText}`}>Use your camera to take a new photo</p>
-              </div>
-            </button>
-            <button onClick={() => { setFolderAddSourceSheet(false); folderFileInputRef.current?.click(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
-              <span className="text-2xl">🖼</span>
-              <div className="text-left">
-                <p className="text-sm font-semibold">Choose from Library</p>
-                <p className={`text-xs ${dimText}`}>Upload from your photo library</p>
+                <p className="text-sm font-semibold">Camera Roll</p>
+                <p className={`text-xs ${dimText}`}>Choose photos or videos from your library</p>
               </div>
             </button>
             <button onClick={() => { setFolderAddSourceSheet(false); setFolderAddMode(true); }}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
-              <span className="text-2xl">📁</span>
+              <span className="text-2xl">🖼</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">From Pool</p>
                 <p className={`text-xs ${dimText}`}>Choose from already uploaded media</p>
@@ -7852,24 +7900,13 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-                {/* Change password */}
+                {/* Password reset */}
                 <div className={`${card} p-5 space-y-3`}>
-                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Change Password</p>
-                  <input type="password" value={profileNewPassword} onChange={(e) => setProfileNewPassword(e.target.value)}
-                    placeholder="New password"
-                    className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
-                  <input type="password" value={profileConfirmPassword} onChange={(e) => setProfileConfirmPassword(e.target.value)}
-                    placeholder="Confirm new password"
-                    className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
-                  {profilePasswordMsg && (
-                    <p className={`text-xs ${profilePasswordMsg.startsWith("✓") ? "text-emerald-400" : "text-red-400"}`}>{profilePasswordMsg}</p>
-                  )}
-                  <button onClick={handleChangePassword} disabled={profilePasswordSaving || !profileNewPassword}
-                    className={`w-full py-2 rounded-xl border ${border} text-sm ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-50`}>
-                    {profilePasswordSaving ? "Updating…" : "Update Password"}
-                  </button>
-                  <button onClick={handleForgotPassword} className={`text-sm ${dimText} hover:text-white transition-colors`}>
-                    Send Password Reset Email →
+                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Password</p>
+                  <p className={`text-xs ${dimText}`}>Get a password reset link sent to your email address.</p>
+                  <button onClick={handleForgotPassword}
+                    className={`w-full py-2.5 rounded-xl border ${border} text-sm ${dimText} hover:text-white hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                    Send Password Reset Email
                   </button>
                 </div>
                 {/* Regional */}
