@@ -1203,7 +1203,14 @@ export default function App() {
   // Bulk selection (pool)
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<string[]>([]);
-  const [isDragSelecting, setIsDragSelecting] = useState(false);
+  // Drag-select uses refs to avoid re-renders (no conflict with scroll)
+  const isDragSelectingRef = useRef(false);
+  const dragActivateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dragTouchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const mediaGridRef = useRef<HTMLDivElement>(null);
+  // Stable callbacks updated every render so non-passive handler always has fresh state
+  const onDragSelectId = useRef<(id: string) => void>(() => {});
+  const onDragActivate = useRef<() => void>(() => {});
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressStartPos = useRef<{ x: number; y: number } | null>(null);
   const longPressFired = useRef(false);
@@ -1795,6 +1802,33 @@ export default function App() {
     mediaItems.forEach((m) => { if (m.thumbnail_url && !videoPosters[m.id]) toSync[m.id] = m.thumbnail_url; });
     if (Object.keys(toSync).length > 0) setVideoPosters((prev) => ({ ...prev, ...toSync }));
   }, [mediaItems]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Non-passive touchmove on media grid — allows preventDefault during drag-select
+  // while keeping normal scroll when not drag-selecting (passive is default in modern browsers)
+  useEffect(() => {
+    const grid = mediaGridRef.current;
+    if (!grid) return;
+    const handler = (e: TouchEvent) => {
+      if (!isDragSelectingRef.current) {
+        // If finger moved > 10px before 500ms timer fired → cancel drag, let scroll proceed
+        if (dragTouchStartPosRef.current && e.touches[0]) {
+          const dx = Math.abs(e.touches[0].clientX - dragTouchStartPosRef.current.x);
+          const dy = Math.abs(e.touches[0].clientY - dragTouchStartPosRef.current.y);
+          if (dx > 10 || dy > 10) {
+            if (dragActivateTimerRef.current) { clearTimeout(dragActivateTimerRef.current); dragActivateTimerRef.current = null; }
+          }
+        }
+        return;
+      }
+      e.preventDefault(); // block scroll during drag-select
+      if (!e.touches[0]) return;
+      const el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+      const id = (el?.closest("[data-media-id]") as HTMLElement | null)?.dataset?.mediaId;
+      if (id) onDragSelectId.current(id);
+    };
+    grid.addEventListener("touchmove", handler, { passive: false });
+    return () => grid.removeEventListener("touchmove", handler);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps — uses ref callbacks
 
   // Lock body scroll when any modal/sheet is open (prevents background scroll on iOS)
   useEffect(() => {
@@ -3497,6 +3531,22 @@ export default function App() {
     return <LoginScreen />;
   }
 
+  // ─── Drag-select ref callbacks — updated every render so handlers use fresh state ──
+  onDragSelectId.current = (id: string) => {
+    if (bulkMode) setBulkSelectedIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+    if (selectionMode) setSelectedIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+    if (folderAddMode) setFolderPendingIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+  };
+  onDragActivate.current = () => {
+    isDragSelectingRef.current = true;
+    dragActivateTimerRef.current = null;
+    if (dragTouchStartPosRef.current) {
+      const el = document.elementFromPoint(dragTouchStartPosRef.current.x, dragTouchStartPosRef.current.y);
+      const id = (el?.closest("[data-media-id]") as HTMLElement | null)?.dataset?.mediaId;
+      if (id) onDragSelectId.current(id);
+    }
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
   const sd = settingsDraft ?? appSettings;
   return (
@@ -4034,19 +4084,23 @@ export default function App() {
                   </div>
                 )}
 
-              <div className="grid grid-cols-3 gap-2"
-                onPointerUp={() => setIsDragSelecting(false)}
-                onPointerLeave={() => setIsDragSelecting(false)}
-                onTouchMove={(e) => {
-                  if (!isDragSelecting) return;
-                  const t = e.touches[0];
-                  const el = document.elementFromPoint(t.clientX, t.clientY);
-                  const mediaEl = el?.closest?.("[data-media-id]") as HTMLElement | null;
-                  const id = mediaEl?.dataset?.mediaId;
-                  if (!id) return;
-                  if (bulkMode) setBulkSelectedIds((prev) => prev.includes(id) ? prev : [...prev, id]);
-                  if (selectionMode) setSelectedIds((prev) => prev.includes(id) ? prev : [...prev, id]);
-                  if (folderAddMode) setFolderPendingIds((prev) => prev.includes(id) ? prev : [...prev, id]);
+              <div ref={mediaGridRef} className="grid grid-cols-3 gap-2"
+                onTouchStart={(e) => {
+                  if (!e.touches[0]) return;
+                  // Only start drag-timer when already in a select mode
+                  if (!bulkMode && !selectionMode && !folderAddMode) return;
+                  dragTouchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                  dragActivateTimerRef.current = setTimeout(() => onDragActivate.current(), 500);
+                }}
+                onTouchEnd={() => {
+                  if (dragActivateTimerRef.current) { clearTimeout(dragActivateTimerRef.current); dragActivateTimerRef.current = null; }
+                  isDragSelectingRef.current = false;
+                  dragTouchStartPosRef.current = null;
+                }}
+                onTouchCancel={() => {
+                  if (dragActivateTimerRef.current) { clearTimeout(dragActivateTimerRef.current); dragActivateTimerRef.current = null; }
+                  isDragSelectingRef.current = false;
+                  dragTouchStartPosRef.current = null;
                 }}>
 
                 {/* ── Media items ── */}
@@ -4103,32 +4157,38 @@ export default function App() {
                       <div key={item.id}
                         data-media-id={item.id}
                         onPointerDown={(e) => {
+                          if (e.pointerType === "touch") {
+                            // Touch drag handled by grid-level touch events (500ms long-press timer)
+                            clearLongPress(); startPoolLongPress(item, e, !!(openFolder && !folderAddMode));
+                            return;
+                          }
+                          // Mouse-only immediate drag-select
                           if (bulkMode) {
-                            setIsDragSelecting(true);
+                            isDragSelectingRef.current = true;
                             setBulkSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
                             return;
                           }
                           if (selectionMode) {
-                            setIsDragSelecting(true);
+                            isDragSelectingRef.current = true;
                             setSelectedIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
                             return;
                           }
                           if (folderAddMode) {
-                            setIsDragSelecting(true);
+                            isDragSelectingRef.current = true;
                             setFolderPendingIds((prev) => prev.includes(item.id) ? prev.filter((x) => x !== item.id) : [...prev, item.id]);
                             return;
                           }
                           clearLongPress(); startPoolLongPress(item, e, !!(openFolder && !folderAddMode));
                         }}
                         onPointerEnter={() => {
-                          if (!isDragSelecting) return;
+                          if (!isDragSelectingRef.current) return;
                           if (bulkMode) setBulkSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
                           if (selectionMode) setSelectedIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
                           if (folderAddMode) setFolderPendingIds((prev) => prev.includes(item.id) ? prev : [...prev, item.id]);
                         }}
                         onPointerMove={checkLongPressMove}
-                        onPointerUp={(e) => { setIsDragSelecting(false); clearLongPress(); }}
-                        onPointerCancel={() => { setIsDragSelecting(false); clearLongPress(); }}
+                        onPointerUp={() => { isDragSelectingRef.current = false; clearLongPress(); }}
+                        onPointerCancel={() => { isDragSelectingRef.current = false; clearLongPress(); }}
                         onClick={(e) => {
                           if (longPressFired.current) { longPressFired.current = false; return; }
                           if (bulkMode) { e.stopPropagation(); return; }
@@ -4145,7 +4205,7 @@ export default function App() {
                           if (selectionMode) { e.stopPropagation(); toggleSelect(item.id); return; }
                           setViewerItem(item);
                         }}
-                        style={{ position: "relative", paddingBottom: "100%", touchAction: isDragSelecting ? "none" : undefined }}
+                        style={{ position: "relative", paddingBottom: "100%" }}
                         className={`rounded-xl overflow-hidden cursor-pointer transition-all select-none
                           ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[hsl(263,70%,65%)]" : ""}
                           ${(openFolder && folderAddMode && folderPendingIds.includes(item.id)) ? "ring-2 ring-emerald-400" : ""}
@@ -4435,9 +4495,10 @@ export default function App() {
                         key={currentSlide.url ?? currentSlide.id}
                         src={currentSlide.url ?? currentSlide.dataUrl}
                         poster={currentSlide.thumbnail_url || (videoPosters[currentSlide.id] ?? undefined)}
-                        playsInline controls preload="metadata"
+                        playsInline={true} controls={true} preload="metadata"
                         data-slide
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                        onLoadStart={() => console.log('[video] src:', currentSlide.url ?? currentSlide.dataUrl)}
                         onError={(e) => console.error('[video] error:', e)}
                       />
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
@@ -4709,15 +4770,16 @@ export default function App() {
             </div>
 
             {/* 1. MAIN VIEWER + BOTTOM ACTION BAR (same card as Carousel) */}
-            <div className={`${card} overflow-hidden`}>
+            <div className={card}>
               {/* 4:5 viewer */}
-              <div className="relative rounded-t-xl" style={{ aspectRatio: "4/5" }}>
+              <div className="relative rounded-t-xl overflow-hidden" style={{ aspectRatio: "4/5" }}>
                 {isVideo(singlePostItem.dataUrl, singlePostItem.media_type)
                   ? <video
                       key={singlePostItem.url ?? singlePostItem.id}
                       src={singlePostItem.url ?? singlePostItem.dataUrl}
                       poster={singlePostItem.thumbnail_url || (videoPosters[singlePostItem.id] ?? undefined)}
-                      playsInline controls preload="metadata"
+                      playsInline={true} controls={true} preload="metadata"
+                      onLoadStart={() => console.log('[video] src:', singlePostItem.url ?? singlePostItem.dataUrl)}
                       onError={(e) => console.error('[video] error:', e)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
@@ -7228,9 +7290,17 @@ export default function App() {
           <div className="absolute inset-0 bg-black/60" />
           <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
             <p className="text-sm font-semibold text-center pb-1">Add to <span className="text-[hsl(263,70%,70%)]">{openFolder.name}</span></p>
-            <button onClick={() => { setFolderAddSourceSheet(false); folderFileInputRef.current?.click(); }}
+            <button onClick={() => { setFolderAddSourceSheet(false); folderCameraInputRef.current?.click(); }}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
               <span className="text-2xl">📷</span>
+              <div className="text-left">
+                <p className="text-sm font-semibold">Take Photo</p>
+                <p className={`text-xs ${dimText}`}>Open camera to take a new photo or video</p>
+              </div>
+            </button>
+            <button onClick={() => { setFolderAddSourceSheet(false); folderFileInputRef.current?.click(); }}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+              <span className="text-2xl">🖼️</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">Camera Roll</p>
                 <p className={`text-xs ${dimText}`}>Choose photos or videos from your library</p>
@@ -7238,10 +7308,10 @@ export default function App() {
             </button>
             <button onClick={() => { setFolderAddSourceSheet(false); setFolderAddMode(true); }}
               className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
-              <span className="text-2xl">🖼</span>
+              <span className="text-2xl">🗂️</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">From Pool</p>
-                <p className={`text-xs ${dimText}`}>Choose from already uploaded media</p>
+                <p className={`text-xs ${dimText}`}>Select from already uploaded media</p>
               </div>
             </button>
             <button onClick={() => setFolderAddSourceSheet(false)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
