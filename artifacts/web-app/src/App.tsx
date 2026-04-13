@@ -1509,11 +1509,14 @@ export default function App() {
           await Promise.all(toUnmark.map((m) => apiPatch(`/media/${m.id}`, { used: false }).catch(() => {})));
           toUnmark.forEach((m) => { m.used = false; });
         }
+        // httpUrl: only accept https:// storage URLs for the url field (rejects empty strings)
+        // anyUrl: also accept data: base64 strings for the dataUrl field
         const httpUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && s.startsWith("http") ? s : undefined);
+        const anyUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && (s.startsWith("http") || s.startsWith("data:")) ? s : undefined);
         setMediaItems(items.map((i: MediaItem) => ({
           ...i,
           url: httpUrl(i.url) ?? httpUrl(i.dataUrl),
-          dataUrl: httpUrl(i.url) ?? httpUrl(i.dataUrl) ?? "",
+          dataUrl: anyUrl(i.url) ?? anyUrl(i.dataUrl) ?? "",
         })));
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
@@ -2192,10 +2195,11 @@ export default function App() {
       };
 
       const httpUrl = (s: any): string | undefined => (typeof s === "string" && s.startsWith("http") ? s : undefined);
+      const anyUrl = (s: any): string | undefined => (typeof s === "string" && (s.startsWith("http") || s.startsWith("data:")) ? s : undefined);
       const applyUploadResult = (saved: any, prev: MediaItem[]) => prev.map((m) => m.id === item.id ? {
         ...m,
         url: httpUrl(saved.url) ?? httpUrl(m.url),
-        dataUrl: httpUrl(saved.url) ?? httpUrl(saved.dataUrl) ?? httpUrl(m.dataUrl) ?? m.dataUrl,
+        dataUrl: anyUrl(saved.url) ?? anyUrl(saved.dataUrl) ?? anyUrl(m.dataUrl) ?? m.dataUrl,
         thumbnail_url: saved.thumbnail_url ?? m.thumbnail_url,
       } : m);
 
@@ -5776,17 +5780,20 @@ export default function App() {
                     {/* Current panel — only live video for the active item */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
-                        viewerItem.url ? (
+                        (() => {
+                          // Use || so empty strings fall through to the next candidate
+                          const videoSrc = viewerItem.url || viewerItem.dataUrl || undefined;
+                          return videoSrc ? (
                           <video
                             key={viewerItem.id}
-                            src={viewerItem.url}
+                            src={videoSrc}
                             poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
                             muted autoPlay loop playsInline controls preload="auto"
                             onLoadStart={(e) => console.log('[viewer] id:', viewerItem.id, 'name:', viewerItem.name, 'src:', (e.target as HTMLVideoElement).src)}
                             onError={(e) => console.error('[viewer] id:', viewerItem.id, 'name:', viewerItem.name, 'url:', viewerItem.url, 'dataUrl:', viewerItem.dataUrl?.slice(0, 80), 'error:', (e.target as HTMLVideoElement).error)}
                             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                           />
-                        ) : (
+                          ) : (
                           <div className="relative w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
                             {viewerItem.thumbnail_url
                               ? <img src={viewerItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
@@ -5842,7 +5849,8 @@ export default function App() {
                             </button>
                             {console.warn("[viewer] no URL for video id:", viewerItem.id, "name:", viewerItem.name) as never}
                           </div>
-                        )
+                        );
+                        })()
                       ) : (
                         <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
