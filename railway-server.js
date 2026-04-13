@@ -1157,7 +1157,7 @@ app.post("/api/upload", requireAuth, async (req, res) => {
 
 // ── AI — Image Auto-Tag ───────────────────────────────────────────────────────
 
-const VALID_TAGS = ["me", "outfit", "food", "drinks", "dj", "vibe", "friends", "location", "city", "outdoor", "night", "pet", "animal", "other"];
+const VALID_TAGS = ["me","friends","pet","animal","food","drinks","outfit","gym","dj","party","city","location","outdoor","night","vibe","other"];
 
 app.post("/api/analyze", requireAuth, async (req, res) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -1201,29 +1201,62 @@ app.post("/api/analyze", requireAuth, async (req, res) => {
             source: { type: "base64", media_type: mediaType, data: base64data },
           }, {
             type: "text",
-            text: `Examine this image carefully and choose exactly ONE category. Follow the STRICT RULES below — do not deviate.
+            text: `TAGS (ONLY ONE TAG PER IMAGE)
 
-ABSOLUTE RULE — CHECK THIS FIRST:
-Is ANY person clearly visible as a subject in this image (selfie, portrait, mirror pic, someone posing, standing, sitting, looking at camera, or otherwise the focus)?
-- YES, exactly 1 person → ALWAYS tag "me". No exceptions. Even if indoors, at a restaurant, at a landmark, at night, holding food/drinks — if a person is the subject, it is "me".
-- YES, 2 or more people → ALWAYS tag "friends". No exceptions. Even if indoors, at a party, at a venue.
-- NO person as subject → continue to the categories below.
+PRIORITY ORDER (TOP = HIGHEST PRIORITY):
+1. me
+2. friends
+3. pet
+4. animal
+5. food
+6. drinks
+7. outfit
+8. gym
+9. dj
+10. party
+11. city
+12. location
+13. outdoor
+14. night
+15. vibe
+16. other
 
-CATEGORIES (only used when NO person is the subject):
-- "outfit" → Fashion focused: clothing flat lay or closeup of clothes/shoes/accessories with no person as focus.
-- "food" → Food is the ONLY subject: meal, plate, dessert, snacks. No person visible.
-- "drinks" → Drinks are the ONLY subject: wine, cocktails, beer, coffee. No person visible.
-- "dj" → DJ equipment: turntables, CDJs, mixer. No person as focus.
-- "city" → Outdoor urban scene: skyscrapers, city skyline, busy streets with tall buildings. No person as subject. NOT indoor.
-- "location" → A recognizable interior PLACE as subject: restaurant interior, bar/club space, museum, cafe, landmark building. No person as subject.
-- "outdoor" → Nature or outdoor scenery: hiking trail, beach, forest, park, mountains, landscape. No city buildings. No person.
-- "night" → Nighttime urban: city lights, neon signs, dark streets. No person as subject.
-- "pet" → Dog or cat as main subject. No person as subject.
-- "animal" → Any other animal. No person as subject.
-- "vibe" → Pure mood/aesthetic: decorative objects, candles, abstract textures, bokeh. Nothing else fits.
-- "other" → Anything that does not clearly fit the above.
+RULES:
+1. ALWAYS ASSIGN EXACTLY ONE TAG.
+2. IF MULTIPLE CONDITIONS MATCH → CHOOSE THE TAG WITH HIGHER PRIORITY.
+3. DO NOT COMBINE TAGS.
 
-Reply with ONLY the single category word in lowercase, nothing else.`,
+TAG DEFINITIONS:
+me: Main person is dominant subject (>50% of image focus). Solo person, selfie, portrait.
+friends: 2 or more people visible with no single dominant person.
+pet: Domesticated animal (dog, cat, rabbit, etc.) is main subject.
+animal: Non-domesticated or unclear animal is main subject.
+food: Food is main focus (≥40% of image). Not primarily drinks.
+drinks: Beverage is main focus (glass, bottle, cup, cocktail, wine).
+outfit: Clothing is main focus (full body shot, mirror photo, styling post). NOT a group image.
+gym: Gym environment OR workout activity clearly visible.
+dj: DJ equipment (turntables, CDJs, mixer) visible AND person actively performing/behind the decks. This tag takes priority over "me" when DJ setup is clearly present with a person performing.
+party: Crowd + party atmosphere (lights, club, event). No clear DJ focus.
+city: Urban environment (skyline, streets, buildings, architecture).
+location: Place/environment is main subject (indoor or outdoor). No strong person or object subject.
+outdoor: Image taken outside. No higher priority tag applies.
+night: Night or dark environment. No higher priority tag applies.
+vibe: No clear subject. Only mood or atmosphere detectable.
+other: No category matches.
+
+CONFLICT RULES:
+- me > friends
+- friends > party
+- dj > me (when DJ setup clearly visible with performer)
+- dj > party
+- pet > animal
+- food vs drinks → choose more visually dominant
+- gym > outfit
+- me > outfit
+
+VALID TAGS: ["me","friends","pet","animal","food","drinks","outfit","gym","dj","party","city","location","outdoor","night","vibe","other"]
+
+Reply with ONLY the single tag word in lowercase. Nothing else.`,
           }],
         }],
       }),

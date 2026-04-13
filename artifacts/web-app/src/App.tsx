@@ -16,30 +16,34 @@ const supabase = SUPABASE_URL && SUPABASE_ANON_KEY
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BASE_TAG_LABELS: Record<string, string> = {
-  me: "Me", outfit: "Outfit", food: "Food", drinks: "Drinks", dj: "DJ", vibe: "Vibe",
-  friends: "Friends", location: "Location", city: "City", outdoor: "Outdoor", night: "Night",
-  pet: "Pet", animal: "Animal", other: "Other",
+  me: "Me", friends: "Friends", pet: "Pet", animal: "Animal",
+  food: "Food", drinks: "Drinks", outfit: "Outfit", gym: "Gym",
+  dj: "DJ", party: "Party", city: "City", location: "Location",
+  outdoor: "Outdoor", night: "Night", vibe: "Vibe", other: "Other",
 };
 const BASE_TAG_COLORS: Record<string, string> = {
   me: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  outfit: "bg-pink-500/20 text-pink-300 border-pink-500/30",
-  food: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  drinks: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  dj: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  vibe: "bg-sky-500/20 text-sky-300 border-sky-500/30",
   friends: "bg-green-500/20 text-green-300 border-green-500/30",
-  location: "bg-teal-500/20 text-teal-300 border-teal-500/30",
-  city: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  outdoor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
-  night: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
   pet: "bg-rose-500/20 text-rose-300 border-rose-500/30",
   animal: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+  food: "bg-amber-500/20 text-amber-300 border-amber-500/30",
+  drinks: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+  outfit: "bg-pink-500/20 text-pink-300 border-pink-500/30",
+  gym: "bg-red-500/20 text-red-300 border-red-500/30",
+  dj: "bg-orange-500/20 text-orange-300 border-orange-500/30",
+  party: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30",
+  city: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+  location: "bg-teal-500/20 text-teal-300 border-teal-500/30",
+  outdoor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
+  night: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+  vibe: "bg-sky-500/20 text-sky-300 border-sky-500/30",
   other: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
 };
 const BASE_TAG_ICONS: Record<string, string> = {
-  me: "🧍", outfit: "👗", food: "🍽️", drinks: "🍹", dj: "🎧", vibe: "✨",
-  friends: "👥", location: "📍", city: "🏙️", outdoor: "🌿", night: "🌙",
-  pet: "🐾", animal: "🦋", other: "📷",
+  me: "🧍", friends: "👥", pet: "🐾", animal: "🦋",
+  food: "🍽️", drinks: "🍹", outfit: "👗", gym: "🏋️",
+  dj: "🎧", party: "🎉", city: "🏙️", location: "📍",
+  outdoor: "🌿", night: "🌙", vibe: "✨", other: "📷",
 };
 const BASE_TAGS = Object.keys(BASE_TAG_LABELS);
 const KEYWORD_TO_EMOJI: Record<string, string> = {
