@@ -2173,10 +2173,14 @@ export default function App() {
 
       try {
         const saved = await doUpload();
-        const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
-        if (storedUrl !== item.dataUrl) {
-          setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
-        }
+        const savedAny = saved as any;
+        const storedUrl: string = savedAny.url ?? savedAny.dataUrl ?? item.dataUrl;
+        setMediaItems((prev) => prev.map((m) => m.id === item.id ? {
+          ...m,
+          dataUrl: storedUrl,
+          url: savedAny.url ?? m.url,
+          thumbnail_url: savedAny.thumbnail_url ?? m.thumbnail_url,
+        } : m));
         setMediaTotal((t) => t + 1);
         return true;
       } catch (err: any) {
@@ -2184,10 +2188,14 @@ export default function App() {
         if (isVideo) {
           try {
             const saved = await doUpload();
-            const storedUrl: string = (saved as any).dataUrl ?? item.dataUrl;
-            if (storedUrl !== item.dataUrl) {
-              setMediaItems((prev) => prev.map((m) => m.id === item.id ? { ...m, dataUrl: storedUrl } : m));
-            }
+            const savedAny = saved as any;
+            const storedUrl: string = savedAny.url ?? savedAny.dataUrl ?? item.dataUrl;
+            setMediaItems((prev) => prev.map((m) => m.id === item.id ? {
+              ...m,
+              dataUrl: storedUrl,
+              url: savedAny.url ?? m.url,
+              thumbnail_url: savedAny.thumbnail_url ?? m.thumbnail_url,
+            } : m));
             setMediaTotal((t) => t + 1);
             return true;
           } catch {}
@@ -2575,29 +2583,39 @@ export default function App() {
   // Blob-URL fetch for viewer video — works around iOS Safari CORS/streaming restrictions
   useEffect(() => {
     let blobUrl: string | null = null;
+    let cancelled = false;
     setViewerVideoSrc(null);
-    if (viewerItem && isVideo(viewerItem.dataUrl, viewerItem.media_type) && viewerItem.url) {
-      const src = viewerItem.url;
-      console.log('[viewer-video] raw URL format:', src.slice(0, 80));
-      fetch(src)
-        .then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.blob();
-        })
-        .then((blob) => {
-          blobUrl = URL.createObjectURL(blob);
-          setViewerVideoSrc(blobUrl);
-          console.log('[viewer-video] blob URL created, type:', blob.type);
-        })
-        .catch((err) => {
-          console.warn('[viewer-video] blob fetch failed, falling back to direct URL:', err);
-          setViewerVideoSrc(src);
-        });
+    if (viewerItem && isVideo(viewerItem.dataUrl, viewerItem.media_type)) {
+      // Prefer item.url (Supabase public URL); fall back to dataUrl if it's a real https URL
+      const src = viewerItem.url
+        ?? (viewerItem.dataUrl && !viewerItem.dataUrl.startsWith("data:") ? viewerItem.dataUrl : null);
+      if (src) {
+        console.log('[viewer-video] raw URL:', src.slice(0, 80));
+        fetch(src)
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.blob();
+          })
+          .then((blob) => {
+            if (cancelled) return;
+            blobUrl = URL.createObjectURL(blob);
+            setViewerVideoSrc(blobUrl);
+            console.log('[viewer-video] blob URL ready, type:', blob.type, 'size:', blob.size);
+          })
+          .catch((err) => {
+            if (cancelled) return;
+            console.warn('[viewer-video] blob fetch failed, using direct URL:', err.message);
+            setViewerVideoSrc(src);
+          });
+      } else {
+        console.warn('[viewer-video] no playable src — item may only have base64 stored in DB');
+      }
     }
     return () => {
+      cancelled = true;
       if (blobUrl) { URL.revokeObjectURL(blobUrl); }
     };
-  }, [viewerItem?.id, viewerItem?.url]);
+  }, [viewerItem?.id, viewerItem?.url, viewerItem?.dataUrl]);
 
   function viewerGoNext() {
     if (viewerNavList.length === 0) return;

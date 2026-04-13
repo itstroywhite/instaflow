@@ -417,6 +417,7 @@ app.get("/api/media/by-ids", requireAuth, async (req, res) => {
 function mapMediaRow(r) {
   return {
     id: r.id, name: r.name, display_name: r.display_name ?? null, tag: r.tag,
+    url: r.url ?? null,
     dataUrl: r.url ?? "",
     folderId: r.folder_id ?? null,
     used: r.used ?? false, createdAt: r.created_at,
@@ -501,34 +502,66 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
   const header = dataUrl.slice(0, comma);
   const base64 = dataUrl.slice(comma + 1);
   const mediaType = header.split(";")[0].replace("data:", "") || "image/jpeg";
-  const ext = mediaType.split("/")[1]?.split("+")[0] || "jpg";
+  const ext = mediaType.split("/")[1]?.split("+")[0] || (isVideoUpload ? "mp4" : "jpg");
   const filename = `${userId}/${id}-${Date.now()}.${ext}`;
+
+  // ── Diagnostic logging (always) ──────────────────────────────────────────
+  console.log(`[upload] media_type: ${mediaType}, size: ${base64.length}, filename: ${filename}, isVideo: ${isVideoUpload}`);
 
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+
+  // ── Videos MUST go to Supabase Storage — no base64 fallback ─────────────
+  if (isVideoUpload && (!supabaseUrl || !supabaseKey)) {
+    console.error("[upload] VIDEO upload rejected — Supabase env vars not set");
+    return res.status(503).json({ error: "Video storage not configured — SUPABASE_URL/SUPABASE_SERVICE_KEY missing" });
+  }
 
   let publicUrl = null;
   if (supabaseUrl && supabaseKey) {
     try {
       const buffer = Buffer.from(base64, "base64");
-      console.log(`[media/upload] Uploading ${filename} (${buffer.length} bytes)`);
-      const uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/media/${filename}`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": mediaType, "x-upsert": "true" },
-        body: buffer,
-      });
+      console.log(`[upload] Uploading to Supabase Storage: ${filename} (${buffer.length} bytes, type=${mediaType})`);
+
+      // Use AbortController so very large video uploads don't hang forever
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), isVideoUpload ? 180_000 : 60_000);
+
+      let uploadRes;
+      try {
+        uploadRes = await fetch(`${supabaseUrl}/storage/v1/object/media/${filename}`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${supabaseKey}`,
+            "Content-Type": mediaType,
+            "x-upsert": "true",
+          },
+          body: buffer,
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+
       if (uploadRes.ok) {
         publicUrl = `${supabaseUrl}/storage/v1/object/public/media/${filename}`;
-        console.log(`[media/upload] Supabase OK: ${publicUrl}`);
+        console.log(`[upload] Supabase Storage OK → ${publicUrl}`);
       } else {
         const errBody = await uploadRes.text();
-        console.error(`[media/upload] Supabase ${uploadRes.status}: ${errBody}`);
+        console.error(`[upload] Supabase Storage error ${uploadRes.status}: ${errBody}`);
+        // Hard fail for videos — cannot store 50MB of base64 in the DB
+        if (isVideoUpload) {
+          return res.status(502).json({ error: `Video storage upload failed (${uploadRes.status}): ${errBody}` });
+        }
       }
     } catch (err) {
-      console.error("[media/upload] Supabase error:", err.message);
+      console.error("[upload] Supabase fetch threw:", err.message);
+      if (isVideoUpload) {
+        return res.status(502).json({ error: `Video storage upload failed: ${err.message}` });
+      }
     }
   } else {
-    console.warn("[media/upload] Supabase not configured, storing base64 fallback");
+    console.warn("[upload] Supabase not configured, storing base64 fallback (images only)");
   }
 
   await withTables(async () => {
@@ -547,7 +580,8 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
     );
     invalidateMedia(userId);
     const createdAt = new Date().toISOString();
-    res.json({ id, name, tag: finalTag, dataUrl: storeUrl, folderId: folderId ?? null, createdAt, media_type: finalMediaType, thumbnail_url: thumbUrl, duration: dur });
+    // Return both url and dataUrl so clients can use either field
+    res.json({ id, name, tag: finalTag, url: storeUrl, dataUrl: storeUrl, folderId: folderId ?? null, createdAt, media_type: finalMediaType, thumbnail_url: thumbUrl, duration: dur });
   }, res);
 });
 
@@ -1383,6 +1417,7 @@ async function sendDailyPostReminders() {
   async function runCycle() {
     console.log('[notify] checking at', new Date().toISOString());
     const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
 
     // Fetch profiles via Supabase REST API (HTTPS — more reliable than direct PG on Render Free)
     const supabaseUrl = process.env.SUPABASE_URL;
@@ -1415,20 +1450,14 @@ async function sendDailyPostReminders() {
 
     for (const user of usersToNotify) {
       try {
-        const tz = user.timezone || "Europe/Berlin";
+        const tz = user.timezone || "UTC";
         const userNow = new Date(now.toLocaleString("en-US", { timeZone: tz }));
-        // todayStr in the user's local timezone (not UTC) so post counts are correct
-        const userYear  = userNow.getFullYear();
-        const userMonth = String(userNow.getMonth() + 1).padStart(2, '0');
-        const userDay   = String(userNow.getDate()).padStart(2, '0');
-        const todayStr  = `${userYear}-${userMonth}-${userDay}`;
         const notifyTime = user.notify_time || "09:00";
         const [targetH, targetM] = notifyTime.split(':').map(Number);
         const diffMinutes = Math.abs(
           (userNow.getHours() * 60 + userNow.getMinutes()) - (targetH * 60 + targetM)
         );
-        // Allow 2-minute window to handle scheduler jitter
-        if (diffMinutes > 2) continue;
+        if (diffMinutes > 1) continue;
         // Avoid duplicate notifications — only send if last sent > 23 hours ago
         const lastSent = user.last_notification_sent ? new Date(user.last_notification_sent) : null;
         if (lastSent && (now - lastSent) / (1000 * 60 * 60) < 23) continue;
@@ -1439,7 +1468,7 @@ async function sendDailyPostReminders() {
         if (subs.length === 0) continue;
         // Pick a random motivational message
         const msg = { ...messages[Math.floor(Math.random() * messages.length)] };
-        // Append today's scheduled post count (using user-local date)
+        // Append today's scheduled post count if any
         const { rows: posts } = await pool.query(
           "SELECT COUNT(*) AS count FROM approved_posts WHERE user_id = $1 AND scheduled_date = $2 AND status = 'approved'",
           [user.user_id, todayStr]
