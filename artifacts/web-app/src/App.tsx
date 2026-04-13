@@ -2032,9 +2032,8 @@ export default function App() {
     const imageFiles = files.filter((f) => !f.type.startsWith("video/"));
     const videoFiles = files.filter((f) => f.type.startsWith("video/"));
 
-    if (videoFiles.length > 0 && !limits.videoUpload) {
-      setUpgradeModalData({ reasons: ["Video Upload & Playback"], canContinue: false, onContinue: () => {} });
-      setUpgradeModalOpen(true);
+    if (videoFiles.length > 0) {
+      showGlobalToast("Video upload coming soon — images only for now");
       if (imageFiles.length === 0) return;
     }
 
@@ -2093,40 +2092,8 @@ export default function App() {
       reader.readAsDataURL(file);
     })));
 
-    // Generate video thumbnails sequentially (heavy — avoid memory spikes)
-    const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
+    // Video upload is disabled — videoItems always empty
     const videoItems: MediaItem[] = [];
-    if (videoFiles.length > 0 && limits.videoUpload) {
-      for (const f of videoFiles) {
-        if (f.size > MAX_VIDEO_BYTES) {
-          showGlobalToast("File too large — max 50MB");
-          continue;
-        }
-        // Re-type .mov / QuickTime files as video/mp4 so Supabase Storage
-        // serves them with the correct MIME type and iOS Safari can stream them
-        let fileToUpload = f;
-        if (f.type === "video/quicktime" || f.name.toLowerCase().endsWith(".mov")) {
-          showGlobalToast("Converting video for compatibility…");
-          const mp4Name = f.name.replace(/\.mov$/i, ".mp4");
-          fileToUpload = new File([f], mp4Name, { type: "video/mp4" });
-        }
-        const [thumbUrl, duration] = await Promise.all([
-          captureVideoThumbnail(fileToUpload),
-          getVideoDurationFromFile(fileToUpload),
-        ]);
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(fileToUpload);
-        });
-        const item: MediaItem = {
-          id: generateId(), name: fileToUpload.name, tag: "video", analyzing: false,
-          dataUrl, used: false, media_type: "video",
-          thumbnail_url: thumbUrl || undefined, duration: duration || undefined,
-        };
-        videoItems.push(item);
-      }
-    }
 
     // ── Add all items to UI state immediately (optimistic) ────────────────────
     const allItems = [...imageItems, ...videoItems];
@@ -2165,9 +2132,6 @@ export default function App() {
 
     async function uploadOneItem(item: MediaItem, idx: number, showToast = true): Promise<boolean> {
       const isVideo = item.media_type === "video";
-      if (showToast && isVideo) {
-        showGlobalToast(`Uploading video ${idx} of ${total}… (may take a moment)`);
-      }
 
       const doUpload = async () => {
         if (isVideo) {
@@ -4781,7 +4745,7 @@ export default function App() {
               {/* Hidden file inputs (triggered programmatically from dropdown) */}
               <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-              <input ref={singleLibraryRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
+              <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
                 onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
 
               {/* Bottom bar — single "Choose File" button with dropdown */}
@@ -8562,11 +8526,11 @@ export default function App() {
       <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
       {/* Hidden inputs */}
-      <input ref={fileInputRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
+      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
       <input ref={addMoreCameraRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files, true); e.target.value = ""; }} />
-      <input ref={addMoreLibraryRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
+      <input ref={addMoreLibraryRef} type="file" accept="image/*" multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
       <input ref={folderCameraInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => {
@@ -8574,7 +8538,7 @@ export default function App() {
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
           e.target.value = "";
         }} />
-      <input ref={folderFileInputRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
+      <input ref={folderFileInputRef} type="file" accept="image/*" multiple className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
