@@ -5776,15 +5776,26 @@ export default function App() {
                     {/* Current panel — only live video for the active item */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
-                        <video
-                          key={viewerItem.id}
-                          src={viewerItem.url ?? viewerItem.dataUrl}
-                          poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          muted autoPlay loop playsInline controls preload="auto"
-                          onLoadStart={(e) => console.log('[viewer] video src:', (e.target as HTMLVideoElement).src)}
-                          onError={(e) => console.error('[viewer] video error:', (e.target as HTMLVideoElement).src, (e.target as HTMLVideoElement).error)}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                        />
+                        viewerItem.url ? (
+                          <video
+                            key={viewerItem.id}
+                            src={viewerItem.url}
+                            poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
+                            muted autoPlay loop playsInline controls preload="auto"
+                            onLoadStart={(e) => console.log('[viewer] id:', viewerItem.id, 'name:', viewerItem.name, 'src:', (e.target as HTMLVideoElement).src)}
+                            onError={(e) => console.error('[viewer] id:', viewerItem.id, 'name:', viewerItem.name, 'url:', viewerItem.url, 'dataUrl:', viewerItem.dataUrl?.slice(0, 80), 'error:', (e.target as HTMLVideoElement).error)}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
+                            {viewerItem.thumbnail_url
+                              ? <img src={viewerItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                              : null}
+                            <span className="relative text-4xl">⚠️</span>
+                            <span className="relative text-sm font-medium text-center px-6">Video URL missing — re-upload this video to fix it</span>
+                            {console.warn('[viewer] no URL for video id:', viewerItem.id, 'name:', viewerItem.name) as never}
+                          </div>
+                        )
                       ) : (
                         <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
