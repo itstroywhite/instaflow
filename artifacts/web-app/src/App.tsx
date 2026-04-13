@@ -4504,7 +4504,8 @@ export default function App() {
                         key={currentSlide.url ?? currentSlide.id}
                         src={currentSlide.url ?? currentSlide.dataUrl}
                         poster={currentSlide.thumbnail_url || (videoPosters[currentSlide.id] ?? undefined)}
-                        playsInline={true} controls={true} preload="metadata"
+                        muted autoPlay loop playsInline controls preload="auto"
+                        controlsList="nodownload nofullscreen"
                         data-slide
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         onLoadStart={(e) => console.log('[video] attempting to play:', (e.target as HTMLVideoElement).src)}
@@ -4787,7 +4788,8 @@ export default function App() {
                       key={singlePostItem.url ?? singlePostItem.id}
                       src={singlePostItem.url ?? singlePostItem.dataUrl}
                       poster={singlePostItem.thumbnail_url || (videoPosters[singlePostItem.id] ?? undefined)}
-                      playsInline={true} controls={true} preload="metadata"
+                      muted autoPlay loop playsInline controls preload="auto"
+                      controlsList="nodownload nofullscreen"
                       onLoadStart={(e) => console.log('[video] attempting to play:', (e.target as HTMLVideoElement).src)}
                       onError={(e) => console.error('[video] error:', (e.target as HTMLVideoElement).src, e)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -5242,7 +5244,7 @@ export default function App() {
                             <div className="flex items-stretch">
                               {allThumbs.length > 0 && (
                                 <div className="w-14 flex-shrink-0 overflow-hidden">
-                                  {isVideo(allThumbs[0].dataUrl) ? <video src={allThumbs[0].url ?? allThumbs[0].dataUrl} playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : <img src={allThumbs[0].dataUrl} alt="" className="w-full h-full object-cover" />}
+                                  {isVideo(allThumbs[0].dataUrl) ? <video src={allThumbs[0].url ?? allThumbs[0].dataUrl} muted autoPlay loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : <img src={allThumbs[0].dataUrl} alt="" className="w-full h-full object-cover" />}
                                 </div>
                               )}
                               <div className="flex-1 p-3 space-y-1.5 min-w-0">
@@ -5813,10 +5815,11 @@ export default function App() {
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         <video
-                          key={viewerItem.id}
+                          key={viewerVideoSrc ?? viewerItem.id}
                           src={viewerVideoSrc ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          playsInline controls preload="metadata"
+                          muted autoPlay loop playsInline controls preload="auto"
+                          controlsList="nodownload nofullscreen"
                           crossOrigin="anonymous"
                           onLoadStart={(e) => console.log('[viewer-video] loadstart src:', (e.target as HTMLVideoElement).src.slice(0, 60))}
                           onError={(e) => console.error('[viewer-video] error:', (e.target as HTMLVideoElement).src.slice(0, 60), e)}
@@ -6368,7 +6371,7 @@ export default function App() {
               <div className="w-full max-w-sm rounded-xl" style={{ aspectRatio: "4/5" }}>
                 {isVideo(uItem.dataUrl, uItem.media_type) ? (
                   <video key={uItem.url ?? uItem.id} src={uItem.url ?? uItem.dataUrl} poster={uItem.thumbnail_url || (videoPosters[uItem.id] ?? undefined)}
-                    playsInline controls preload="metadata"
+                    muted autoPlay loop playsInline controls preload="auto" controlsList="nodownload nofullscreen"
                     style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                 ) : (
                   <img src={uItem.dataUrl} alt={uItem.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -6481,7 +6484,7 @@ export default function App() {
                           }
                         }}
                         className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${isSelected ? "border-[hsl(263,70%,65%)]" : "border-transparent hover:border-[hsl(263,70%,65%)/50]"}`}>
-                        {isVideo(item.dataUrl) ? <video src={item.url ?? item.dataUrl} playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                        {isVideo(item.dataUrl) ? <video src={item.url ?? item.dataUrl} muted autoPlay loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {/* Number badge */}
                         {isSelected && (
                           <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center shadow-lg">
@@ -6576,7 +6579,7 @@ export default function App() {
                         <video
                           src={item.url ?? item.dataUrl}
                           poster={item.thumbnail_url ?? undefined}
-                          playsInline controls preload="metadata"
+                          muted autoPlay loop playsInline controls preload="auto"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => console.error('[video] error:', e)}
                         />
@@ -6974,7 +6977,7 @@ export default function App() {
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-[hsl(263,70%,65%)/15] border border-[hsl(263,70%,65%)/30] flex items-center justify-center mx-auto overflow-hidden">
                 {isVideo(confirmRemoveItem.dataUrl)
-                  ? <video src={confirmRemoveItem.url ?? confirmRemoveItem.dataUrl} playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ? <video src={confirmRemoveItem.url ?? confirmRemoveItem.dataUrl} muted loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   : <img src={confirmRemoveItem.dataUrl} alt="" className="w-full h-full object-cover" />}
               </div>
               <p className="font-semibold text-[hsl(220,10%,90%)]">Remove from folder?</p>
@@ -7185,7 +7188,7 @@ export default function App() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
-                  {isVideo(tagPickerItem.dataUrl) ? <video src={tagPickerItem.url ?? tagPickerItem.dataUrl} playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : <img src={tagPickerItem.dataUrl} alt="" className="w-full h-full object-cover" />}
+                  {isVideo(tagPickerItem.dataUrl) ? <video src={tagPickerItem.url ?? tagPickerItem.dataUrl} muted loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : <img src={tagPickerItem.dataUrl} alt="" className="w-full h-full object-cover" />}
                 </div>
                 <div>
                   <p className="text-sm font-medium">Change tag</p>
@@ -7239,9 +7242,7 @@ export default function App() {
                 <video
                   key={currentVideo.url ?? currentVideo.id}
                   src={currentVideo.url ?? currentVideo.dataUrl}
-                  controls
-                  playsInline
-                  preload="metadata"
+                  muted autoPlay loop controls playsInline preload="auto"
                   style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", maxHeight: "40vh" }}
                 />
               </div>
@@ -7346,7 +7347,7 @@ export default function App() {
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
                 {isVideo(folderItemContextMenu.dataUrl)
-                  ? <video src={folderItemContextMenu.url ?? folderItemContextMenu.dataUrl} playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  ? <video src={folderItemContextMenu.url ?? folderItemContextMenu.dataUrl} muted loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   : <img src={folderItemContextMenu.dataUrl} alt="" className="w-full h-full object-cover" />}
               </div>
               <div>
