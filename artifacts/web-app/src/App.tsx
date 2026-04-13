@@ -1509,10 +1509,11 @@ export default function App() {
           await Promise.all(toUnmark.map((m) => apiPatch(`/media/${m.id}`, { used: false }).catch(() => {})));
           toUnmark.forEach((m) => { m.used = false; });
         }
+        const httpUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && s.startsWith("http") ? s : undefined);
         setMediaItems(items.map((i: MediaItem) => ({
           ...i,
-          url: i.url ?? i.dataUrl ?? null,
-          dataUrl: i.url ?? i.dataUrl ?? "",
+          url: httpUrl(i.url) ?? httpUrl(i.dataUrl),
+          dataUrl: httpUrl(i.url) ?? httpUrl(i.dataUrl) ?? "",
         })));
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
@@ -2190,10 +2191,11 @@ export default function App() {
         if (isVideo) setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
       };
 
+      const httpUrl = (s: any): string | undefined => (typeof s === "string" && s.startsWith("http") ? s : undefined);
       const applyUploadResult = (saved: any, prev: MediaItem[]) => prev.map((m) => m.id === item.id ? {
         ...m,
-        url: saved.url ?? m.url,
-        dataUrl: saved.url ?? saved.dataUrl ?? m.dataUrl,
+        url: httpUrl(saved.url) ?? httpUrl(m.url),
+        dataUrl: httpUrl(saved.url) ?? httpUrl(saved.dataUrl) ?? httpUrl(m.dataUrl) ?? m.dataUrl,
         thumbnail_url: saved.thumbnail_url ?? m.thumbnail_url,
       } : m);
 
