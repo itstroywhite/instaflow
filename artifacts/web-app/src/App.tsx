@@ -1256,6 +1256,7 @@ export default function App() {
 
   // Fullscreen viewer
   const [viewerItem, setViewerItem] = useState<MediaItem | null>(null);
+  const [viewerVideoSrc, setViewerVideoSrc] = useState<string | null>(null);
   const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
   const [mediaSearchOpen, setMediaSearchOpen] = useState(false);
   const [mediaSearchQuery, setMediaSearchQuery] = useState("");
@@ -2570,6 +2571,33 @@ export default function App() {
       });
     };
   }, [viewerItem?.id]);
+
+  // Blob-URL fetch for viewer video — works around iOS Safari CORS/streaming restrictions
+  useEffect(() => {
+    let blobUrl: string | null = null;
+    setViewerVideoSrc(null);
+    if (viewerItem && isVideo(viewerItem.dataUrl, viewerItem.media_type) && viewerItem.url) {
+      const src = viewerItem.url;
+      console.log('[viewer-video] raw URL format:', src.slice(0, 80));
+      fetch(src)
+        .then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.blob();
+        })
+        .then((blob) => {
+          blobUrl = URL.createObjectURL(blob);
+          setViewerVideoSrc(blobUrl);
+          console.log('[viewer-video] blob URL created, type:', blob.type);
+        })
+        .catch((err) => {
+          console.warn('[viewer-video] blob fetch failed, falling back to direct URL:', err);
+          setViewerVideoSrc(src);
+        });
+    }
+    return () => {
+      if (blobUrl) { URL.revokeObjectURL(blobUrl); }
+    };
+  }, [viewerItem?.id, viewerItem?.url]);
 
   function viewerGoNext() {
     if (viewerNavList.length === 0) return;
@@ -5753,10 +5781,12 @@ export default function App() {
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         <video
                           key={viewerItem.id}
-                          src={viewerItem.url ?? viewerItem.dataUrl}
+                          src={viewerVideoSrc ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
                           playsInline controls preload="metadata"
-                          onError={(e) => console.error('[video] error:', e)}
+                          crossOrigin="anonymous"
+                          onLoadStart={(e) => console.log('[viewer-video] loadstart src:', (e.target as HTMLVideoElement).src.slice(0, 60))}
+                          onError={(e) => console.error('[viewer-video] error:', (e.target as HTMLVideoElement).src.slice(0, 60), e)}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
