@@ -1260,7 +1260,7 @@ export default function App() {
 
   // Fullscreen viewer
   const [viewerItem, setViewerItem] = useState<MediaItem | null>(null);
-  const [viewerVideoSrc, setViewerVideoSrc] = useState<string | null>(null);
+
   const [filterFavoritesOnly, setFilterFavoritesOnly] = useState(false);
   const [mediaSearchOpen, setMediaSearchOpen] = useState(false);
   const [mediaSearchQuery, setMediaSearchQuery] = useState("");
@@ -2594,43 +2594,6 @@ export default function App() {
       });
     };
   }, [viewerItem?.id]);
-
-  // Blob-URL fetch for viewer video — works around iOS Safari CORS/streaming restrictions
-  useEffect(() => {
-    let blobUrl: string | null = null;
-    let cancelled = false;
-    setViewerVideoSrc(null);
-    if (viewerItem && isVideo(viewerItem.dataUrl, viewerItem.media_type)) {
-      // Prefer item.url (Supabase public URL); fall back to dataUrl if it's a real https URL
-      const src = viewerItem.url
-        ?? (viewerItem.dataUrl && !viewerItem.dataUrl.startsWith("data:") ? viewerItem.dataUrl : null);
-      if (src) {
-        console.log('[viewer-video] raw URL:', src.slice(0, 80));
-        fetch(src)
-          .then((r) => {
-            if (!r.ok) throw new Error(`HTTP ${r.status}`);
-            return r.blob();
-          })
-          .then((blob) => {
-            if (cancelled) return;
-            blobUrl = URL.createObjectURL(blob);
-            setViewerVideoSrc(blobUrl);
-            console.log('[viewer-video] blob URL ready, type:', blob.type, 'size:', blob.size);
-          })
-          .catch((err) => {
-            if (cancelled) return;
-            console.warn('[viewer-video] blob fetch failed, using direct URL:', err.message);
-            setViewerVideoSrc(src);
-          });
-      } else {
-        console.warn('[viewer-video] no playable src — item may only have base64 stored in DB');
-      }
-    }
-    return () => {
-      cancelled = true;
-      if (blobUrl) { URL.revokeObjectURL(blobUrl); }
-    };
-  }, [viewerItem?.id, viewerItem?.url, viewerItem?.dataUrl]);
 
   function viewerGoNext() {
     if (viewerNavList.length === 0) return;
@@ -5815,14 +5778,10 @@ export default function App() {
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         <video
-                          key={viewerVideoSrc ?? viewerItem.id}
-                          src={viewerVideoSrc ?? viewerItem.dataUrl}
+                          key={viewerItem.id}
+                          src={viewerItem.url ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
                           muted autoPlay loop playsInline controls preload="auto"
-                          controlsList="nodownload nofullscreen"
-                          crossOrigin="anonymous"
-                          onLoadStart={(e) => console.log('[viewer-video] loadstart src:', (e.target as HTMLVideoElement).src.slice(0, 60))}
-                          onError={(e) => console.error('[viewer-video] error:', (e.target as HTMLVideoElement).src.slice(0, 60), e)}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
