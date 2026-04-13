@@ -5787,13 +5787,60 @@ export default function App() {
                             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                           />
                         ) : (
-                          <div className="w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
+                          <div className="relative w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
                             {viewerItem.thumbnail_url
-                              ? <img src={viewerItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
+                              ? <img src={viewerItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
                               : null}
                             <span className="relative text-4xl">⚠️</span>
-                            <span className="relative text-sm font-medium text-center px-6">Video URL missing — re-upload this video to fix it</span>
-                            {console.warn('[viewer] no URL for video id:', viewerItem.id, 'name:', viewerItem.name) as never}
+                            <span className="relative text-sm font-medium text-center px-6 text-white/70">
+                              Video file missing — tap below to re-upload
+                            </span>
+                            <button
+                              className="relative mt-1 px-5 py-2 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 text-white text-sm font-semibold transition-colors"
+                              onClick={() => {
+                                const input = document.createElement("input");
+                                input.type = "file";
+                                input.accept = "video/*";
+                                input.onchange = async () => {
+                                  const file = input.files?.[0];
+                                  if (!file) return;
+                                  showGlobalToast("Re-uploading video…");
+                                  const reader = new FileReader();
+                                  reader.onload = async (ev) => {
+                                    const dataUrl = ev.target?.result as string;
+                                    const itemId = viewerItem.id;
+                                    const itemName = viewerItem.name;
+                                    try {
+                                      const saved = await apiPostWithTimeout("/media/upload", {
+                                        id: itemId, name: itemName, dataUrl,
+                                        tag: "video", fileHash: "", fileSize: file.size, dimensions: "",
+                                        media_type: "video",
+                                        thumbnail_url: viewerItem.thumbnail_url || "",
+                                        duration: viewerItem.duration || 0,
+                                      }, 180_000) as any;
+                                      const httpUrl2 = (s: any): string | undefined =>
+                                        typeof s === "string" && s.startsWith("http") ? s : undefined;
+                                      const newUrl = httpUrl2(saved.url);
+                                      if (newUrl) {
+                                        setMediaItems((prev) => prev.map((m) =>
+                                          m.id === itemId ? { ...m, url: newUrl, dataUrl: newUrl } : m));
+                                        setViewerItem((v) => v?.id === itemId ? { ...v, url: newUrl } : v);
+                                        showGlobalToast("Video fixed!");
+                                      } else {
+                                        showGlobalToast("Re-upload failed — try again");
+                                      }
+                                    } catch {
+                                      showGlobalToast("Re-upload failed — check connection");
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                };
+                                input.click();
+                              }}
+                            >
+                              Re-upload video
+                            </button>
+                            {console.warn("[viewer] no URL for video id:", viewerItem.id, "name:", viewerItem.name) as never}
                           </div>
                         )
                       ) : (
