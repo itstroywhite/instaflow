@@ -501,8 +501,11 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
   if (comma === -1) return res.status(400).json({ error: "Invalid dataUrl format" });
   const header = dataUrl.slice(0, comma);
   const base64 = dataUrl.slice(comma + 1);
-  const mediaType = header.split(";")[0].replace("data:", "") || "image/jpeg";
-  const ext = mediaType.split("/")[1]?.split("+")[0] || (isVideoUpload ? "mp4" : "jpg");
+  let mediaType = header.split(";")[0].replace("data:", "") || "image/jpeg";
+  // Normalise QuickTime/MOV → MP4 so Supabase serves it with a streamable MIME type
+  if (mediaType === "video/quicktime") mediaType = "video/mp4";
+  let ext = mediaType.split("/")[1]?.split("+")[0] || (isVideoUpload ? "mp4" : "jpg");
+  if (ext === "quicktime") ext = "mp4";
   const filename = `${userId}/${id}-${Date.now()}.${ext}`;
 
   // ── Diagnostic logging (always) ──────────────────────────────────────────

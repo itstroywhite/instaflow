@@ -2090,14 +2090,25 @@ export default function App() {
           showGlobalToast("File too large — max 50MB");
           continue;
         }
-        const [thumbUrl, duration] = await Promise.all([captureVideoThumbnail(f), getVideoDurationFromFile(f)]);
+        // Re-type .mov / QuickTime files as video/mp4 so Supabase Storage
+        // serves them with the correct MIME type and iOS Safari can stream them
+        let fileToUpload = f;
+        if (f.type === "video/quicktime" || f.name.toLowerCase().endsWith(".mov")) {
+          showGlobalToast("Converting video for compatibility…");
+          const mp4Name = f.name.replace(/\.mov$/i, ".mp4");
+          fileToUpload = new File([f], mp4Name, { type: "video/mp4" });
+        }
+        const [thumbUrl, duration] = await Promise.all([
+          captureVideoThumbnail(fileToUpload),
+          getVideoDurationFromFile(fileToUpload),
+        ]);
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(f);
+          reader.readAsDataURL(fileToUpload);
         });
         const item: MediaItem = {
-          id: generateId(), name: f.name, tag: "video", analyzing: false,
+          id: generateId(), name: fileToUpload.name, tag: "video", analyzing: false,
           dataUrl, used: false, media_type: "video",
           thumbnail_url: thumbUrl || undefined, duration: duration || undefined,
         };
