@@ -580,7 +580,11 @@ app.post("/api/media/upload", requireAuth, async (req, res) => {
     await pool.query(
       `INSERT INTO media_items (id, name, tag, url, folder_id, used, user_id, file_hash, file_size, dimensions, media_type, thumbnail_url, duration)
        VALUES ($1,$2,$3,$4,$5,FALSE,$6,$7,$8,$9,$10,$11,$12)
-       ON CONFLICT (id) DO NOTHING`,
+       ON CONFLICT (id) DO UPDATE SET
+         url = EXCLUDED.url,
+         thumbnail_url = COALESCE(EXCLUDED.thumbnail_url, media_items.thumbnail_url),
+         duration = COALESCE(EXCLUDED.duration, media_items.duration),
+         media_type = COALESCE(EXCLUDED.media_type, media_items.media_type)`,
       [id, name, finalTag, storeUrl, folderId ?? null, userId,
        fileHash || null, fileSize || null, dimensions || null, finalMediaType, thumbUrl, dur]
     );
