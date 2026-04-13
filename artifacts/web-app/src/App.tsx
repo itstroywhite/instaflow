@@ -1847,31 +1847,10 @@ export default function App() {
     const slide = carouselIds[carouselIndex] ? mediaItems.find((m) => m.id === carouselIds[carouselIndex]) : null;
     if (slide && isVideo(slide.dataUrl, slide.media_type)) {
       setPlayingVideoId(slide.id);
-      const video = document.querySelector<HTMLVideoElement>(".carousel-video");
-      if (video) video.play().catch(() => {});
     } else {
       setPlayingVideoId(null);
     }
   }, [carouselIndex, carouselIds]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-play single post video when item changes
-  useEffect(() => {
-    if (singlePostItem && isVideo(singlePostItem.dataUrl, singlePostItem.media_type)) {
-      const video = document.querySelector<HTMLVideoElement>(".single-post-video");
-      if (video) video.play().catch(() => {});
-    }
-  }, [singlePostItem?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-play preview post video when post or slide changes
-  useEffect(() => {
-    if (previewPost) {
-      const item = previewItems[previewSlide];
-      if (item && isVideo(item.dataUrl, item.media_type)) {
-        const video = document.querySelector<HTMLVideoElement>(".preview-video");
-        if (video) video.play().catch(() => {});
-      }
-    }
-  }, [previewPost?.id, previewSlide]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     function check() {
@@ -2615,14 +2594,6 @@ export default function App() {
       });
     };
   }, [viewerItem?.id]);
-
-  // Imperatively play viewer video on open / item change (needed for iOS Safari)
-  useEffect(() => {
-    if (viewerItem && isVideo(viewerItem.dataUrl, viewerItem.media_type)) {
-      const video = document.querySelector<HTMLVideoElement>(".viewer-video");
-      if (video) video.play().catch(() => {});
-    }
-  }, [viewerItem?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function viewerGoNext() {
     if (viewerNavList.length === 0) return;
@@ -4498,7 +4469,6 @@ export default function App() {
                         poster={currentSlide.thumbnail_url || (videoPosters[currentSlide.id] ?? undefined)}
                         muted autoPlay loop playsInline controls preload="auto"
                         controlsList="nodownload nofullscreen"
-                        className="carousel-video"
                         data-slide
                         style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         onLoadStart={(e) => console.log('[video] attempting to play:', (e.target as HTMLVideoElement).src)}
@@ -4783,7 +4753,6 @@ export default function App() {
                       poster={singlePostItem.thumbnail_url || (videoPosters[singlePostItem.id] ?? undefined)}
                       muted autoPlay loop playsInline controls preload="auto"
                       controlsList="nodownload nofullscreen"
-                      className="single-post-video"
                       onLoadStart={(e) => console.log('[video] attempting to play:', (e.target as HTMLVideoElement).src)}
                       onError={(e) => console.error('[video] error:', (e.target as HTMLVideoElement).src, e)}
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
@@ -5813,7 +5782,6 @@ export default function App() {
                           src={viewerItem.url ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
                           muted autoPlay loop playsInline controls preload="auto"
-                          className="viewer-video"
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
@@ -6568,11 +6536,9 @@ export default function App() {
                       const item = previewItems[previewSlide];
                       return isVideo(item?.dataUrl ?? "", item?.media_type) ? (
                         <video
-                          key={`${previewPost?.id}-${previewSlide}`}
                           src={item.url ?? item.dataUrl}
                           poster={item.thumbnail_url ?? undefined}
                           muted autoPlay loop playsInline controls preload="auto"
-                          className="preview-video"
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           onError={(e) => console.error('[video] error:', e)}
                         />
