@@ -415,7 +415,9 @@ app.get("/api/media/by-ids", requireAuth, async (req, res) => {
 });
 
 function mapMediaRow(r) {
-  const resolvedUrl = r.url ?? r.data_url ?? null;
+  // Only accept a URL that actually starts with http — empty strings / legacy base64 become null
+  const httpUrl = (s) => (typeof s === "string" && s.startsWith("http") ? s : null);
+  const resolvedUrl = httpUrl(r.url) ?? httpUrl(r.data_url) ?? null;
   return {
     id: r.id, name: r.name, display_name: r.display_name ?? null, tag: r.tag,
     url: resolvedUrl,
