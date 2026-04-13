@@ -1509,7 +1509,11 @@ export default function App() {
           await Promise.all(toUnmark.map((m) => apiPatch(`/media/${m.id}`, { used: false }).catch(() => {})));
           toUnmark.forEach((m) => { m.used = false; });
         }
-        setMediaItems(items);
+        setMediaItems(items.map((i: MediaItem) => ({
+          ...i,
+          url: i.url ?? i.dataUrl ?? null,
+          dataUrl: i.url ?? i.dataUrl ?? "",
+        })));
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
         if (!captionSettingsRaw.captionPrompt) captionSettingsRaw.captionPrompt = DEFAULT_CAPTION_PROMPT;
@@ -2186,31 +2190,24 @@ export default function App() {
         if (isVideo) setVideoPosters((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
       };
 
+      const applyUploadResult = (saved: any, prev: MediaItem[]) => prev.map((m) => m.id === item.id ? {
+        ...m,
+        url: saved.url ?? m.url,
+        dataUrl: saved.url ?? saved.dataUrl ?? m.dataUrl,
+        thumbnail_url: saved.thumbnail_url ?? m.thumbnail_url,
+      } : m);
+
       try {
-        const saved = await doUpload();
-        const savedAny = saved as any;
-        const storedUrl: string = savedAny.url ?? savedAny.dataUrl ?? item.dataUrl;
-        setMediaItems((prev) => prev.map((m) => m.id === item.id ? {
-          ...m,
-          dataUrl: storedUrl,
-          url: savedAny.url ?? m.url,
-          thumbnail_url: savedAny.thumbnail_url ?? m.thumbnail_url,
-        } : m));
+        const saved = await doUpload() as any;
+        setMediaItems((prev) => applyUploadResult(saved, prev));
         setMediaTotal((t) => t + 1);
         return true;
       } catch (err: any) {
         // Retry once for videos before giving up
         if (isVideo) {
           try {
-            const saved = await doUpload();
-            const savedAny = saved as any;
-            const storedUrl: string = savedAny.url ?? savedAny.dataUrl ?? item.dataUrl;
-            setMediaItems((prev) => prev.map((m) => m.id === item.id ? {
-              ...m,
-              dataUrl: storedUrl,
-              url: savedAny.url ?? m.url,
-              thumbnail_url: savedAny.thumbnail_url ?? m.thumbnail_url,
-            } : m));
+            const saved = await doUpload() as any;
+            setMediaItems((prev) => applyUploadResult(saved, prev));
             setMediaTotal((t) => t + 1);
             return true;
           } catch {}
