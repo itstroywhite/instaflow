@@ -5782,6 +5782,8 @@ export default function App() {
                           src={viewerItem.url ?? viewerItem.dataUrl}
                           poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
                           muted autoPlay loop playsInline controls preload="auto"
+                          onLoadStart={(e) => console.log('[viewer] video src:', (e.target as HTMLVideoElement).src)}
+                          onError={(e) => console.error('[viewer] video error:', (e.target as HTMLVideoElement).src, (e.target as HTMLVideoElement).error)}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                         />
                       ) : (
