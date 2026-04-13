@@ -415,10 +415,11 @@ app.get("/api/media/by-ids", requireAuth, async (req, res) => {
 });
 
 function mapMediaRow(r) {
+  const resolvedUrl = r.url ?? r.data_url ?? null;
   return {
     id: r.id, name: r.name, display_name: r.display_name ?? null, tag: r.tag,
-    url: r.url ?? null,
-    dataUrl: r.url ?? "",
+    url: resolvedUrl,
+    dataUrl: resolvedUrl ?? "",
     folderId: r.folder_id ?? null,
     used: r.used ?? false, createdAt: r.created_at,
     isFavorite: r.is_favorite ?? false,
