@@ -502,6 +502,7 @@ async function generate3Captions(
   const hashtagHint = cs.hashtags.length > 0
     ? ` Preferred hashtags (include up to 2): ${cs.hashtags.map((h) => "#" + h).join(", ")}.`
     : "";
+  console.log('[caption] userIdeas:', userIdeas);
   const ideasRule = userIdeas?.trim()
     ? `\nUser ideas to incorporate: ${userIdeas.trim()}`
     : "";
@@ -530,7 +531,7 @@ Return ONLY a valid JSON array of exactly 3 strings. No explanation, no markdown
   } else if (mode === "shorter" && previousCaption) {
     prompt = `${basePrompt}
 
-${contextLine}${hashtagHint}${lowercaseRule}${customRule}
+${contextLine}${hashtagHint}${lowercaseRule}${customRule}${ideasRule}
 
 Make this caption shorter and more concise. Give 3 options:
 "${previousCaption}"
@@ -540,7 +541,7 @@ Return ONLY a valid JSON array of exactly 3 strings:
   } else if (mode === "longer" && previousCaption) {
     prompt = `${basePrompt}
 
-${contextLine}${hashtagHint}${lowercaseRule}${customRule}
+${contextLine}${hashtagHint}${lowercaseRule}${customRule}${ideasRule}
 
 Expand this caption to feel richer. Give 3 options:
 "${previousCaption}"
@@ -3011,7 +3012,7 @@ export default function App() {
     setSingleGenerating(true); setSingleError(null); setSingleCaptionOptions(null); setSingleCaptionIdx(null);
     try {
       const prevCaption = singleCaption || undefined;
-      const opts = await generate3Captions([singlePostItem.tag ?? "other"], appSettings.captionSettings, true, mode, prevCaption, undefined, singleUserIdeas);
+      const opts = await generate3Captions([singlePostItem.tag ?? "other"], appSettings.captionSettings, false, mode, prevCaption, undefined, singleUserIdeas);
       setSingleCaptionOptions(opts);
       setPostUsedAICaption(true);
     }
