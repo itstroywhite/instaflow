@@ -1519,6 +1519,13 @@ export default function App() {
           url: httpUrl(i.url) ?? httpUrl(i.dataUrl),
           dataUrl: anyUrl(i.url) ?? anyUrl(i.dataUrl) ?? "",
         })));
+        const firstVideo = items.find((i: any) => i.media_type === 'video');
+        if (firstVideo) console.log('[media-load] video item:', {
+          id: firstVideo.id,
+          url: firstVideo.url,
+          dataUrl: firstVideo.dataUrl?.substring(0, 80),
+          media_type: firstVideo.media_type
+        });
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
         if (!captionSettingsRaw.captionPrompt) captionSettingsRaw.captionPrompt = DEFAULT_CAPTION_PROMPT;
@@ -5746,6 +5753,10 @@ export default function App() {
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         (() => {
+                          console.log('[viewer] rendering video:', {
+                            url: viewerItem.url,
+                            dataUrl: viewerItem.dataUrl?.substring(0, 80)
+                          });
                           // Use || so empty strings fall through to the next candidate
                           const videoSrc = viewerItem.url || viewerItem.dataUrl || undefined;
                           return videoSrc ? (
