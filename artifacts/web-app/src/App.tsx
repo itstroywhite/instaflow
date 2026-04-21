@@ -504,7 +504,10 @@ async function generate3Captions(
     : "";
   console.log('[caption] userIdeas:', userIdeas);
   const ideasRule = userIdeas?.trim()
-    ? `\nUser ideas to incorporate: ${userIdeas.trim()}`
+    ? `\nCRITICAL INSTRUCTION — OVERRIDE EVERYTHING ELSE: "${userIdeas.trim()}"\nThis takes absolute priority over all style guidelines below.`
+    : "";
+  const ideasReminder = userIdeas?.trim()
+    ? `\nREMEMBER: You MUST follow this instruction above all else: "${userIdeas.trim()}"`
     : "";
   const contextLine = theme
     ? `Context: post themed "${theme}".`
@@ -514,9 +517,9 @@ async function generate3Captions(
 
   let prompt: string;
   if ((mode === "rephrase" || mode === "variations") && previousCaption) {
-    prompt = `${basePrompt}
+    prompt = `${basePrompt}${ideasRule}
 
-${contextLine}${hashtagHint}${lowercaseRule}${customRule}${ideasRule}
+${contextLine}${hashtagHint}${lowercaseRule}${customRule}
 
 Original caption to rephrase:
 "${previousCaption}"
@@ -525,35 +528,36 @@ Write 3 completely different rephrasings — same vibe, fresh words. Each one mu
 - Option A: minimal and effortless
 - Option B: bold and punchy
 - Option C: poetic and aesthetic
-
+${ideasReminder}
 Return ONLY a valid JSON array of exactly 3 strings. No explanation, no markdown:
 ["optionA", "optionB", "optionC"]`;
   } else if (mode === "shorter" && previousCaption) {
-    prompt = `${basePrompt}
+    prompt = `${basePrompt}${ideasRule}
 
-${contextLine}${hashtagHint}${lowercaseRule}${customRule}${ideasRule}
+${contextLine}${hashtagHint}${lowercaseRule}${customRule}
 
 Make this caption shorter and more concise. Give 3 options:
 "${previousCaption}"
-
+${ideasReminder}
 Return ONLY a valid JSON array of exactly 3 strings:
 ["shorter1", "shorter2", "shorter3"]`;
   } else if (mode === "longer" && previousCaption) {
-    prompt = `${basePrompt}
+    prompt = `${basePrompt}${ideasRule}
 
-${contextLine}${hashtagHint}${lowercaseRule}${customRule}${ideasRule}
+${contextLine}${hashtagHint}${lowercaseRule}${customRule}
 
 Expand this caption to feel richer. Give 3 options:
 "${previousCaption}"
-
+${ideasReminder}
 Return ONLY a valid JSON array of exactly 3 strings:
 ["longer1", "longer2", "longer3"]`;
   } else {
-    prompt = `${basePrompt}
+    prompt = `${basePrompt}${ideasRule}
 
-${contextLine} Tone: ${toneStr}.${hashtagHint}${lowercaseRule}${customRule}${ideasRule}
+${contextLine} Tone: ${toneStr}.${hashtagHint}${lowercaseRule}${customRule}
 
-Write 3 completely different captions. Each must capture the vibe differently:
+Write 3 completely different captions.
+${userIdeas?.trim() ? `REMEMBER: You MUST follow this instruction: "${userIdeas.trim()}"` : "Each must capture the vibe differently:"}
 - Option A: minimal and effortless
 - Option B: bold and punchy  
 - Option C: poetic and aesthetic
@@ -591,10 +595,15 @@ async function generateSingleCaption(tags: string[], cs: CaptionSettings, userId
   const lowercaseRule = isLowercase ? "\nCRITICAL RULE: Write in all lowercase — no capital letters anywhere." : "";
   const customRule = cs.customInstructions?.trim() ? `\nAdditional instructions: ${cs.customInstructions.trim()}` : "";
   const hashtagPart = cs.hashtags.length > 0 ? ` Preferred hashtags (max 2): ${cs.hashtags.map((h) => "#" + h).join(", ")}.` : "";
-  const ideasPart = userIdeas?.trim() ? `\nUser ideas: ${userIdeas.trim()}` : "";
-  const prompt = `${basePrompt}
+  const ideasPart = userIdeas?.trim()
+    ? `\nCRITICAL INSTRUCTION — OVERRIDE EVERYTHING ELSE: "${userIdeas.trim()}"\nThis takes absolute priority over all style guidelines below.`
+    : "";
+  const ideasReminder = userIdeas?.trim()
+    ? `\nREMEMBER: You MUST follow this instruction: "${userIdeas.trim()}"`
+    : "";
+  const prompt = `${basePrompt}${ideasPart}
 
-Context: single post featuring a ${tagLabel(tags[0] ?? "other")} photo. Tone: ${toneStr}.${hashtagPart}${lowercaseRule}${customRule}${ideasPart}
+Context: single post featuring a ${tagLabel(tags[0] ?? "other")} photo. Tone: ${toneStr}.${hashtagPart}${lowercaseRule}${customRule}${ideasReminder}
 
 Output only the caption text, nothing else.`;
 
@@ -2040,8 +2049,9 @@ export default function App() {
     const imageFiles = files.filter((f) => !f.type.startsWith("video/"));
     const videoFiles = files.filter((f) => f.type.startsWith("video/"));
 
-    if (videoFiles.length > 0) {
-      showGlobalToast("Video upload coming soon — images only for now");
+    if (videoFiles.length > 0 && !limits.videoUpload) {
+      setUpgradeModalData({ reasons: ["Video Upload & Playback"], canContinue: false, onContinue: () => {} });
+      setUpgradeModalOpen(true);
       if (imageFiles.length === 0) return;
     }
 
@@ -2100,8 +2110,40 @@ export default function App() {
       reader.readAsDataURL(file);
     })));
 
-    // Video upload is disabled — videoItems always empty
+    // Generate video thumbnails sequentially (heavy — avoid memory spikes)
+    const MAX_VIDEO_BYTES = 50 * 1024 * 1024;
     const videoItems: MediaItem[] = [];
+    if (videoFiles.length > 0 && limits.videoUpload) {
+      for (const f of videoFiles) {
+        if (f.size > MAX_VIDEO_BYTES) {
+          showGlobalToast("File too large — max 50MB");
+          continue;
+        }
+        // Re-type .mov / QuickTime files as video/mp4 so Supabase Storage
+        // serves them with the correct MIME type and iOS Safari can stream them
+        let fileToUpload = f;
+        if (f.type === "video/quicktime" || f.name.toLowerCase().endsWith(".mov")) {
+          showGlobalToast("Converting video for compatibility…");
+          const mp4Name = f.name.replace(/\.mov$/i, ".mp4");
+          fileToUpload = new File([f], mp4Name, { type: "video/mp4" });
+        }
+        const [thumbUrl, duration] = await Promise.all([
+          captureVideoThumbnail(fileToUpload),
+          getVideoDurationFromFile(fileToUpload),
+        ]);
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target?.result as string);
+          reader.readAsDataURL(fileToUpload);
+        });
+        const item: MediaItem = {
+          id: generateId(), name: fileToUpload.name, tag: "video", analyzing: false,
+          dataUrl, used: false, media_type: "video",
+          thumbnail_url: thumbUrl || undefined, duration: duration || undefined,
+        };
+        videoItems.push(item);
+      }
+    }
 
     // ── Add all items to UI state immediately (optimistic) ────────────────────
     const allItems = [...imageItems, ...videoItems];
@@ -2140,6 +2182,9 @@ export default function App() {
 
     async function uploadOneItem(item: MediaItem, idx: number, showToast = true): Promise<boolean> {
       const isVideo = item.media_type === "video";
+      if (showToast && isVideo) {
+        showGlobalToast(`Uploading video ${idx} of ${total}… (may take a moment)`);
+      }
 
       const doUpload = async () => {
         if (isVideo) {
@@ -4753,7 +4798,7 @@ export default function App() {
               {/* Hidden file inputs (triggered programmatically from dropdown) */}
               <input ref={singleCameraRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
-              <input ref={singleLibraryRef} type="file" accept="image/*" multiple className="hidden"
+              <input ref={singleLibraryRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
                 onChange={(e) => { if (e.target.files?.length) { handleFilesAdded(Array.from(e.target.files)); e.target.value = ""; } }} />
 
               {/* Bottom bar — single "Choose File" button with dropdown */}
@@ -5285,26 +5330,6 @@ export default function App() {
             <div className={`${card} p-5 space-y-4`}>
               <p className="text-sm font-semibold">✍️ Caption Style</p>
 
-              {/* Caption Prompt */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className={`text-xs font-medium ${dimText} flex items-center gap-1`}>Caption Prompt{plan === "free" && <DiamondBadge />}</label>
-                  <button onClick={() => { if (plan === "free") { openProGate("Caption prompt"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: DEFAULT_CAPTION_PROMPT } })); }}
-                    className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>↺ Reset</button>
-                </div>
-                <textarea
-                  rows={1}
-                  readOnly={plan === "free"}
-                  onClick={plan === "free" ? () => openProGate("Caption prompt") : undefined}
-                  value={sd.captionSettings.captionPrompt ?? DEFAULT_CAPTION_PROMPT}
-                  onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: e.target.value } })); }}
-                  onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
-                  style={{ minHeight: 40 }}
-                  className={`w-full ${inputCls} resize-none text-xs leading-relaxed ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
-                />
-                <p className={`text-[10px] ${dimText} mt-1`}>This is the base instruction sent to the AI for every caption.</p>
-              </div>
-
               <div>
                 <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Tone{plan === "free" && <DiamondBadge />}</p>
                 <input value={sd.captionSettings.tone}
@@ -5440,16 +5465,16 @@ export default function App() {
               )}
             </div>
 
-            {/* Carousel Preferences */}
+            {/* AI Preferences */}
             <div className={`${card} p-5 space-y-5`}>
               <div>
-                <p className="text-sm font-semibold">🎠 Carousel Preferences</p>
+                <p className="text-sm font-semibold">🤖 AI Preferences</p>
                 <p className={`text-xs ${dimText} mt-0.5`}>Control how the AI generates and orders carousel slides.</p>
               </div>
 
               {/* Carousel Size */}
               <div>
-                <p className={`text-xs font-medium ${dimText} mb-2`}>Slide count</p>
+                <p className={`text-xs font-medium ${dimText} mb-2`}>How many slides per carousel?</p>
                 <div className="flex gap-2 flex-wrap">
                   {(["random", 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20] as const).map((opt) => {
                     const val: number | "random" = opt;
@@ -5474,91 +5499,96 @@ export default function App() {
                 <p className={`text-xs font-medium ${dimText} mb-2`}>Slide order{plan === "free" && <DiamondBadge />}</p>
                 <div className="space-y-2" onClick={plan === "free" ? () => openProGate("Slide order") : undefined}>
                   {([
-                    { rule: "tag-sequence" as const, icon: "🔢", label: "Follow tag sequence", desc: "Define the exact order by tag" },
-                    { rule: "ai-free" as const, icon: "🤖", label: "AI chooses freely", desc: "AI picks the best order" },
+                    { rule: "ai-free" as const, icon: "🤖", label: "AI decides everything", desc: "AI picks the best images and order freely" },
+                    { rule: "me-first" as const, icon: "🏷️", label: "Include specific tags", desc: "Choose which tags must appear — AI picks the order" },
+                    { rule: "tag-sequence" as const, icon: "📋", label: "Set exact order", desc: "Define the exact order by tag sequence" },
                   ]).map(({ rule, icon, label, desc }) => {
                     const active = sd.slideOrderRule === rule;
                     return (
-                      <button key={rule}
-                        disabled={plan === "free"}
-                        onClick={plan === "free" ? undefined : () => updateDraft((s) => ({ ...s, slideOrderRule: rule }))}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
-                          plan === "free" ? `${border} opacity-50 cursor-not-allowed` :
-                          active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
-                        <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                          {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
-                        </div>
-                        <span className="text-sm">{icon}</span>
-                        <div>
-                          <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
-                          <p className={`text-[10px] ${dimText}`}>{desc}</p>
-                        </div>
-                      </button>
+                      <div key={rule}>
+                        <button
+                          disabled={plan === "free"}
+                          onClick={plan === "free" ? undefined : () => updateDraft((s) => ({ ...s, slideOrderRule: rule }))}
+                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
+                            plan === "free" ? `${border} opacity-50 cursor-not-allowed` :
+                            active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
+                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
+                            {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
+                          </div>
+                          <span className="text-sm">{icon}</span>
+                          <div>
+                            <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
+                            <p className={`text-[10px] ${dimText}`}>{desc}</p>
+                          </div>
+                        </button>
+                        {/* Tag selector for "Include specific tags" */}
+                        {rule === "me-first" && active && plan !== "free" && (
+                          <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5]">
+                            <p className={`text-[10px] font-medium ${dimText} mb-2`}>Select tags that must appear:</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {allAvailableTags.map((tag) => {
+                                const tagActive = sd.preferredTags.includes(tag);
+                                return (
+                                  <button key={tag}
+                                    onClick={() => updateDraft((s) => ({ ...s, preferredTags: tagActive ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
+                                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${tagActive ? tagColor(tag, sd.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                    {tagIcon(tag)} {tagLabel(tag)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                        {/* Tag sequence editor for "Set exact order" */}
+                        {rule === "tag-sequence" && active && plan !== "free" && (
+                          <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
+                            <p className={`text-[10px] font-medium ${dimText}`}>Tap tags to set order (first = first slide):</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {allAvailableTags.map((tag) => {
+                                const idx = sd.tagSequence.indexOf(tag);
+                                const inSeq = idx !== -1;
+                                return (
+                                  <button key={tag}
+                                    onClick={() => updateDraft((s) => ({
+                                      ...s,
+                                      tagSequence: inSeq
+                                        ? s.tagSequence.filter((t) => t !== tag)
+                                        : [...s.tagSequence, tag]
+                                    }))}
+                                    className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all
+                                      ${inSeq ? tagColor(tag, sd.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                    {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
+                                    {tagIcon(tag)} {tagLabel(tag)}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {sd.tagSequence.length > 0 && (
+                              <div className="flex items-center gap-2">
+                                <p className={`text-[10px] ${dimText} flex-1`}>Order: {sd.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
+                                <button onClick={() => updateDraft((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
-                {/* Tag sequence editor — hidden for free plan */}
-                {sd.slideOrderRule === "tag-sequence" && plan !== "free" && (
-                  <div className="mt-3 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
-                    <p className={`text-[10px] font-medium ${dimText}`}>Drag tags to define order (first = first slide):</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {allAvailableTags.map((tag) => {
-                        const idx = sd.tagSequence.indexOf(tag);
-                        const inSeq = idx !== -1;
-                        return (
-                          <button key={tag}
-                            onClick={() => updateDraft((s) => ({
-                              ...s,
-                              tagSequence: inSeq
-                                ? s.tagSequence.filter((t) => t !== tag)
-                                : [...s.tagSequence, tag]
-                            }))}
-                            className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all
-                              ${inSeq ? tagColor(tag, sd.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                            {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
-                            {tagIcon(tag)} {tagLabel(tag)}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {sd.tagSequence.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <p className={`text-[10px] ${dimText} flex-1`}>Sequence: {sd.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
-                        <button onClick={() => updateDraft((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
 
-              {/* Preferred tags */}
+              {/* Additional AI notes */}
               <div>
-                <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[hsl(220,10%,35%)]">— AI prioritizes these</span>{plan === "free" && <DiamondBadge />}</p>
-                <div className="flex flex-wrap gap-2">
-                  {allAvailableTags.map((tag) => {
-                    const active = sd.preferredTags.includes(tag);
-                    return <button key={tag}
-                      disabled={plan === "free"}
-                      onClick={plan === "free" ? () => openProGate("Preferred content tags") : () => updateDraft((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, sd.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                      {tagIcon(tag)} {tagLabel(tag)}
-                    </button>;
-                  })}
-                </div>
-              </div>
-
-              {/* Custom AI instructions */}
-              <div>
-                <p className={`text-xs font-medium ${dimText} mb-1.5`}>Custom AI instructions <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
+                <p className={`text-xs font-medium ${dimText} mb-1.5`}>Additional AI notes <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
                 <textarea
                   readOnly={plan === "free"}
-                  onClick={plan === "free" ? () => openProGate("Custom AI instructions") : undefined}
+                  onClick={plan === "free" ? () => openProGate("Additional AI notes") : undefined}
                   value={sd.aiCustomPreferences}
                   onChange={(e) => { if (plan === "free") return; updateDraft((s) => ({ ...s, aiCustomPreferences: e.target.value })); }}
                   onInput={(e) => { e.currentTarget.style.height = "auto"; e.currentTarget.style.height = e.currentTarget.scrollHeight + "px"; }}
                   rows={1}
                   style={{ minHeight: 40 }}
-                  placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
+                  placeholder="e.g. always include a DJ photo, prefer night shots"
                   className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
               </div>
@@ -8538,11 +8568,11 @@ export default function App() {
       <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
 
       {/* Hidden inputs */}
-      <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+      <input ref={fileInputRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
       <input ref={addMoreCameraRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files, true); e.target.value = ""; }} />
-      <input ref={addMoreLibraryRef} type="file" accept="image/*" multiple className="hidden"
+      <input ref={addMoreLibraryRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
         onChange={(e) => { const files = Array.from(e.target.files ?? []); if (files.length) handleFilesAdded(files); e.target.value = ""; }} />
       <input ref={folderCameraInputRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
         onChange={(e) => {
@@ -8550,7 +8580,7 @@ export default function App() {
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
           e.target.value = "";
         }} />
-      <input ref={folderFileInputRef} type="file" accept="image/*" multiple className="hidden"
+      <input ref={folderFileInputRef} type="file" accept={limits.videoUpload ? "image/*,video/mp4,video/quicktime,video/avi,video/webm,video/x-msvideo" : "image/*"} multiple className="hidden"
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []);
           if (files.length && openFolder) handleFilesAdded(files, false, openFolder.id);
