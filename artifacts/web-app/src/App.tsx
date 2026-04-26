@@ -5790,29 +5790,30 @@ export default function App() {
                     </div>
                     {/* Current panel — only live video for the active item */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
-                      {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
+                      {isVideo(liveItem.dataUrl, liveItem.media_type) ? (
                         (() => {
                           console.log('[viewer] video fields:', {
-                            url: viewerItem.url,
-                            dataUrl: viewerItem.dataUrl?.substring(0, 100),
-                            media_type: viewerItem.media_type
+                            url: liveItem.url,
+                            dataUrl: liveItem.dataUrl?.substring(0, 100),
+                            media_type: liveItem.media_type
                           });
-                          // Use || so empty strings fall through to the next candidate
-                          const videoSrc = viewerItem.url || viewerItem.dataUrl || undefined;
+                          // Use liveItem (fresh from mediaItems state) so url is never stale
+                          const videoSrc = liveItem.url || liveItem.dataUrl || undefined;
+                          console.log('[viewer] final videoSrc:', videoSrc);
                           return videoSrc ? (
                           <video
-                            key={viewerItem.id}
+                            key={liveItem.id}
                             src={videoSrc}
-                            poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
+                            poster={liveItem.thumbnail_url || (videoPosters[liveItem.id] ?? undefined)}
                             muted autoPlay loop playsInline controls preload="auto"
-                            onLoadStart={(e) => console.log('[viewer] id:', viewerItem.id, 'name:', viewerItem.name, 'src:', (e.target as HTMLVideoElement).src)}
-                            onError={(e) => console.error('[viewer] id:', viewerItem.id, 'name:', viewerItem.name, 'url:', viewerItem.url, 'dataUrl:', viewerItem.dataUrl?.slice(0, 80), 'error:', (e.target as HTMLVideoElement).error)}
+                            onLoadStart={(e) => console.log('[viewer] id:', liveItem.id, 'name:', liveItem.name, 'src:', (e.target as HTMLVideoElement).src)}
+                            onError={(e) => console.error('[viewer] id:', liveItem.id, 'name:', liveItem.name, 'url:', liveItem.url, 'dataUrl:', liveItem.dataUrl?.slice(0, 80), 'error:', (e.target as HTMLVideoElement).error)}
                             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                           />
                           ) : (
                           <div className="relative w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
-                            {viewerItem.thumbnail_url
-                              ? <img src={viewerItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
+                            {liveItem.thumbnail_url
+                              ? <img src={liveItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
                               : null}
                             <span className="relative text-4xl">⚠️</span>
                             <span className="relative text-sm font-medium text-center px-6 text-white/70">
