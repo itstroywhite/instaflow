@@ -121,7 +121,7 @@ function tagColor(tag: string, customTags: string[]) {
 const DEFAULT_CAPTION_PROMPT = `You are a creative Instagram caption writer. Generate captions that are UNIQUE and specific to the actual content shown (use the provided content tags as context). Avoid generic phrases like "good vibes", "living my best life", "chasing dreams". Be specific, authentic, and match the visual content. Write as if you are the person in the moment. Keep it short and cool — maximum 1-2 sentences plus up to 2 relevant hashtags on a new line.`;
 const DEFAULT_CAPTION: CaptionSettings = {
   tone: "", hashtags: [], maxLength: "short",
-  customInstructions: "", captionPrompt: DEFAULT_CAPTION_PROMPT,
+  customInstructions: "", captionPrompt: "",
 };
 const DEFAULT_SETTINGS: AppSettings = {
   notificationTime: DEFAULT_NOTIFICATION_TIME, defaultScheduleTime: DEFAULT_SCHEDULE_TIME,
@@ -1537,7 +1537,6 @@ export default function App() {
         });
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
-        if (!captionSettingsRaw.captionPrompt) captionSettingsRaw.captionPrompt = DEFAULT_CAPTION_PROMPT;
         const loaded: AppSettings = {
           notificationTime: settings.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
           defaultScheduleTime: settings.defaultScheduleTime ?? DEFAULT_SCHEDULE_TIME,
@@ -2048,10 +2047,11 @@ export default function App() {
   async function handleFilesAdded(files: File[], addToCarousel = false, targetFolderId?: string) {
     const imageFiles = files.filter((f) => !f.type.startsWith("video/"));
     const videoFiles = files.filter((f) => f.type.startsWith("video/"));
+    console.log('[upload] files:', files.map((f) => f.type));
+    console.log('[upload] videoUpload allowed:', limits.videoUpload);
 
     if (videoFiles.length > 0 && !limits.videoUpload) {
-      setUpgradeModalData({ reasons: ["Video Upload & Playback"], canContinue: false, onContinue: () => {} });
-      setUpgradeModalOpen(true);
+      showGlobalToast("Video upload requires Pro plan 💎");
       if (imageFiles.length === 0) return;
     }
 
@@ -2572,6 +2572,15 @@ export default function App() {
       });
       setApprovedPosts(prev => prev.map(p => p.id === usedViewerPost!.id ? { ...p, mediaIds: newMediaIds } : p));
       setMediaItems(prev => prev.map(m => m.id === usedViewerItem!.id ? { ...m, used: false } : m));
+      // Re-fetch the media item so its url/dataUrl is restored correctly (prevents black screen for videos)
+      try {
+        const refreshed = await apiGet<MediaItem>(`/media/${usedViewerItem.id}`);
+        if (refreshed?.id) {
+          setMediaItems(prev => prev.map(m =>
+            m.id === refreshed.id ? { ...m, url: refreshed.url ?? refreshed.dataUrl, dataUrl: refreshed.url ?? refreshed.dataUrl } : m
+          ));
+        }
+      } catch { /* non-critical — item is already marked unused */ }
       setUsedViewerItem(null); setUsedViewerPost(null); setUsedViewerRemoveConfirm(false);
       showGlobalToast("Removed from post");
     } catch { showGlobalToast("Failed to remove — please try again"); }
