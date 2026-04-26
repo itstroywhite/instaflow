@@ -5792,9 +5792,10 @@ export default function App() {
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(viewerItem.dataUrl, viewerItem.media_type) ? (
                         (() => {
-                          console.log('[viewer] rendering video:', {
+                          console.log('[viewer] video fields:', {
                             url: viewerItem.url,
-                            dataUrl: viewerItem.dataUrl?.substring(0, 80)
+                            dataUrl: viewerItem.dataUrl?.substring(0, 100),
+                            media_type: viewerItem.media_type
                           });
                           // Use || so empty strings fall through to the next candidate
                           const videoSrc = viewerItem.url || viewerItem.dataUrl || undefined;
@@ -8268,52 +8269,72 @@ export default function App() {
                     <p className={`text-xs font-medium ${dimText} mb-2`}>Slide order{plan === "free" && <DiamondBadge />}</p>
                     <div className="space-y-2" onClick={plan === "free" ? () => openProGate("Slide order") : undefined}>
                       {([
-                        { rule: "tag-sequence" as const, icon: "🔢", label: "Follow tag sequence", desc: "Define the exact order by tag" },
-                        { rule: "ai-free" as const, icon: "🤖", label: "AI chooses freely", desc: "AI picks the best order" },
+                        { rule: "ai-free" as const, icon: "🤖", label: "AI decides everything", desc: "AI picks the best images and order freely" },
+                        { rule: "me-first" as const, icon: "🏷️", label: "Include specific tags", desc: "Choose which tags must appear — AI picks the order" },
+                        { rule: "tag-sequence" as const, icon: "📋", label: "Set exact order", desc: "Define the exact order by tag sequence" },
                       ]).map(({ rule, icon, label, desc }) => {
                         const active = appSettings.slideOrderRule === rule;
                         return (
-                          <button key={rule}
-                            disabled={plan === "free"}
-                            onClick={plan === "free" ? undefined : () => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
-                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
-                            <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                              {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
-                            </div>
-                            <span className="text-sm">{icon}</span>
-                            <div>
-                              <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
-                              <p className={`text-[10px] ${dimText}`}>{desc}</p>
-                            </div>
-                          </button>
+                          <div key={rule}>
+                            <button
+                              disabled={plan === "free"}
+                              onClick={plan === "free" ? undefined : () => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
+                              <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
+                                {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
+                              </div>
+                              <span className="text-sm">{icon}</span>
+                              <div>
+                                <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
+                                <p className={`text-[10px] ${dimText}`}>{desc}</p>
+                              </div>
+                            </button>
+                            {rule === "me-first" && active && plan !== "free" && (
+                              <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5]">
+                                <p className={`text-[10px] font-medium ${dimText} mb-2`}>Select tags that must appear:</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {allAvailableTags.map((tag) => {
+                                    const tagActive = appSettings.preferredTags.includes(tag);
+                                    return (
+                                      <button key={tag}
+                                        onClick={() => setAppSettings((s) => ({ ...s, preferredTags: tagActive ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
+                                        className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${tagActive ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                        {tagIcon(tag)} {tagLabel(tag)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            {rule === "tag-sequence" && active && plan !== "free" && (
+                              <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
+                                <p className={`text-[10px] font-medium ${dimText}`}>Tap tags to set order (first = first slide):</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {allAvailableTags.map((tag) => {
+                                    const idx = appSettings.tagSequence.indexOf(tag);
+                                    const inSeq = idx !== -1;
+                                    return (
+                                      <button key={tag}
+                                        onClick={() => setAppSettings((s) => ({ ...s, tagSequence: inSeq ? s.tagSequence.filter((t) => t !== tag) : [...s.tagSequence, tag] }))}
+                                        className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all ${inSeq ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                        {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
+                                        {tagIcon(tag)} {tagLabel(tag)}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {appSettings.tagSequence.length > 0 && (
+                                  <div className="flex items-center gap-2">
+                                    <p className={`text-[10px] ${dimText} flex-1`}>Order: {appSettings.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
+                                    <button onClick={() => setAppSettings((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
-                    {appSettings.slideOrderRule === "tag-sequence" && plan !== "free" && (
-                      <div className="mt-3 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
-                        <p className={`text-[10px] font-medium ${dimText}`}>Drag tags to define order (first = first slide):</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {allAvailableTags.map((tag) => {
-                            const idx = appSettings.tagSequence.indexOf(tag);
-                            const inSeq = idx !== -1;
-                            return (
-                              <button key={tag}
-                                onClick={() => setAppSettings((s) => ({ ...s, tagSequence: inSeq ? s.tagSequence.filter((t) => t !== tag) : [...s.tagSequence, tag] }))}
-                                className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all ${inSeq ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
-                                {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
-                                {tagIcon(tag)} {tagLabel(tag)}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {appSettings.tagSequence.length > 0 && (
-                          <div className="flex items-center gap-2">
-                            <p className={`text-[10px] ${dimText} flex-1`}>Sequence: {appSettings.tagSequence.map((t) => `${tagIcon(t)} ${tagLabel(t)}`).join(" → ")}</p>
-                            <button onClick={() => setAppSettings((s) => ({ ...s, tagSequence: [] }))} className={`text-[10px] ${dimText} hover:text-red-400`}>Clear</button>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
 
                   <div>
