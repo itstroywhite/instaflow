@@ -5798,11 +5798,11 @@ export default function App() {
                             media_type: liveItem.media_type
                           });
                           // Use liveItem (fresh from mediaItems state) so url is never stale
-                          const videoSrc = liveItem.url || liveItem.dataUrl || undefined;
+                          const videoSrc = liveItem.url || undefined;
                           console.log('[viewer] final videoSrc:', videoSrc);
                           return videoSrc ? (
                           <video
-                            key={liveItem.id}
+                            key={videoSrc}
                             src={videoSrc}
                             poster={liveItem.thumbnail_url || (videoPosters[liveItem.id] ?? undefined)}
                             muted autoPlay loop playsInline controls preload="auto"
