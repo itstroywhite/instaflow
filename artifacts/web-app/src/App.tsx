@@ -22,22 +22,22 @@ const BASE_TAG_LABELS: Record<string, string> = {
   outdoor: "Outdoor", night: "Night", vibe: "Vibe", other: "Other",
 };
 const BASE_TAG_COLORS: Record<string, string> = {
-  me: "bg-purple-500/20 text-purple-300 border-purple-500/30",
-  friends: "bg-green-500/20 text-green-300 border-green-500/30",
-  pet: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-  animal: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  food: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  drinks: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
-  outfit: "bg-pink-500/20 text-pink-300 border-pink-500/30",
-  gym: "bg-red-500/20 text-red-300 border-red-500/30",
-  dj: "bg-orange-500/20 text-orange-300 border-orange-500/30",
-  party: "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500/30",
-  city: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  location: "bg-teal-500/20 text-teal-300 border-teal-500/30",
-  outdoor: "bg-lime-500/20 text-lime-300 border-lime-500/30",
-  night: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
-  vibe: "bg-sky-500/20 text-sky-300 border-sky-500/30",
-  other: "bg-zinc-500/20 text-zinc-400 border-zinc-500/30",
+  me: "bg-purple-100 text-purple-700 border-purple-200",
+  friends: "bg-green-100 text-green-700 border-green-200",
+  pet: "bg-rose-100 text-rose-700 border-rose-200",
+  animal: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  food: "bg-amber-100 text-amber-700 border-amber-200",
+  drinks: "bg-cyan-100 text-cyan-700 border-cyan-200",
+  outfit: "bg-pink-100 text-pink-700 border-pink-200",
+  gym: "bg-red-100 text-red-700 border-red-200",
+  dj: "bg-orange-100 text-orange-700 border-orange-200",
+  party: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200",
+  city: "bg-blue-100 text-blue-700 border-blue-200",
+  location: "bg-teal-100 text-teal-700 border-teal-200",
+  outdoor: "bg-lime-100 text-lime-700 border-lime-200",
+  night: "bg-indigo-100 text-indigo-700 border-indigo-200",
+  vibe: "bg-sky-100 text-sky-700 border-sky-200",
+  other: "bg-zinc-100 text-zinc-600 border-zinc-200",
 };
 const BASE_TAG_ICONS: Record<string, string> = {
   me: "🧍", friends: "👥", pet: "🐾", animal: "🦋",
@@ -736,15 +736,15 @@ function DatePicker({ value, onChange, className }: { value: string; onChange: (
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1 z-50 bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-xl shadow-2xl p-3" style={{ width: 248 }}>
+          <div className="absolute top-full left-0 mt-1 z-50 bg-[#FFFFFF] border border-[#E0E0E8] rounded-xl shadow-2xl p-3" style={{ width: 248 }}>
             <div className="flex items-center justify-between mb-2">
-              <button type="button" onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[hsl(220,14%,22%)] text-[hsl(220,10%,55%)] hover:text-white text-lg leading-none">‹</button>
+              <button type="button" onClick={prevMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#E0E0EA] text-[#8888A0] hover:text-[#1A1A2E] text-lg leading-none">‹</button>
               <span className="text-sm font-semibold text-[hsl(220,10%,88%)]">{MONTHS[viewMonth]} {viewYear}</span>
-              <button type="button" onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[hsl(220,14%,22%)] text-[hsl(220,10%,55%)] hover:text-white text-lg leading-none">›</button>
+              <button type="button" onClick={nextMonth} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-[#E0E0EA] text-[#8888A0] hover:text-[#1A1A2E] text-lg leading-none">›</button>
             </div>
             <div className="grid grid-cols-7 mb-1">
               {DAY_HEADERS.map((h) => (
-                <div key={h} className="text-center text-[10px] text-[hsl(220,10%,38%)] font-medium py-0.5">{h}</div>
+                <div key={h} className="text-center text-[10px] text-[#AAAABC] font-medium py-0.5">{h}</div>
               ))}
             </div>
             <div className="grid grid-cols-7 gap-y-0.5">
@@ -759,9 +759,9 @@ function DatePicker({ value, onChange, className }: { value: string; onChange: (
                 return (
                   <button type="button" key={day} onClick={() => selectDay(day)}
                     className={`w-8 h-8 mx-auto flex items-center justify-center rounded-full text-xs font-medium transition-colors
-                      ${isSelected ? "bg-[hsl(263,70%,65%)] text-white" :
-                        isToday ? "border border-[hsl(263,70%,65%)] text-[hsl(263,70%,70%)]" :
-                        "text-[hsl(220,10%,72%)] hover:bg-[hsl(220,14%,22%)]"}`}>
+                      ${isSelected ? "bg-[#7C3AED] text-white" :
+                        isToday ? "border border-[#7C3AED] text-[#8B5CF6]" :
+                        "text-[hsl(220,10%,72%)] hover:bg-[#E0E0EA]"}`}>
                     {day}
                   </button>
                 );
@@ -778,7 +778,7 @@ function LazyImg({ src, alt, className, onError }: { src: string; alt?: string; 
   const [loaded, setLoaded] = useState(false);
   return (
     <div className="relative w-full h-full">
-      {!loaded && <div className="absolute inset-0 bg-[hsl(220,14%,16%)] animate-pulse" />}
+      {!loaded && <div className="absolute inset-0 bg-[#EBEBF0] animate-pulse" />}
       <img
         src={src}
         alt={alt ?? ""}
@@ -855,7 +855,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
       <div ref={ref} onScroll={onScroll} style={colStyle}>
         {Array.from({ length: count }, (_, i) => (
           <div key={i} style={{ height: ITEM_H, scrollSnapAlign: "start" }}
-            className={`flex items-center justify-center text-xs font-semibold select-none ${i === cur ? "text-[hsl(263,70%,78%)]" : "text-[hsl(220,10%,35%)]"}`}>
+            className={`flex items-center justify-center text-xs font-semibold select-none ${i === cur ? "text-[hsl(263,70%,78%)]" : "text-[#BBBBCC]"}`}>
             {String(i).padStart(2, "0")}
           </div>
         ))}
@@ -866,7 +866,7 @@ function TimePicker({ value, onChange, className }: { value: string; onChange: (
   return (
     <div className={`flex items-center gap-1.5 ${className ?? ""}`}>
       {col(hourRef, onHScroll, 24, curH)}
-      <span className="text-[hsl(220,10%,35%)] font-bold text-xs select-none">:</span>
+      <span className="text-[#BBBBCC] font-bold text-xs select-none">:</span>
       {col(minRef, onMScroll, 60, curM)}
     </div>
   );
@@ -884,9 +884,9 @@ function DiamondBadge() {
   const [show, setShow] = useState(false);
   return (
     <span className="relative inline-flex items-center" onClick={(e) => { e.stopPropagation(); setShow((v) => !v); }}>
-      <span className="text-[hsl(263,70%,65%)] text-[11px] ml-1 cursor-pointer select-none" title="Pro feature — upgrade to unlock">💎</span>
+      <span className="text-[#7C3AED] text-[11px] ml-1 cursor-pointer select-none" title="Pro feature — upgrade to unlock">💎</span>
       {show && (
-        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-[hsl(220,14%,20%)] border border-[hsl(263,70%,65%)/40] text-[10px] text-[hsl(220,10%,70%)] px-2.5 py-1.5 text-center z-50 pointer-events-none shadow-lg">
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-44 rounded-lg bg-[#E3E3ED] border border-[#7C3AED/40] text-[10px] text-[#6B6B80] px-2.5 py-1.5 text-center z-50 pointer-events-none shadow-lg">
           Pro feature — upgrade to unlock
         </span>
       )}
@@ -903,8 +903,8 @@ function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const border = "border-[hsl(220,13%,18%)]";
-  const inputCls = "w-full bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,22%)] rounded-xl px-4 py-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,35%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60] transition-colors";
+  const border = "border-[#E5E5EA]";
+  const inputCls = "w-full bg-[#F8F8FA] border border-[#E0E0E8] rounded-xl px-4 py-3 text-sm text-[#2D2D44] placeholder:text-[#BBBBCC] focus:outline-none focus:border-[#7C3AED/60] transition-colors";
 
   async function handleSubmit(e: { preventDefault(): void }) {
     e.preventDefault();
@@ -933,20 +933,20 @@ function LoginScreen() {
   }
 
   return (
-    <div className="min-h-screen bg-[hsl(220,14%,8%)] flex flex-col items-center justify-center px-5">
+    <div className="min-h-screen bg-[#F5F5F7] flex flex-col items-center justify-center px-5">
       <div className="w-full max-w-sm space-y-8">
         {/* Logo */}
         <div className="text-center space-y-2">
           <div className="flex items-center justify-center gap-2">
             <span className="text-2xl">📸</span>
-            <span className="text-2xl font-bold tracking-tight text-white">InstaFlow</span>
+            <span className="text-2xl font-bold tracking-tight text-[#1A1A2E]">InstaFlow</span>
           </div>
-          <p className="text-sm text-[hsl(220,10%,50%)]">Your Instagram content workflow</p>
+          <p className="text-sm text-[#9999B0]">Your Instagram content workflow</p>
         </div>
 
         {/* Card */}
-        <div className={`rounded-2xl border ${border} bg-[hsl(220,14%,11%)] p-6 space-y-5`}>
-          <h2 className="text-base font-semibold text-white">
+        <div className={`rounded-2xl border ${border} bg-[#FFFFFF] p-6 space-y-5`}>
+          <h2 className="text-base font-semibold text-[#1A1A2E]">
             {mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Reset password"}
           </h2>
 
@@ -983,7 +983,7 @@ function LoginScreen() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold transition-colors disabled:opacity-60">
+              className="w-full py-3 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-sm font-semibold transition-colors disabled:opacity-60">
               {loading ? "Please wait…" : mode === "signin" ? "Sign In" : mode === "signup" ? "Create Account" : "Send Reset Link"}
             </button>
           </form>
@@ -991,7 +991,7 @@ function LoginScreen() {
           {mode !== "forgot" && (
             <button
               onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setError(null); setMessage(null); }}
-              className="w-full text-sm text-[hsl(220,10%,50%)] hover:text-white transition-colors text-center">
+              className="w-full text-sm text-[#9999B0] hover:text-[#1A1A2E] transition-colors text-center">
               {mode === "signin" ? "Don't have an account? Create one" : "Already have an account? Sign in"}
             </button>
           )}
@@ -999,7 +999,7 @@ function LoginScreen() {
           {mode === "signin" && (
             <button
               onClick={() => { setMode("forgot"); setError(null); setMessage(null); }}
-              className="w-full text-xs text-[hsl(220,10%,40%)] hover:text-[hsl(220,10%,65%)] transition-colors text-center">
+              className="w-full text-xs text-[#AAAABC] hover:text-[hsl(220,10%,65%)] transition-colors text-center">
               Forgot password?
             </button>
           )}
@@ -1007,7 +1007,7 @@ function LoginScreen() {
           {mode === "forgot" && (
             <button
               onClick={() => { setMode("signin"); setError(null); setMessage(null); }}
-              className="w-full text-sm text-[hsl(220,10%,50%)] hover:text-white transition-colors text-center">
+              className="w-full text-sm text-[#9999B0] hover:text-[#1A1A2E] transition-colors text-center">
               Back to sign in
             </button>
           )}
@@ -3525,12 +3525,12 @@ export default function App() {
   }
 
   // ─── Style shortcuts ───────────────────────────────────────────────────────
-  const border = "border-[hsl(220,13%,18%)]";
-  const card = `rounded-xl border ${border} bg-[hsl(220,14%,11%)]`;
-  const dimText = "text-[hsl(220,10%,50%)]";
-  const mutedBtn = `px-3 py-1.5 rounded-lg text-xs font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`;
-  const activeNavCls = "bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,75%)] border border-[hsl(263,70%,65%)/30]";
-  const inputCls = "bg-[hsl(220,14%,9%)] border border-[hsl(220,13%,22%)] rounded-lg px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/50]";
+  const border = "border-[#E5E5EA]";
+  const card = `rounded-xl border ${border} bg-[#FFFFFF]`;
+  const dimText = "text-[#9999B0]";
+  const mutedBtn = `px-3 py-1.5 rounded-lg text-xs font-medium border ${border} ${dimText} hover:bg-[#EBEBF0] transition-colors`;
+  const activeNavCls = "bg-[#7C3AED/20] text-[#A78BFA] border border-[#7C3AED/30]";
+  const inputCls = "bg-[#F8F8FA] border border-[#E0E0E8] rounded-lg px-3 py-2 text-sm text-[#2D2D44] focus:outline-none focus:border-[#7C3AED/50]";
   const SORT_LABELS: Record<PoolSort, string> = { latest: "Latest", oldest: "Oldest", name: "A–Z" };
 
   // ─── Splash screen ─────────────────────────────────────────────────────────
@@ -3566,10 +3566,10 @@ export default function App() {
   // ─── Render ────────────────────────────────────────────────────────────────
   const sd = settingsDraft ?? appSettings;
   return (
-    <div className="min-h-screen bg-[hsl(220,14%,8%)] text-[hsl(220,10%,95%)] font-sans">
+    <div className="min-h-screen bg-[#F5F5F7] text-[#1A1A2E] font-sans">
       {/* Global toast */}
       {globalToast && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-[hsl(220,14%,20%)] text-white text-sm px-5 py-3 rounded-2xl shadow-2xl border border-[hsl(220,13%,30%)] max-w-xs text-center pointer-events-none">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-[#E3E3ED] text-[#1A1A2E] text-sm px-5 py-3 rounded-2xl shadow-2xl border border-[#C8C8D4] max-w-xs text-center pointer-events-none">
           {globalToast}
         </div>
       )}
@@ -3577,23 +3577,23 @@ export default function App() {
       {/* ── NOTIFICATION PERMISSION BANNER ── */}
       {notifyBannerVisible && session && (
         <div className="fixed bottom-0 left-0 right-0 z-[90] p-4 pb-safe">
-          <div className="bg-[hsl(220,14%,14%)] border border-[hsl(220,13%,24%)] rounded-2xl p-4 shadow-2xl max-w-sm mx-auto">
+          <div className="bg-[#F2F2F7] border border-[hsl(220,13%,24%)] rounded-2xl p-4 shadow-2xl max-w-sm mx-auto">
             <div className="flex items-start gap-3">
               <span className="text-2xl mt-0.5">🔔</span>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-white mb-0.5">Stay on schedule</p>
-                <p className="text-xs text-white/55 leading-relaxed">Get daily reminders when you have posts scheduled for today.</p>
+                <p className="text-sm font-semibold text-[#1A1A2E] mb-0.5">Stay on schedule</p>
+                <p className="text-xs text-[#8888A0] leading-relaxed">Get daily reminders when you have posts scheduled for today.</p>
               </div>
             </div>
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => { localStorage.setItem("notificationPromptDismissed", "1"); setNotifyBannerVisible(false); }}
-                className="flex-1 py-2 rounded-xl border border-[hsl(220,13%,24%)] text-white/50 text-xs font-medium">
+                className="flex-1 py-2 rounded-xl border border-[hsl(220,13%,24%)] text-[#9999B0] text-xs font-medium">
                 Not now
               </button>
               <button
                 onClick={async () => { setNotifyBannerVisible(false); await requestNotificationPermission(); }}
-                className="flex-1 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-xs font-semibold">
+                className="flex-1 py-2 rounded-xl bg-[#7C3AED] text-white text-xs font-semibold">
                 Enable Notifications
               </button>
             </div>
@@ -3603,10 +3603,10 @@ export default function App() {
 
       {/* ── ONBOARDING OVERLAY ── */}
       {session && onboardingComplete === false && (
-        <div className="fixed inset-0 z-[200] flex flex-col bg-[hsl(220,14%,8%)]">
+        <div className="fixed inset-0 z-[200] flex flex-col bg-[#F5F5F7]">
           {/* Skip button */}
           <div className="flex justify-end px-5 pt-5">
-            <button onClick={completeOnboarding} className="text-sm text-[hsl(220,10%,45%)] hover:text-white transition-colors">Skip</button>
+            <button onClick={completeOnboarding} className="text-sm text-[#9999B0] hover:text-[#1A1A2E] transition-colors">Skip</button>
           </div>
           {/* Step content */}
           <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
@@ -3614,19 +3614,19 @@ export default function App() {
               <>
                 <div className="text-7xl mb-6">👋</div>
                 <h1 className="text-2xl font-bold mb-2">Welcome to InstaFlow</h1>
-                <p className="text-[hsl(263,70%,70%)] text-sm mb-3">Your Instagram content workflow</p>
-                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed">Manage your media, create posts, and schedule them — all in one place.</p>
+                <p className="text-[#8B5CF6] text-sm mb-3">Your Instagram content workflow</p>
+                <p className="text-[#8888A0] text-sm leading-relaxed">Manage your media, create posts, and schedule them — all in one place.</p>
               </>
             )}
             {onboardingStep === 2 && (
               <>
                 <div className="text-7xl mb-6">🖼️</div>
                 <h1 className="text-2xl font-bold mb-2">Your Media Pool</h1>
-                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Upload your photos and videos. AI tags them automatically. You can rename files, edit tags and search by name or tag.</p>
-                <div className="w-full max-w-xs bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,20%)] rounded-2xl p-4">
+                <p className="text-[#8888A0] text-sm leading-relaxed mb-6">Upload your photos and videos. AI tags them automatically. You can rename files, edit tags and search by name or tag.</p>
+                <div className="w-full max-w-xs bg-[#FFFFFF] border border-[#E5E5EA] rounded-2xl p-4">
                   <div className="grid grid-cols-3 gap-2">
                     {["🌅","🤳","🍕","🎵","🌿","👫"].map((e, i) => (
-                      <div key={i} className="aspect-square rounded-xl bg-[hsl(220,14%,18%)] flex items-center justify-center text-2xl">{e}</div>
+                      <div key={i} className="aspect-square rounded-xl bg-[#E8E8F0] flex items-center justify-center text-2xl">{e}</div>
                     ))}
                   </div>
                 </div>
@@ -3636,14 +3636,14 @@ export default function App() {
               <>
                 <div className="text-7xl mb-6">📅</div>
                 <h1 className="text-2xl font-bold mb-2">Schedule & Post</h1>
-                <p className="text-[hsl(220,10%,55%)] text-sm leading-relaxed mb-6">Create single posts or carousels, generate AI captions, and schedule them for the perfect time.</p>
-                <div className="w-full max-w-xs bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,20%)] rounded-2xl p-4 space-y-2">
+                <p className="text-[#8888A0] text-sm leading-relaxed mb-6">Create single posts or carousels, generate AI captions, and schedule them for the perfect time.</p>
+                <div className="w-full max-w-xs bg-[#FFFFFF] border border-[#E5E5EA] rounded-2xl p-4 space-y-2">
                   {[{ label: "Mon 14", emoji: "📸", tag: "Carousel · 6 slides" }, { label: "Wed 16", emoji: "🖼️", tag: "Single post" }, { label: "Fri 18", emoji: "📸", tag: "Carousel · 4 slides" }].map(({ label, emoji, tag }) => (
-                    <div key={label} className="flex items-center gap-3 p-2 rounded-xl bg-[hsl(220,14%,18%)]">
+                    <div key={label} className="flex items-center gap-3 p-2 rounded-xl bg-[#E8E8F0]">
                       <span className="text-xl">{emoji}</span>
                       <div className="text-left">
-                        <p className="text-xs font-medium text-[hsl(220,10%,85%)]">{label}</p>
-                        <p className="text-[10px] text-[hsl(220,10%,45%)]">{tag}</p>
+                        <p className="text-xs font-medium text-[#2D2D44]">{label}</p>
+                        <p className="text-[10px] text-[#9999B0]">{tag}</p>
                       </div>
                     </div>
                   ))}
@@ -3655,7 +3655,7 @@ export default function App() {
           <div className="px-8 pb-12 space-y-5">
             <div className="flex justify-center gap-2">
               {[1, 2, 3].map((s) => (
-                <div key={s} className={`rounded-full transition-all ${onboardingStep === s ? "w-5 h-2 bg-[hsl(263,70%,65%)]" : "w-2 h-2 bg-[hsl(220,13%,28%)]"}`} />
+                <div key={s} className={`rounded-full transition-all ${onboardingStep === s ? "w-5 h-2 bg-[#7C3AED]" : "w-2 h-2 bg-[#D0D0DC]"}`} />
               ))}
             </div>
             <button
@@ -3663,7 +3663,7 @@ export default function App() {
                 if (onboardingStep < 3) { setOnboardingStep((s) => s + 1); }
                 else { completeOnboarding(); }
               }}
-              className="w-full py-4 rounded-2xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-base transition-colors">
+              className="w-full py-4 rounded-2xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold text-base transition-colors">
               {onboardingStep < 3 ? "Next →" : "Get Started 🚀"}
             </button>
           </div>
@@ -3671,7 +3671,7 @@ export default function App() {
       )}
 
       {/* NAV */}
-      <nav className={`border-b ${border} px-4 py-2.5 grid grid-cols-3 items-center fixed top-0 left-0 right-0 z-50 bg-[hsl(220,14%,8%)]`}>
+      <nav className={`border-b ${border} px-4 py-2.5 grid grid-cols-3 items-center fixed top-0 left-0 right-0 z-50 bg-[#F5F5F7]`}>
         <div className="flex flex-col leading-tight tracking-tight font-bold">
           <span className="text-sm">Insta</span>
           <span className="text-sm">Flow</span>
@@ -3679,7 +3679,7 @@ export default function App() {
         <div className="flex items-center justify-center gap-0.5">
           {(["pool", "carousel", "calendar"] as Screen[]).map((s) => (
             <button key={s} onClick={() => { setPreviewPost(null); setPreviewDotsOpen(false); goToScreen(s); }}
-              className={`relative px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${screen === s ? activeNavCls : `${dimText} hover:text-[hsl(220,10%,80%)] hover:bg-[hsl(220,14%,14%)]`}`}>
+              className={`relative px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${screen === s ? activeNavCls : `${dimText} hover:text-[#3D3D5C] hover:bg-[#F2F2F7]`}`}>
               {s === "pool" ? "🗂 Pool" : s === "carousel" ? "📸 Today" : "📅 Cal"}
             </button>
           ))}
@@ -3687,17 +3687,17 @@ export default function App() {
         <div className="flex items-center justify-end gap-3">
           {/* Profile icon button */}
           <button onClick={() => { setProfileDrawerOpen(true); setPlusMenuOpen(false); }}
-            className={`flex items-center justify-center transition-colors ${profileDrawerOpen || profileSubpage ? "text-[hsl(263,70%,70%)]" : "text-[hsl(220,10%,55%)] hover:text-[hsl(220,10%,85%)]"}`}>
+            className={`flex items-center justify-center transition-colors ${profileDrawerOpen || profileSubpage ? "text-[#8B5CF6]" : "text-[#8888A0] hover:text-[#2D2D44]"}`}>
             <CircleUserRound className="w-6 h-6" strokeWidth={1.75} />
           </button>
           <div className="relative">
             <button onClick={() => { setPlusMenuOpen((o) => !o); cancelSelection(); }}
-              className={`relative w-8 h-8 rounded-lg bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-bold text-lg flex items-center justify-center ${aiGenerating ? "animate-pulse" : ""}`}>
+              className={`relative w-8 h-8 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-bold text-lg flex items-center justify-center ${aiGenerating ? "animate-pulse" : ""}`}>
               {plusMenuOpen ? "✕" : aiGenerating ? "…" : "+"}
-              {dailyBadge && !plusMenuOpen && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-[hsl(220,14%,8%)]" />}
+              {dailyBadge && !plusMenuOpen && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-amber-400 border-2 border-[#F5F5F7]" />}
             </button>
             {plusMenuOpen && (
-              <div className={`absolute right-0 top-10 w-60 rounded-xl border ${border} bg-[hsl(220,14%,12%)] shadow-xl overflow-hidden z-30`}>
+              <div className={`absolute right-0 top-10 w-60 rounded-xl border ${border} bg-[#FFFFFF] shadow-xl overflow-hidden z-30`}>
                 {[
                   { icon: "🖼️", label: "Single Post", sub: "Select 1 image", action: () => { setPlusMenuOpen(false); goToScreen("pool"); enterSelectionMode("single"); } },
                   { icon: "📸", label: "Carousel", sub: "Select 2–20 items", action: () => { setPlusMenuOpen(false); goToScreen("pool"); enterSelectionMode("carousel"); } },
@@ -3705,7 +3705,7 @@ export default function App() {
                   { icon: "🤖", label: "AI Generate Carousel", sub: "Rule-based or by theme", action: () => { setPlusMenuOpen(false); setAiTypeModal(true); } },
                 ].map((item, idx, arr) => (
                   <button key={item.label} onClick={item.action}
-                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors ${idx < arr.length - 1 ? `border-b border-[hsl(220,13%,20%)]` : ""}`}>
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-[#E8E8F0] transition-colors ${idx < arr.length - 1 ? `border-b border-[#E5E5EA]` : ""}`}>
                     <p className="font-medium">{item.icon} {item.label}</p>
                     <p className={`text-xs ${dimText} mt-0.5`}>{item.sub}</p>
                   </button>
@@ -3725,14 +3725,14 @@ export default function App() {
       {aiError && (
         <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 flex items-center justify-between">
           <p className="text-sm text-red-300">⚠️ {aiError}</p>
-          <button onClick={() => setAiError(null)} className="text-red-400 hover:text-white">✕</button>
+          <button onClick={() => setAiError(null)} className="text-red-400 hover:text-[#1A1A2E]">✕</button>
         </div>
       )}
       {dailyBanner && (
-        <div className="bg-[hsl(263,70%,65%)/15] border-b border-[hsl(263,70%,65%)/30] px-4 py-3 flex items-center justify-between">
-          <p className="text-sm text-[hsl(263,70%,75%)]">📸 Your daily carousel is ready to build!</p>
+        <div className="bg-[#7C3AED/15] border-b border-[#7C3AED/30] px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-[#A78BFA]">📸 Your daily carousel is ready to build!</p>
           <div className="flex gap-2">
-            <button onClick={() => goToScreen("carousel")} className="text-xs px-3 py-1 rounded-lg bg-[hsl(263,70%,65%)] text-white font-medium">View</button>
+            <button onClick={() => goToScreen("carousel")} className="text-xs px-3 py-1 rounded-lg bg-[#7C3AED] text-white font-medium">View</button>
             <button onClick={() => setDailyBanner(false)} className={`text-xs ${dimText}`}>✕</button>
           </div>
         </div>
@@ -3764,7 +3764,7 @@ export default function App() {
           <div className="flex items-center justify-center gap-2 text-xs overflow-hidden transition-all duration-150"
             style={{ height: pullRefreshing ? 36 : Math.min(pullDistance * 0.4, 36), color: "rgba(255,255,255,0.45)" }}>
             {pullRefreshing
-              ? <div className="w-4 h-4 rounded-full border-2 border-t-[hsl(263,70%,65%)] animate-spin" style={{ borderColor: "rgba(255,255,255,0.15)", borderTopColor: "hsl(263,70%,65%)" }} />
+              ? <div className="w-4 h-4 rounded-full border-2 border-t-[#7C3AED] animate-spin" style={{ borderColor: "rgba(0,0,0,0.08)", borderTopColor: "#7C3AED" }} />
               : <span>{pullDistance >= 80 ? "↑ Release to refresh" : "↓ Pull to refresh"}</span>}
           </div>
         )}
@@ -3787,7 +3787,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   {mediaItems.length > 0 && !openFolder && (
                     <button onClick={() => { setBulkMode(true); setBulkSelectedIds([]); }}
-                      className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[#EBEBF0] transition-colors`}>
                       Select
                     </button>
                   )}
@@ -3797,7 +3797,7 @@ export default function App() {
                 </div>
               )}
               {bulkMode && (
-                <button onClick={cancelBulkMode} className={`text-sm font-medium ${dimText} hover:text-white`}>Cancel</button>
+                <button onClick={cancelBulkMode} className={`text-sm font-medium ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
               )}
             </div>
 
@@ -3807,12 +3807,12 @@ export default function App() {
                 {/* Row 1: All / Used tabs + count */}
                 <div className="flex items-center gap-2">
                   <button onClick={() => { setUsedFilter("active"); setActiveFilters([]); setOpenFolder(null); setFolderAddMode(false); }}
-                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${usedFilter === "active" ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                    className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${usedFilter === "active" ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                     All
                   </button>
                   {mediaItems.some((m) => m.used) && (
                     <button onClick={() => { setUsedFilter("used"); setActiveFilters([]); setFilterDropdownOpen(false); setSortDropdownOpen(false); setOpenFolder(null); setFolderAddMode(false); }}
-                      className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${usedFilter === "used" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-colors ${usedFilter === "used" ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                       ✓ Used
                     </button>
                   )}
@@ -3827,15 +3827,15 @@ export default function App() {
                         if (plan === "free") { openProGate("Filter by Tag"); return; }
                         setFilterDropdownOpen((o) => !o); setSortDropdownOpen(false);
                       }}
-                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${activeFilters.length > 0 ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${activeFilters.length > 0 ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                         🏷️ {activeFilters.length > 0 ? `Filtered (${activeFilters.length})` : "Filter by Tag"}{plan === "free" && <DiamondBadge />} ▾
                       </button>
                       {filterDropdownOpen && (
-                        <div className={`absolute top-9 left-0 z-20 w-52 rounded-xl border ${border} bg-[hsl(220,14%,13%)] shadow-xl py-1`}>
+                        <div className={`absolute top-9 left-0 z-20 w-52 rounded-xl border ${border} bg-[#F2F2F7] shadow-xl py-1`}>
                           <button onClick={() => setActiveFilters([])}
-                            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-[hsl(220,14%,18%)] ${activeFilters.length === 0 ? "text-[hsl(263,70%,75%)]" : dimText}`}>
-                            <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${activeFilters.length === 0 ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,30%)]"}`}>
-                              {activeFilters.length === 0 && <span className="text-white text-[9px]">✓</span>}
+                            className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-[#E8E8F0] ${activeFilters.length === 0 ? "text-[#A78BFA]" : dimText}`}>
+                            <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${activeFilters.length === 0 ? "bg-[#7C3AED] border-[#7C3AED]" : "border-[#C8C8D4]"}`}>
+                              {activeFilters.length === 0 && <span className="text-[#1A1A2E] text-[9px]">✓</span>}
                             </span>
                             All tags
                           </button>
@@ -3844,9 +3844,9 @@ export default function App() {
                             const on = activeFilters.includes(tag);
                             return (
                               <button key={tag} onClick={() => setActiveFilters((prev) => on ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-[hsl(220,14%,18%)] ${on ? "text-[hsl(263,70%,75%)]" : dimText}`}>
-                                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${on ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,30%)]"}`}>
-                                  {on && <span className="text-white text-[9px]">✓</span>}
+                                className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-[#E8E8F0] ${on ? "text-[#A78BFA]" : dimText}`}>
+                                <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${on ? "bg-[#7C3AED] border-[#7C3AED]" : "border-[#C8C8D4]"}`}>
+                                  {on && <span className="text-[#1A1A2E] text-[9px]">✓</span>}
                                 </span>
                                 {tagIcon(tag)} {tagLabel(tag)}
                               </button>
@@ -3859,20 +3859,20 @@ export default function App() {
                         if (plan === "free") { openProGate("Favorites & Heart Filter"); return; }
                         setFilterFavoritesOnly((v) => !v); setFilterDropdownOpen(false);
                       }}
-                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${filterFavoritesOnly ? "bg-red-500/15 text-red-300 border-red-500/30" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1.5 ${filterFavoritesOnly ? "bg-red-500/15 text-red-300 border-red-500/30" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                       <Heart className="w-4 h-4" stroke={filterFavoritesOnly ? "#ef4444" : "currentColor"} fill={filterFavoritesOnly ? "#ef4444" : "none"} />{plan === "free" && <DiamondBadge />}
                     </button>
                     <div className="relative ml-auto">
                       <button onClick={() => { setSortDropdownOpen((o) => !o); setFilterDropdownOpen(false); }}
-                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
+                        className={`text-xs px-3 py-1.5 rounded-lg border transition-colors flex items-center gap-1 ${border} ${dimText} hover:bg-[#EBEBF0]`}>
                         ↕ {SORT_LABELS[poolSort]} ▾
                       </button>
                       {sortDropdownOpen && (
-                        <div className={`absolute top-9 right-0 z-20 w-40 rounded-xl border ${border} bg-[hsl(220,14%,13%)] shadow-xl py-1`}>
+                        <div className={`absolute top-9 right-0 z-20 w-40 rounded-xl border ${border} bg-[#F2F2F7] shadow-xl py-1`}>
                           {(["latest", "oldest", "name"] as PoolSort[]).map((s) => (
                             <button key={s} onClick={() => { setPoolSort(s); setSortDropdownOpen(false); }}
-                              className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-[hsl(220,14%,18%)] ${poolSort === s ? "text-[hsl(263,70%,75%)]" : dimText}`}>
-                              <span className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center ${poolSort === s ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,30%)]"}`}>
+                              className={`w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-[#E8E8F0] ${poolSort === s ? "text-[#A78BFA]" : dimText}`}>
+                              <span className={`w-3.5 h-3.5 rounded-full border flex-shrink-0 flex items-center justify-center ${poolSort === s ? "bg-[#7C3AED] border-[#7C3AED]" : "border-[#C8C8D4]"}`}>
                                 {poolSort === s && <span className="w-1.5 h-1.5 rounded-full bg-white inline-block" />}
                               </span>
                               {SORT_LABELS[s]}
@@ -3887,7 +3887,7 @@ export default function App() {
                   <div className="flex items-center gap-2">
                     {(["all", "scheduled", "posted"] as const).map((sf) => (
                       <button key={sf} onClick={() => setUsedSubFilter(sf)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${usedSubFilter === sf ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors ${usedSubFilter === sf ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                         {sf === "all" ? "All" : sf === "scheduled" ? "🕐 Scheduled" : "✓ Published"}
                       </button>
                     ))}
@@ -3901,20 +3901,20 @@ export default function App() {
               <div>
                 {mediaSearchOpen ? (
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 flex items-center gap-2 bg-[hsl(220,14%,13%)] border border-[hsl(220,13%,22%)] rounded-xl px-3 py-2">
-                      <svg className="w-3.5 h-3.5 text-[hsl(220,10%,45%)] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
+                    <div className="flex-1 flex items-center gap-2 bg-[#F2F2F7] border border-[#E0E0E8] rounded-xl px-3 py-2">
+                      <svg className="w-3.5 h-3.5 text-[#9999B0] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
                       <input
                         autoFocus
                         type="text"
                         placeholder="Search by name or tag…"
                         value={mediaSearchQuery}
                         onChange={(e) => setMediaSearchQuery(e.target.value)}
-                        className="flex-1 bg-transparent text-sm text-white placeholder-[hsl(220,10%,40%)] outline-none"
+                        className="flex-1 bg-transparent text-sm text-[#1A1A2E] placeholder-[#AAAABC] outline-none"
                       />
-                      {mediaSearchLoading && <div className="w-3.5 h-3.5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin flex-shrink-0" />}
+                      {mediaSearchLoading && <div className="w-3.5 h-3.5 rounded-full border-2 border-[#D8D8E0] border-t-white/60 animate-spin flex-shrink-0" />}
                     </div>
                     <button onClick={() => { setMediaSearchOpen(false); setMediaSearchQuery(""); setMediaSearchResults(null); }}
-                      className={`text-xs px-3 py-2 rounded-xl border ${border} ${dimText} hover:text-white transition-colors flex-shrink-0`}>✕ Clear</button>
+                      className={`text-xs px-3 py-2 rounded-xl border ${border} ${dimText} hover:text-[#1A1A2E] transition-colors flex-shrink-0`}>✕ Clear</button>
                   </div>
                 ) : (
                   <button
@@ -3922,7 +3922,7 @@ export default function App() {
                       if (plan === "free") { openProGate("Media Search"); return; }
                       setMediaSearchOpen(true);
                     }}
-                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                    className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border ${border} ${dimText} hover:text-white hover:border-[#7C3AED/40] transition-colors`}>
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><circle cx={11} cy={11} r={8}/><path d="m21 21-4.35-4.35"/></svg>
                     Search{plan === "free" && <DiamondBadge />}
                   </button>
@@ -3943,7 +3943,7 @@ export default function App() {
                       : `${folderPickIds.length} selected for "${folderPickTarget.current.name}"`}
                   </p>
                   <button onClick={() => { setFolderPickMode(false); setFolderPickIds([]); folderPickTarget.current = null; }}
-                    className={`text-xs ${dimText} hover:text-white`}>Cancel</button>
+                    className={`text-xs ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
                 </div>
                 {folderPickIds.length > 0 && (
                   <button onClick={handleFolderPickConfirm}
@@ -3958,18 +3958,18 @@ export default function App() {
             {openFolder && (
               <div className="flex items-center justify-between py-1">
                 <div className="flex items-center gap-2">
-                  <button onClick={() => { setOpenFolder(null); setFolderAddMode(false); cancelBulkMode(); }} className={`${dimText} hover:text-white text-sm`}>← Back</button>
+                  <button onClick={() => { setOpenFolder(null); setFolderAddMode(false); cancelBulkMode(); }} className={`${dimText} hover:text-[#1A1A2E] text-sm`}>← Back</button>
                   <span className="text-sm font-semibold">📁 {openFolder.name}</span>
                   <span className={`text-xs ${dimText}`}>({openFolder.mediaIds.filter((id) => mediaMap[id]).length})</span>
                 </div>
                 <div className="flex items-center gap-2">
                   {folderAddMode ? (
-                    <button onClick={() => setFolderAddMode(false)} className={`text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,75%)] border border-[hsl(263,70%,65%)/30]`}>Done Adding</button>
+                    <button onClick={() => setFolderAddMode(false)} className={`text-xs px-2.5 py-1 rounded-lg bg-[#7C3AED/20] text-[#A78BFA] border border-[#7C3AED/30]`}>Done Adding</button>
                   ) : bulkMode ? (
-                    <button onClick={cancelBulkMode} className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>Cancel</button>
+                    <button onClick={cancelBulkMode} className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[#EBEBF0] transition-colors`}>Cancel</button>
                   ) : (
                     <>
-                      <button onClick={() => { setBulkMode(true); setBulkSelectedIds([]); }} className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>Select</button>
+                      <button onClick={() => { setBulkMode(true); setBulkSelectedIds([]); }} className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:bg-[#EBEBF0] transition-colors`}>Select</button>
                       <button onClick={() => setConfirmDeleteFolder(true)} className={`text-xs ${dimText} hover:text-red-400`}>Delete folder</button>
                     </>
                   )}
@@ -3978,12 +3978,12 @@ export default function App() {
             )}
             {/* Folder add-mode banner — multi-select then confirm */}
             {openFolder && folderAddMode && (
-              <div className="rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8] px-3 py-2.5 space-y-2">
+              <div className="rounded-xl border border-[#7C3AED/30] bg-[#7C3AED/8] px-3 py-2.5 space-y-2">
                 <div className="flex items-center justify-between">
-                  <p className={`text-xs text-[hsl(263,70%,70%)]`}>
+                  <p className={`text-xs text-[#8B5CF6]`}>
                     {folderPendingIds.length === 0 ? `Tap items to select for "${openFolder.name}"` : `${folderPendingIds.length} selected`}
                   </p>
-                  <button onClick={() => { setFolderAddMode(false); setFolderPendingIds([]); }} className={`text-xs ${dimText} hover:text-white`}>Cancel</button>
+                  <button onClick={() => { setFolderAddMode(false); setFolderPendingIds([]); }} className={`text-xs ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
                 </div>
                 {folderPendingIds.length > 0 && (
                   <button
@@ -3992,7 +3992,7 @@ export default function App() {
                       setFolderPendingIds([]);
                       setFolderAddMode(false);
                     }}
-                    className="w-full py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white text-xs font-semibold">
+                    className="w-full py-1.5 rounded-lg bg-[#7C3AED] text-white text-xs font-semibold">
                     Add {folderPendingIds.length} item{folderPendingIds.length !== 1 ? "s" : ""} to Folder
                   </button>
                 )}
@@ -4002,17 +4002,17 @@ export default function App() {
             {/* Media grid or used groups */}
             {mediaLoading ? (
               <div className="grid grid-cols-3 gap-2">
-                {Array.from({ length: 9 }).map((_, i) => <div key={i} className="aspect-square rounded-xl bg-[hsl(220,14%,13%)] animate-pulse" />)}
+                {Array.from({ length: 9 }).map((_, i) => <div key={i} className="aspect-square rounded-xl bg-[#F2F2F7] animate-pulse" />)}
               </div>
             ) : mediaItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
                 <span className="text-6xl">📷</span>
                 <div>
-                  <p className="font-semibold text-[hsl(220,10%,80%)] text-lg">No media yet</p>
+                  <p className="font-semibold text-[#3D3D5C] text-lg">No media yet</p>
                   <p className={`text-sm ${dimText} mt-1`}>Upload your first photo or video to get started</p>
                 </div>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="px-5 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold hover:bg-[hsl(263,70%,58%)] transition-colors">
+                  className="px-5 py-2.5 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold hover:bg-[#6D28D9] transition-colors">
                   + Upload
                 </button>
               </div>
@@ -4028,14 +4028,14 @@ export default function App() {
                       <div key={post?.id ?? `unassigned_${gi}`}>
                         {weekLabel && <p className={`text-[10px] font-medium ${dimText} uppercase tracking-wider mb-2`}>{weekLabel}</p>}
                         {post ? (
-                          <div className={`w-full rounded-xl border ${sc?.card} bg-[hsl(220,14%,11%)] px-3 py-2 mb-2`}>
+                          <div className={`w-full rounded-xl border ${sc?.card} bg-[#FFFFFF] px-3 py-2 mb-2`}>
                             <div className="flex items-center gap-2 min-w-0">
                               <span className="flex-shrink-0 text-sm">{getPostStatus(post) === "scheduled" ? "🕐" : "✓"}</span>
                               {d && <span className={`flex-shrink-0 text-xs ${dimText}`}>{formatDayShort(d)}{post.scheduledTime ? ` · ${post.scheduledTime}` : ""}</span>}
                               {post.caption && <p className={`text-xs ${dimText} truncate flex-1 min-w-0`}>{post.caption}</p>}
                               <div className="flex items-center gap-2 flex-shrink-0">
-                                <button onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-white`}>👁</button>
-                                <button onClick={() => openPostForEdit(post, "used")} className={`text-xs ${dimText} hover:text-white`}>✏️</button>
+                                <button onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`text-xs ${dimText} hover:text-[#1A1A2E]`}>👁</button>
+                                <button onClick={() => openPostForEdit(post, "used")} className={`text-xs ${dimText} hover:text-[#1A1A2E]`}>✏️</button>
                                 <button onClick={() => setDeleteConfirmPost(post)} className={`text-xs ${dimText} hover:text-red-400`}>🗑</button>
                               </div>
                             </div>
@@ -4046,7 +4046,7 @@ export default function App() {
                         <div className="grid grid-cols-4 gap-1.5">
                           {items.map((item) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden aspect-square opacity-75 cursor-pointer active:opacity-50" onClick={() => { setUsedViewerItem(item); setUsedViewerPost(post ?? null); setUsedViewerRemoveConfirm(false); }}>
-                              {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-white text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                              {isVideo(item.dataUrl, item.media_type) ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" className="absolute inset-0 w-full h-full object-cover" /> : <div className="absolute inset-0 w-full h-full bg-[#EBEBF0] flex items-center justify-center text-xl">🎥</div>}<span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center text-[#1A1A2E] text-[9px]">▶</span></span></> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center text-2xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt={item.name} loading="lazy" decoding="async" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                               {item.tag && <span style={{ padding: "1px 3px", fontSize: 8, transform: "translateZ(0)" }} className={`absolute top-0.5 left-0.5 rounded ${tagColor(item.tag, appSettings.customTags)}`}>{tagIcon(item.tag)}</span>}
                             </div>
                           ))}
@@ -4070,32 +4070,32 @@ export default function App() {
                           onPointerUp={(e) => { clearTimeout(Number((e.currentTarget as HTMLElement).dataset.lpt)); }}
                           onPointerLeave={(e) => { clearTimeout(Number((e.currentTarget as HTMLElement).dataset.lpt)); }}>
                           {imgs[2] && (
-                            <div className="absolute inset-0 rounded-xl overflow-hidden border border-[hsl(220,13%,25%)]"
+                            <div className="absolute inset-0 rounded-xl overflow-hidden border border-[#D8D8E0]"
                               style={{ transform: "rotate(-7deg) scale(0.92)", zIndex: 1, opacity: 0.75 }}>
                               {isVideo(imgs[2].dataUrl, imgs[2].media_type)
-                                ? (imgs[2].thumbnail_url || videoPosters[imgs[2].id] ? <img src={imgs[2].thumbnail_url || videoPosters[imgs[2].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>)
+                                ? (imgs[2].thumbnail_url || videoPosters[imgs[2].id] ? <img src={imgs[2].thumbnail_url || videoPosters[imgs[2].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center text-xl">🎥</div>)
                                 : <img src={imgs[2].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />}
                             </div>
                           )}
                           {imgs[1] && (
-                            <div className="absolute inset-0 rounded-xl overflow-hidden border border-[hsl(220,13%,25%)]"
+                            <div className="absolute inset-0 rounded-xl overflow-hidden border border-[#D8D8E0]"
                               style={{ transform: "rotate(-3.5deg) scale(0.96)", zIndex: 2, opacity: 0.88 }}>
                               {isVideo(imgs[1].dataUrl, imgs[1].media_type)
-                                ? (imgs[1].thumbnail_url || videoPosters[imgs[1].id] ? <img src={imgs[1].thumbnail_url || videoPosters[imgs[1].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>)
+                                ? (imgs[1].thumbnail_url || videoPosters[imgs[1].id] ? <img src={imgs[1].thumbnail_url || videoPosters[imgs[1].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center text-xl">🎥</div>)
                                 : <img src={imgs[1].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />}
                             </div>
                           )}
-                          <div className="absolute inset-0 rounded-xl overflow-hidden border-2 border-[hsl(220,13%,28%)] group-hover:border-[hsl(263,70%,65%)/60] transition-all"
+                          <div className="absolute inset-0 rounded-xl overflow-hidden border-2 border-[#D0D0DC] group-hover:border-[#7C3AED/60] transition-all"
                             style={{ zIndex: 3 }}>
                             {imgs[0]
                               ? (isVideo(imgs[0].dataUrl, imgs[0].media_type)
-                                  ? (imgs[0].thumbnail_url || videoPosters[imgs[0].id] ? <img src={imgs[0].thumbnail_url || videoPosters[imgs[0].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-xl">🎥</div>)
+                                  ? (imgs[0].thumbnail_url || videoPosters[imgs[0].id] ? <img src={imgs[0].thumbnail_url || videoPosters[imgs[0].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center text-xl">🎥</div>)
                                   : <img src={imgs[0].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />)
-                              : <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center"><span className="text-3xl">📁</span></div>}
+                              : <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center"><span className="text-3xl">📁</span></div>}
                           </div>
                           <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-2 pb-1.5 pt-6 rounded-b-xl">
-                            <p className="text-white text-[10px] font-semibold truncate leading-tight">{folder.name}</p>
-                            {(() => { const cnt = folder.mediaIds.filter((id) => mediaMap[id]).length; return <p className="text-white/55 text-[8px]">{cnt} item{cnt !== 1 ? "s" : ""}</p>; })()}
+                            <p className="text-[#1A1A2E] text-[10px] font-semibold truncate leading-tight">{folder.name}</p>
+                            {(() => { const cnt = folder.mediaIds.filter((id) => mediaMap[id]).length; return <p className="text-[#8888A0] text-[8px]">{cnt} item{cnt !== 1 ? "s" : ""}</p>; })()}
                           </div>
                         </div>
                       );
@@ -4115,7 +4115,7 @@ export default function App() {
                         setCreateFolderOpen(true);
                       }
                     }}
-                      className={`text-xs flex items-center gap-1 px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                      className={`text-xs flex items-center gap-1 px-2.5 py-1 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[#7C3AED/40] transition-colors`}>
                       📁 + New Folder{plan === "free" && folders.length >= limits.maxFolders && <DiamondBadge />}
                     </button>
                   </div>
@@ -4128,7 +4128,7 @@ export default function App() {
                   // Show spinner while folder pool media is loading
                   if (folderAddMode && folderPoolMediaLoading) return (
                     <div className="col-span-3 flex items-center justify-center py-16">
-                      <span className="w-6 h-6 rounded-full border-2 border-[hsl(263,70%,65%)/30] border-t-[hsl(263,70%,65%)] animate-spin" />
+                      <span className="w-6 h-6 rounded-full border-2 border-[#7C3AED/30] border-t-[#7C3AED] animate-spin" />
                     </div>
                   );
 
@@ -4144,11 +4144,11 @@ export default function App() {
                     <div className="col-span-3 flex flex-col items-center justify-center py-16 gap-3 text-center">
                       <span className="text-4xl">🔍</span>
                       <div>
-                        <p className={`text-sm font-medium text-[hsl(220,10%,70%)]`}>No results found</p>
+                        <p className={`text-sm font-medium text-[#6B6B80]`}>No results found</p>
                         <p className={`text-xs ${dimText} mt-1`}>Try different filters or tags</p>
                       </div>
                       <button onClick={() => { setActiveFilters([]); setPoolSort("latest"); }}
-                        className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                        className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[#7C3AED/40] transition-colors`}>
                         Clear filters
                       </button>
                     </div>
@@ -4162,11 +4162,11 @@ export default function App() {
                     <div className="col-span-3 flex flex-col items-center justify-center py-14 gap-3 text-center">
                       <span className="text-4xl">📂</span>
                       <div>
-                        <p className={`text-sm font-medium text-[hsl(220,10%,70%)]`}>This folder is empty</p>
+                        <p className={`text-sm font-medium text-[#6B6B80]`}>This folder is empty</p>
                         <p className={`text-xs ${dimText} mt-1`}>Add photos or videos to this folder</p>
                       </div>
                       <button onClick={() => setFolderAddSourceSheet(true)}
-                        className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                        className={`text-xs px-3 py-1.5 rounded-lg border ${border} ${dimText} hover:text-white hover:border-[#7C3AED/40] transition-colors`}>
                         + Add File(s)
                       </button>
                     </div>
@@ -4207,7 +4207,7 @@ export default function App() {
                         }}
                         style={{ position: "relative", paddingBottom: "100%" }}
                         className={`rounded-xl overflow-hidden cursor-pointer transition-all select-none
-                          ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[hsl(263,70%,65%)]" : ""}
+                          ${(selectionMode && isSelected) || (bulkMode && isSelected) ? "ring-2 ring-[#7C3AED]" : ""}
                           ${(openFolder && folderAddMode && folderPendingIds.includes(item.id)) ? "ring-2 ring-emerald-400" : ""}
                           ${folderPickMode && isSelected ? "ring-2 ring-emerald-400" : ""}
                           ${bulkMode && !isSelected ? "opacity-70" : ""}`}>
@@ -4216,19 +4216,19 @@ export default function App() {
                           ? <div style={{ width: "100%", height: "100%", position: "relative" }}>
                               {(videoPosters[item.id] || item.thumbnail_url)
                                 ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt={item.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                                : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}
-                              <span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white text-sm">▶</span></span>
-                              {item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-white bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}
+                                : <div style={{ width: "100%", height: "100%", background: "#EBEBF0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>🎥</div>}
+                              <span className="absolute inset-0 flex items-center justify-center pointer-events-none"><span className="w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-[#1A1A2E] text-sm">▶</span></span>
+                              {item.duration ? <span className="absolute bottom-1 right-1 text-[9px] text-[#1A1A2E] bg-black/60 rounded px-1 leading-4">{fmtDuration(item.duration)}</span> : null}
                             </div>
                           : brokenImages.has(item.id)
-                            ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div>
+                            ? <div style={{ width: "100%", height: "100%", background: "#EBEBF0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>{tagIcon(item.tag ?? "other")}</div>
                             : <img src={item.url || item.dataUrl || ""} alt={item.name} loading="lazy" decoding="async" className="object-cover" style={{ width: "100%", height: "100%" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
-                        {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-white animate-pulse">Analyzing…</span></div>}
+                        {item.analyzing && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><span className="text-xs text-[#1A1A2E] animate-pulse">Analyzing…</span></div>}
                         {!item.analyzing && !bulkMode && !folderAddMode && (
                           <button onClick={(e) => { e.stopPropagation(); setTagPickerItem(item); }}
                             style={{ padding: "1px 3px", fontSize: 8 }} className={`absolute top-1 left-1 rounded border backdrop-blur-sm ${item.tag ? tagColor(item.tag, appSettings.customTags) : "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"}`}>
                             {item.tag ? (
-                              <>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[hsl(263,70%,65%)]">💎</span>}</>
+                              <>{tagIcon(item.tag)}{plan === "free" && item.tag === "other" && <span className="ml-0.5 text-[#7C3AED]">💎</span>}</>
                             ) : "＋ Tag"}
                           </button>
                         )}
@@ -4241,18 +4241,18 @@ export default function App() {
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
-                          <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-white/60 bg-black/30"}`}>
-                            {isSelected && <span className="text-white text-[10px] font-bold">✓</span>}
+                          <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? "bg-[#7C3AED] border-[#7C3AED]" : "border-white/60 bg-black/30"}`}>
+                            {isSelected && <span className="text-[#1A1A2E] text-[10px] font-bold">✓</span>}
                           </div>
                         )}
                         {openFolder && folderAddMode && (
                           <div className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${folderPendingIds.includes(item.id) ? "bg-emerald-400 border-emerald-400" : "border-white/60 bg-black/30"}`}>
-                            {folderPendingIds.includes(item.id) && <span className="text-white text-[10px] font-bold">✓</span>}
+                            {folderPendingIds.includes(item.id) && <span className="text-[#1A1A2E] text-[10px] font-bold">✓</span>}
                           </div>
                         )}
                         {selectionMode === "carousel" && isSelected && (
-                          <div className="absolute top-1.5 left-1.5 w-4 h-4 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center">
-                            <span className="text-white text-[9px] font-bold">{selectedIds.indexOf(item.id) + 1}</span>
+                          <div className="absolute top-1.5 left-1.5 w-4 h-4 rounded-full bg-[#7C3AED] flex items-center justify-center">
+                            <span className="text-[#1A1A2E] text-[9px] font-bold">{selectedIds.indexOf(item.id) + 1}</span>
                           </div>
                         )}
                         {bulkMode && isSelected && (
@@ -4262,7 +4262,7 @@ export default function App() {
                         )}
                         {item.display_name && !bulkMode && !selectionMode && !folderAddMode && (
                           <div className="absolute bottom-0 left-0 right-0 px-1.5 pt-3 pb-1 bg-gradient-to-t from-black/65 to-transparent pointer-events-none">
-                            <p className="text-[9px] text-white/80 truncate leading-tight">{item.display_name}</p>
+                            <p className="text-[9px] text-[#1A1A2E] truncate leading-tight">{item.display_name}</p>
                           </div>
                         )}
                         </div>
@@ -4276,7 +4276,7 @@ export default function App() {
                         <button
                           key="add-file-tile"
                           onClick={() => setFolderAddSourceSheet(true)}
-                          className="aspect-square rounded-xl border-2 border-dashed border-[hsl(220,13%,28%)] hover:border-[hsl(263,70%,65%)/60] flex flex-col items-center justify-center gap-1.5 text-[hsl(220,10%,40%)] hover:text-[hsl(263,70%,70%)] transition-colors cursor-pointer">
+                          className="aspect-square rounded-xl border-2 border-dashed border-[#D0D0DC] hover:border-[#7C3AED/60] flex flex-col items-center justify-center gap-1.5 text-[#AAAABC] hover:text-[#8B5CF6] transition-colors cursor-pointer">
                           <span className="text-2xl leading-none">+</span>
                           <span className="text-[10px] font-medium">Add File(s)</span>
                         </button>
@@ -4323,7 +4323,7 @@ export default function App() {
                   {/* ── Best times banner ── */}
                   {plan !== "free" && (
                     <div className={`${card} p-4`}>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,55%)] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
+                      <p className="text-xs font-semibold text-[#8888A0] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
                       {scheduleRecsLoading ? (
                         <p className={`text-xs ${dimText} animate-pulse`}>Loading recommendations…</p>
                       ) : (
@@ -4331,9 +4331,9 @@ export default function App() {
                           {scheduleRecs.filter((r) => r.daysFromToday === 0).slice(0, 3).map((rec) => {
                             const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
                             const bgCls = rec.score >= 0.8 ? "bg-green-500/15 border-green-500/30 text-green-300"
-                              : rec.score >= 0.6 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                              : rec.score >= 0.6 ? "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#8B5CF6]"
                               : rec.score >= 0.4 ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
-                              : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]";
+                              : "bg-[#EBEBF0] border-[#E0E0E8] text-[#7878A0]";
                             return (
                               <button key={rec.hour}
                                 onClick={() => { setScheduleTime(timeStr); setSingleScheduleTime(timeStr); setTodayBuildMode(true); }}
@@ -4346,9 +4346,9 @@ export default function App() {
                             scheduleRecs.slice(0, 3).map((rec) => {
                               const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
                               const bgCls = rec.score >= 0.8 ? "bg-green-500/15 border-green-500/30 text-green-300"
-                                : rec.score >= 0.6 ? "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]"
+                                : rec.score >= 0.6 ? "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#8B5CF6]"
                                 : rec.score >= 0.4 ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
-                                : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]";
+                                : "bg-[#EBEBF0] border-[#E0E0E8] text-[#7878A0]";
                               return (
                                 <button key={rec.hour}
                                   onClick={() => { setScheduleTime(timeStr); setSingleScheduleTime(timeStr); setTodayBuildMode(true); }}
@@ -4364,14 +4364,14 @@ export default function App() {
                   )}
                   {plan === "free" && (
                     <div className={`${card} p-4 relative overflow-hidden`}>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,55%)] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
+                      <p className="text-xs font-semibold text-[#8888A0] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
                       <div className="flex gap-1.5 blur-sm pointer-events-none select-none">
-                        {[{ l: "⚡ 19:00", c: "bg-green-500/15 border-green-500/30 text-green-300" }, { l: "👍 11:00", c: "bg-[hsl(263,70%,65%)/15] border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)]" }, { l: "😐 14:00", c: "bg-amber-500/10 border-amber-500/20 text-amber-300" }].map((t) => (
+                        {[{ l: "⚡ 19:00", c: "bg-green-500/15 border-green-500/30 text-green-300" }, { l: "👍 11:00", c: "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#8B5CF6]" }, { l: "😐 14:00", c: "bg-amber-500/10 border-amber-500/20 text-amber-300" }].map((t) => (
                           <span key={t.l} className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${t.c}`}>{t.l}</span>
                         ))}
                       </div>
                       <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                        <button onClick={() => openProGate("Recommended Posting Schedule")} className="text-xs font-semibold text-[hsl(263,70%,70%)] flex items-center gap-1">
+                        <button onClick={() => openProGate("Recommended Posting Schedule")} className="text-xs font-semibold text-[#8B5CF6] flex items-center gap-1">
                           <DiamondBadge /> Upgrade to see best posting times
                         </button>
                       </div>
@@ -4382,12 +4382,12 @@ export default function App() {
                     /* Empty state — large centered "+" */
                     <button
                       onClick={handleCreatePostClick}
-                      className={`w-full ${card} flex flex-col items-center justify-center gap-3 py-16 hover:bg-[hsl(220,14%,14%)] transition-colors group`}>
-                      <div className="w-16 h-16 rounded-full border-2 border-dashed border-[hsl(263,70%,65%)/50] group-hover:border-[hsl(263,70%,65%)] flex items-center justify-center transition-colors">
-                        <span className="text-3xl font-light text-[hsl(263,70%,65%)]">+</span>
+                      className={`w-full ${card} flex flex-col items-center justify-center gap-3 py-16 hover:bg-[#F2F2F7] transition-colors group`}>
+                      <div className="w-16 h-16 rounded-full border-2 border-dashed border-[#7C3AED/50] group-hover:border-[#7C3AED] flex items-center justify-center transition-colors">
+                        <span className="text-3xl font-light text-[#7C3AED]">+</span>
                       </div>
                       <div className="text-center">
-                        <p className="font-semibold text-[hsl(220,10%,85%)] flex items-center justify-center gap-1">
+                        <p className="font-semibold text-[#2D2D44] flex items-center justify-center gap-1">
                           Create Post{plan === "free" && monthPostCount >= limits.maxPostsPerMonth && <DiamondBadge />}
                         </p>
                         <p className={`text-xs ${dimText} mt-0.5`}>No posts scheduled for today</p>
@@ -4400,12 +4400,12 @@ export default function App() {
                         const sc = postStatusClasses(post);
                         const thumb = (post.mediaIds ?? []).map((id) => mediaMap[id]).find(Boolean);
                         return (
-                          <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} overflow-hidden cursor-pointer hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                          <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} overflow-hidden cursor-pointer hover:border-[#7C3AED/40] transition-colors`}>
                             <div className="flex items-stretch">
                               {thumb && (
                                 <div className="w-20 flex-shrink-0 overflow-hidden relative">
                                   {isVideo(thumb.dataUrl)
-                                    ? <>{videoPosters[thumb.id] ? <LazyImg src={videoPosters[thumb.id]} alt="" className="object-cover" /> : <div className="w-full h-full bg-[hsl(220,14%,16%)]" />}<span className="absolute inset-0 flex items-center justify-center"><span className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-white text-xs">▶</span></span></>
+                                    ? <>{videoPosters[thumb.id] ? <LazyImg src={videoPosters[thumb.id]} alt="" className="object-cover" /> : <div className="w-full h-full bg-[#EBEBF0]" />}<span className="absolute inset-0 flex items-center justify-center"><span className="w-6 h-6 rounded-full bg-black/50 flex items-center justify-center text-[#1A1A2E] text-xs">▶</span></span></>
                                     : <LazyImg src={thumb.dataUrl} alt="" className="object-cover" />}
                                 </div>
                               )}
@@ -4420,9 +4420,9 @@ export default function App() {
                                   <div className="flex items-center gap-2 flex-wrap">
                                     {post.tagsSummary ? <span className="text-base leading-none">{post.tagsSummary}</span> : null}
                                     {post.mediaIds?.some((id) => { const m = mediaItems.find((x) => x.id === id); return m && isVideo(m.dataUrl, m.media_type); }) && (
-                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(220,14%,22%)] text-white/70 border border-[hsl(220,13%,30%)]">▶ Video</span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E0E0EA] text-[#2D2D44] border border-[#C8C8D4]">▶ Video</span>
                                     )}
-                                    {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)] flex-shrink-0 ml-auto">🕐 {post.scheduledTime}</span>}
+                                    {post.scheduledTime && <span className="text-[10px] text-[#AAAABC] flex-shrink-0 ml-auto">🕐 {post.scheduledTime}</span>}
                                   </div>
                                 )}
                                 {/* Row 3: caption */}
@@ -4434,7 +4434,7 @@ export default function App() {
                                   </span>
                                   {getPostStatus(post) !== "posted" && (
                                     <div className="flex gap-3 items-center">
-                                      {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                      {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[#8B5CF6]`}>✏️ Edit</button> : null}
                                       <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
                                     </div>
                                   )}
@@ -4448,7 +4448,7 @@ export default function App() {
                       {/* Smaller "Create Post" below existing posts */}
                       <button
                         onClick={handleCreatePostClick}
-                        className={`w-full py-3 rounded-xl border border-dashed ${border} ${dimText} hover:border-[hsl(263,70%,65%)/50] hover:text-[hsl(263,70%,70%)] transition-colors flex items-center justify-center gap-2 text-sm font-medium`}>
+                        className={`w-full py-3 rounded-xl border border-dashed ${border} ${dimText} hover:border-[#7C3AED/50] hover:text-[#8B5CF6] transition-colors flex items-center justify-center gap-2 text-sm font-medium`}>
                         <span className="text-base">+</span> Create Post{plan === "free" && monthPostCount >= limits.maxPostsPerMonth && <DiamondBadge />}
                       </button>
                     </div>
@@ -4504,13 +4504,13 @@ export default function App() {
                         onError={(e) => console.error('[video] error:', (e.target as HTMLVideoElement).src, e)}
                       />
                     ) : <img src={currentSlide.dataUrl} alt="" className="w-full h-full object-cover" />}
-                    {currentSlide.tag && <span style={{ padding: "1px 3px", fontSize: 8 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}</span>}
-                    <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">{carouselIndex + 1} / {carouselItems.length}</span>
-                    {carouselIndex > 0 && <button onClick={() => setCarouselIndex((i) => i - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">‹</button>}
-                    {carouselIndex < carouselItems.length - 1 && <button onClick={() => setCarouselIndex((i) => i + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center">›</button>}
+                    {currentSlide.tag && <span style={{ padding: "1px 3px", fontSize: 8 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm ${tagColor(currentSlide.tag, appSettings.customTags)} flex items-center gap-1`}>{tagIcon(currentSlide.tag)} {tagLabel(currentSlide.tag)}{plan === "free" && currentSlide.tag === "other" && <span className="text-[#A78BFA]">💎</span>}</span>}
+                    <span className="absolute top-3 right-3 text-xs px-2 py-0.5 rounded-lg bg-black/50 text-[#1A1A2E] backdrop-blur-sm">{carouselIndex + 1} / {carouselItems.length}</span>
+                    {carouselIndex > 0 && <button onClick={() => setCarouselIndex((i) => i - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-[#1A1A2E] flex items-center justify-center">‹</button>}
+                    {carouselIndex < carouselItems.length - 1 && <button onClick={() => setCarouselIndex((i) => i + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-[#1A1A2E] flex items-center justify-center">›</button>}
                   </>
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-[hsl(220,14%,9%)]">
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-[#F8F8FA]">
                     <p className={`text-sm ${dimText}`}>Tap + below to add slides</p>
                   </div>
                 )}
@@ -4573,14 +4573,14 @@ export default function App() {
                         transform: isDragging ? "scale(0.9) translateY(3px)" : "scale(1) translateY(0)",
                         transition: isDragging ? "none" : "transform 180ms cubic-bezier(0.34,1.56,0.64,1)",
                         zIndex: isDragging ? 50 : 1,
-                        boxShadow: isDragging ? "0 12px 24px rgba(0,0,0,0.6), 0 0 0 2.5px hsl(263,70%,65%)" : isSelected ? "0 0 0 2.5px hsl(263,70%,65%)" : "none",
-                        outline: isSelected || isDragging ? "2px solid hsl(263,70%,65%)" : "2px solid transparent",
+                        boxShadow: isDragging ? "0 12px 24px rgba(0,0,0,0.6), 0 0 0 2.5px #7C3AED" : isSelected ? "0 0 0 2.5px #7C3AED" : "none",
+                        outline: isSelected || isDragging ? "2px solid #7C3AED" : "2px solid transparent",
                         opacity: isSelected || isDragging ? 1 : 0.75,
                         cursor: "grab",
                       } as React.CSSProperties}>
                       {isVideo(item.dataUrl, item.media_type)
-                        ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} /> : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)" }} />}<span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 9 }}>▶</span></span></>
-                        : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,16%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                        ? <>{(videoPosters[item.id] || item.thumbnail_url) ? <img src={videoPosters[item.id] || item.thumbnail_url!} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} /> : <div style={{ width: "100%", height: "100%", background: "#EBEBF0" }} />}<span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}><span style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontSize: 9 }}>▶</span></span></>
+                        : brokenImages.has(item.id) ? <div style={{ width: "100%", height: "100%", background: "#EBEBF0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                       <button
                         onPointerDown={(e) => e.stopPropagation()}
                         onClick={(e) => { e.stopPropagation(); removeFromCarousel(originalIdx); }}
@@ -4594,7 +4594,7 @@ export default function App() {
                           <button
                             onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => { e.stopPropagation(); if (canEdit) setTagPickerItem(item); }}
-                            style={{ position: "absolute", top: 4, left: 4, zIndex: 10, touchAction: "auto", padding: "1px 4px", fontSize: 9, borderRadius: 6, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", color: "rgba(255,255,255,0.9)", border: "1px solid rgba(255,255,255,0.15)", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", gap: 2 }}>
+                            style={{ position: "absolute", top: 4, left: 4, zIndex: 10, touchAction: "auto", padding: "1px 4px", fontSize: 9, borderRadius: 6, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)", color: "rgba(0,0,0,0.75)", border: "1px solid rgba(0,0,0,0.08)", cursor: canEdit ? "pointer" : "default", display: "flex", alignItems: "center", gap: 2 }}>
                             {tagIcon(item.tag)}
                           </button>
                         );
@@ -4618,8 +4618,8 @@ export default function App() {
                       gap: 2,
                       borderRadius: 10,
                       border: "2px dashed hsl(220,13%,32%)",
-                      background: "hsl(220,14%,9%)",
-                      color: "hsl(220,10%,40%)",
+                      background: "#F8F8FA",
+                      color: "#AAAABC",
                       cursor: "pointer",
                     } as React.CSSProperties}>
                     <span style={{ fontSize: 24, fontWeight: 300, lineHeight: 1 }}>+</span>
@@ -4633,7 +4633,7 @@ export default function App() {
             {/* Caption card — unified textarea + generate + pills */}
             {carouselItems.length > 0 && (
               <div className={`${card} p-5 space-y-3`}>
-                <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
+                <span className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Caption</span>
                 <textarea
                   ref={carouselCaptionRef}
                   value={carouselCaption}
@@ -4642,12 +4642,12 @@ export default function App() {
                   placeholder="Write your caption…"
                   rows={1}
                   style={{ resize: "none", overflow: "hidden", minHeight: 40 }}
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${carouselCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
+                  className={`w-full bg-[#F8F8FA] border ${carouselCaption ? "border-[#7C3AED/40]" : border} focus:border-[#7C3AED/60] rounded-xl px-3 py-2.5 text-sm text-[#2D2D44] focus:outline-none placeholder:text-[#BBBBCC] transition-colors`}
                 />
                 {/* Your ideas collapsible */}
                 <div>
                   <button onClick={() => setCaptionUserIdeasOpen((o) => !o)}
-                    className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-white transition-colors`}>
+                    className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-[#1A1A2E] transition-colors`}>
                     <span>{captionUserIdeasOpen ? "▾" : "▸"}</span>
                     <span>💡 Add your ideas <span className="opacity-60">(optional)</span></span>
                   </button>
@@ -4658,14 +4658,14 @@ export default function App() {
                       placeholder="e.g. mention the rooftop, reference the music..."
                       rows={2}
                       style={{ resize: "none" }}
-                      className={`mt-2 w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,30%)] focus:border-[hsl(263,70%,65%)/40] transition-colors`}
+                      className={`mt-2 w-full bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none placeholder:text-[#BBBBCC] focus:border-[#7C3AED/40] transition-colors`}
                     />
                   )}
                 </div>
                 <button
                   onClick={() => handleGetCaptionOptions("fresh")}
                   disabled={generatingCaptions}
-                  className="w-full py-2.5 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                  className="w-full py-2.5 rounded-xl border border-dashed border-[#7C3AED/40] text-[#8B5CF6] hover:bg-[#7C3AED/10] text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                   {generatingCaptions ? "✨ Generating…" : "✨ Generate 3 Captions"}{!limits.aiCaptions && <DiamondBadge />}
                 </button>
                 {generatingCaptions && (
@@ -4686,20 +4686,20 @@ export default function App() {
                         const selected = captionSelectedIdx === i;
                         return (
                           <button key={i} onClick={() => { setCaptionSelectedIdx(i); setCarouselCaption(opt); }}
-                            className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]`}`}>
+                            className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selected ? "border-[#7C3AED] bg-[#7C3AED/10]" : `border-[#E0E0E8] hover:border-[#C0C0CC] bg-[#F8F8FA]`}`}>
                             <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60 mr-1.5">{labels[i]}:</span>
-                            <span className={`text-xs ${selected ? "text-[hsl(220,10%,90%)]" : dimText}`}>{opt.split('\n')[0].slice(0, 70)}{(opt.split('\n')[0].length > 70 || opt.includes('\n')) ? "…" : ""}</span>
+                            <span className={`text-xs ${selected ? "text-[#1A1A2E]" : dimText}`}>{opt.split('\n')[0].slice(0, 70)}{(opt.split('\n')[0].length > 70 || opt.includes('\n')) ? "…" : ""}</span>
                           </button>
                         );
                       })}
                     </div>
                     <div className="flex gap-4 pt-0.5">
                       <button onClick={() => handleGetCaptionOptions("variations")} disabled={generatingCaptions}
-                        className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                        className={`text-xs ${dimText} hover:text-[#1A1A2E] disabled:opacity-40 flex items-center gap-1`}>
                         ↺ Variations{!limits.aiCaptions && <DiamondBadge />}
                       </button>
                       <button onClick={() => handleGetCaptionOptions("fresh")} disabled={generatingCaptions}
-                        className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                        className={`text-xs ${dimText} hover:text-[#1A1A2E] disabled:opacity-40 flex items-center gap-1`}>
                         🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}
                       </button>
                     </div>
@@ -4711,7 +4711,7 @@ export default function App() {
             {/* Schedule + Approve */}
             {carouselItems.length > 0 && (
               <div className={`${card} p-5 space-y-3`}>
-                <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Schedule</span>
+                <span className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Schedule</span>
                 <div className="flex flex-row items-end gap-3">
                   <div className="flex flex-col gap-1">
                     <label className={`text-[10px] ${dimText}`}>Date</label>
@@ -4725,9 +4725,9 @@ export default function App() {
                 {plan !== "free" && carouselTimeScore && (
                   <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
                     carouselTimeScore.score >= 0.8 ? "bg-green-500/10 border-green-500/25 text-green-300"
-                    : carouselTimeScore.score >= 0.6 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
+                    : carouselTimeScore.score >= 0.6 ? "bg-[#7C3AED/10] border-[#7C3AED/25] text-[#8B5CF6]"
                     : carouselTimeScore.score >= 0.4 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
-                    : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,50%)]"
+                    : "bg-[#EBEBF0] border-[#E0E0E8] text-[#9999B0]"
                   }`}>
                     <span>{carouselTimeScore.emoji}</span>
                     <span className="font-medium">{carouselTimeScore.label}</span>
@@ -4741,14 +4741,14 @@ export default function App() {
                 )}
                 <button onClick={handleApproveCarousel}
                   disabled={approveLoading || !carouselCaption.trim() || !!(scheduleDate && scheduleTime && new Date(`${scheduleDate}T${scheduleTime}`) < new Date()) || (editingPost ? carouselItems.length < 1 : carouselItems.length < 2)}
-                  className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                  className="w-full py-3 rounded-xl font-semibold bg-[#7C3AED] hover:bg-[#6D28D9] text-white disabled:opacity-40 disabled:cursor-not-allowed">
                   {approveLoading ? "⏳ Saving…" : editingPost && editingPost.status !== "draft" ? "✓ Update Post" : "✓ Approve & Schedule"}
                 </button>
                 {!carouselCaption.trim() && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please add a caption before scheduling</p>}
                 {carouselCaption.trim() && !!(scheduleDate && scheduleTime && new Date(`${scheduleDate}T${scheduleTime}`) < new Date()) && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please select a future date and time</p>}
                 <button onClick={handleSaveDraft}
                   disabled={draftLoading || carouselItems.length === 0}
-                  className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}>
+                  className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[#EBEBF0] disabled:opacity-40 disabled:cursor-not-allowed transition-colors`}>
                   {draftLoading ? "⏳ Saving…" : <>💾 Save as Draft{plan === "free" && !editingPost && draftPosts.length >= 3 && <DiamondBadge />}</>}
                 </button>
               </div>
@@ -4787,20 +4787,20 @@ export default function App() {
                       style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                     />
                   : brokenImages.has(singlePostItem.id)
-                    ? <div className="w-full h-full bg-[hsl(220,14%,9%)] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
+                    ? <div className="w-full h-full bg-[#F8F8FA] flex items-center justify-center text-6xl">{tagIcon(singlePostItem.tag ?? "other")}</div>
                     : <img src={singlePostItem.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, singlePostItem!.id]))} />}
                 {singlePostItem.tag && (
                   <span style={{ padding: "1px 3px", fontSize: 8 }} className={`absolute top-3 left-3 rounded-lg border backdrop-blur-sm flex items-center gap-1 ${tagColor(singlePostItem.tag, appSettings.customTags)}`}>
-                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}{plan === "free" && singlePostItem.tag === "other" && <span className="text-[hsl(263,70%,75%)]">💎</span>}
+                    {tagIcon(singlePostItem.tag)} {tagLabel(singlePostItem.tag)}{plan === "free" && singlePostItem.tag === "other" && <span className="text-[#A78BFA]">💎</span>}
                   </span>
                 )}
                 {/* ↻ New File pill + 1/1 counter — top right */}
                 <div className="absolute top-3 right-3 flex items-center gap-1.5">
                   <button onClick={handleSingleNewMedia}
-                    className="text-[10px] px-2 py-0.5 rounded-lg bg-black/60 text-white/80 hover:text-white backdrop-blur-sm hover:bg-black/75 transition-colors font-medium">
+                    className="text-[10px] px-2 py-0.5 rounded-lg bg-black/60 text-[#1A1A2E] hover:text-[#1A1A2E] backdrop-blur-sm hover:bg-black/75 transition-colors font-medium">
                     ↻ New File
                   </button>
-                  <span className="text-xs px-2 py-0.5 rounded-lg bg-black/50 text-white backdrop-blur-sm">1 / 1</span>
+                  <span className="text-xs px-2 py-0.5 rounded-lg bg-black/50 text-[#1A1A2E] backdrop-blur-sm">1 / 1</span>
                 </div>
               </div>
 
@@ -4817,24 +4817,24 @@ export default function App() {
                   <>
                     {/* Backdrop to close on outside click */}
                     <div className="fixed inset-0 z-10" onClick={() => setSingleChooseFileOpen(false)} />
-                    <div className={`absolute bottom-full left-0 right-0 mb-1 rounded-xl border ${border} bg-[hsl(220,14%,12%)] shadow-xl overflow-hidden z-20`}>
+                    <div className={`absolute bottom-full left-0 right-0 mb-1 rounded-xl border ${border} bg-[#FFFFFF] shadow-xl overflow-hidden z-20`}>
                       <button onClick={() => { setSingleChooseFileOpen(false); singleCameraRef.current?.click(); }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[#E8E8F0] transition-colors border-b ${border}`}>
                         <span>📷</span><span>Camera</span>
                       </button>
                       <button onClick={() => { setSingleChooseFileOpen(false); singleLibraryRef.current?.click(); }}
-                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors border-b ${border}`}>
+                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[#E8E8F0] transition-colors border-b ${border}`}>
                         <span>📁</span><span>Camera Roll</span>
                       </button>
                       <button onClick={() => { setSingleChooseFileOpen(false); setSinglePickerOpen(true); }}
-                        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[hsl(220,14%,18%)] transition-colors">
+                        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[#E8E8F0] transition-colors">
                         <span>🖼</span><span>Media Pool</span>
                       </button>
                     </div>
                   </>
                 )}
                 <button onClick={() => setSingleChooseFileOpen((o) => !o)}
-                  className="w-full flex items-center justify-center gap-2 py-3.5 text-[hsl(220,10%,55%)] hover:text-white hover:bg-[hsl(220,14%,14%)] active:bg-[hsl(220,14%,18%)] transition-colors text-xs font-medium">
+                  className="w-full flex items-center justify-center gap-2 py-3.5 text-[#8888A0] hover:text-[#1A1A2E] hover:bg-[#F2F2F7] active:bg-[#E8E8F0] transition-colors text-xs font-medium">
                   <span>📂</span><span>Choose File</span><span className={`text-[10px] transition-transform duration-150 ${singleChooseFileOpen ? "rotate-180" : ""}`}>▾</span>
                 </button>
               </div>
@@ -4842,7 +4842,7 @@ export default function App() {
 
             {/* 3. CAPTION — unified textarea + generate + pills */}
             <div className={`${card} p-5 space-y-3`}>
-              <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Caption</span>
+              <span className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Caption</span>
               <textarea
                 ref={singleCaptionRef}
                 value={singleCaption}
@@ -4851,12 +4851,12 @@ export default function App() {
                 placeholder="Write your caption…"
                 rows={1}
                 style={{ resize: "none", overflow: "hidden", minHeight: 40 }}
-                className={`w-full bg-[hsl(220,14%,9%)] border ${singleCaption ? "border-[hsl(263,70%,65%)/40]" : border} focus:border-[hsl(263,70%,65%)/60] rounded-xl px-3 py-2.5 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,35%)] transition-colors`}
+                className={`w-full bg-[#F8F8FA] border ${singleCaption ? "border-[#7C3AED/40]" : border} focus:border-[#7C3AED/60] rounded-xl px-3 py-2.5 text-sm text-[#2D2D44] focus:outline-none placeholder:text-[#BBBBCC] transition-colors`}
               />
               {/* Your ideas collapsible */}
               <div>
                 <button onClick={() => setSingleUserIdeasOpen((o) => !o)}
-                  className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-white transition-colors`}>
+                  className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-[#1A1A2E] transition-colors`}>
                   <span>{singleUserIdeasOpen ? "▾" : "▸"}</span>
                   <span>💡 Add your ideas <span className="opacity-60">(optional)</span></span>
                 </button>
@@ -4867,14 +4867,14 @@ export default function App() {
                     placeholder="e.g. mention the rooftop, reference the music..."
                     rows={2}
                     style={{ resize: "none" }}
-                    className={`mt-2 w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none placeholder:text-[hsl(220,10%,30%)] focus:border-[hsl(263,70%,65%)/40] transition-colors`}
+                    className={`mt-2 w-full bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none placeholder:text-[#BBBBCC] focus:border-[#7C3AED/40] transition-colors`}
                   />
                 )}
               </div>
               <button
                 onClick={() => handleGenerateSingleCaption("fresh")}
                 disabled={singleGenerating}
-                className="w-full py-2.5 rounded-xl border border-dashed border-[hsl(263,70%,65%)/40] text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
+                className="w-full py-2.5 rounded-xl border border-dashed border-[#7C3AED/40] text-[#8B5CF6] hover:bg-[#7C3AED/10] text-sm font-medium transition-colors flex items-center justify-center gap-2 disabled:opacity-50">
                 {singleGenerating ? "✨ Generating…" : "✨ Generate 3 Captions"}{!limits.aiCaptions && <DiamondBadge />}
               </button>
               {singleError && (
@@ -4892,20 +4892,20 @@ export default function App() {
                       const selected = singleCaptionIdx === i;
                       return (
                         <button key={i} onClick={() => { setSingleCaptionIdx(i); setSingleCaption(opt); }}
-                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selected ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] hover:border-[hsl(220,13%,35%)] bg-[hsl(220,14%,9%)]`}`}>
+                          className={`w-full text-left px-3 py-2 rounded-lg border transition-all ${selected ? "border-[#7C3AED] bg-[#7C3AED/10]" : `border-[#E0E0E8] hover:border-[#C0C0CC] bg-[#F8F8FA]`}`}>
                           <span className="text-[9px] font-semibold uppercase tracking-wider opacity-60 mr-1.5">{labels[i]}:</span>
-                          <span className={`text-xs ${selected ? "text-[hsl(220,10%,90%)]" : dimText}`}>{opt.split('\n')[0].slice(0, 70)}{(opt.split('\n')[0].length > 70 || opt.includes('\n')) ? "…" : ""}</span>
+                          <span className={`text-xs ${selected ? "text-[#1A1A2E]" : dimText}`}>{opt.split('\n')[0].slice(0, 70)}{(opt.split('\n')[0].length > 70 || opt.includes('\n')) ? "…" : ""}</span>
                         </button>
                       );
                     })}
                   </div>
                   <div className="flex gap-4 pt-0.5">
                     <button onClick={() => handleGenerateSingleCaption("variations")} disabled={singleGenerating}
-                      className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                      className={`text-xs ${dimText} hover:text-[#1A1A2E] disabled:opacity-40 flex items-center gap-1`}>
                       ↺ Variations{!limits.aiCaptions && <DiamondBadge />}
                     </button>
                     <button onClick={() => handleGenerateSingleCaption("fresh")} disabled={singleGenerating}
-                      className={`text-xs ${dimText} hover:text-white disabled:opacity-40 flex items-center gap-1`}>
+                      className={`text-xs ${dimText} hover:text-[#1A1A2E] disabled:opacity-40 flex items-center gap-1`}>
                       🆕 New Caption{!limits.aiCaptions && <DiamondBadge />}
                     </button>
                   </div>
@@ -4915,7 +4915,7 @@ export default function App() {
 
             {/* 5. SCHEDULE + APPROVE — mirrors Carousel */}
             <div className={`${card} p-5 space-y-3`}>
-              <span className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Schedule</span>
+              <span className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Schedule</span>
               <div className="flex flex-row items-end gap-3">
                 <div className="flex flex-col gap-1">
                   <label className={`text-[10px] ${dimText}`}>Date</label>
@@ -4929,9 +4929,9 @@ export default function App() {
               {plan !== "free" && singleTimeScore && (
                 <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${
                   singleTimeScore.score >= 0.8 ? "bg-green-500/10 border-green-500/25 text-green-300"
-                  : singleTimeScore.score >= 0.6 ? "bg-[hsl(263,70%,65%)/10] border-[hsl(263,70%,65%)/25] text-[hsl(263,70%,70%)]"
+                  : singleTimeScore.score >= 0.6 ? "bg-[#7C3AED/10] border-[#7C3AED/25] text-[#8B5CF6]"
                   : singleTimeScore.score >= 0.4 ? "bg-amber-500/10 border-amber-500/25 text-amber-300"
-                  : "bg-[hsl(220,14%,16%)] border-[hsl(220,13%,22%)] text-[hsl(220,10%,50%)]"
+                  : "bg-[#EBEBF0] border-[#E0E0E8] text-[#9999B0]"
                 }`}>
                   <span>{singleTimeScore.emoji}</span>
                   <span className="font-medium">{singleTimeScore.label}</span>
@@ -4945,7 +4945,7 @@ export default function App() {
               )}
               <button onClick={handleApproveSinglePost}
                 disabled={approveLoading || !singleCaption.trim() || !!(singleScheduleDate && singleScheduleTime && new Date(`${singleScheduleDate}T${singleScheduleTime}`) < new Date())}
-                className="w-full py-3 rounded-xl font-semibold bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-40 disabled:cursor-not-allowed">
+                className="w-full py-3 rounded-xl font-semibold bg-[#7C3AED] hover:bg-[#6D28D9] text-white disabled:opacity-40 disabled:cursor-not-allowed">
                 {approveLoading ? "⏳ Saving…" : "✓ Approve & Schedule"}
               </button>
               {!singleCaption.trim() && <p className="text-[11px] text-amber-400/80 text-center -mt-1">Please add a caption before scheduling</p>}
@@ -4979,7 +4979,7 @@ export default function App() {
                   cancelSinglePost();
                   goToScreen("calendar");
                 }}
-                className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[#EBEBF0] transition-colors`}>
                 💾 Save as Draft{plan === "free" && draftPosts.length >= 3 && <DiamondBadge />}
               </button>
             </div>
@@ -4990,7 +4990,7 @@ export default function App() {
         {/* ════ CALENDAR ════ */}
         {screen === "calendar" && (
           <div className="space-y-4">
-            <div className="sticky top-16 z-20 bg-[hsl(220,14%,8%)] -mx-4 px-4 pt-2 pb-2">
+            <div className="sticky top-16 z-20 bg-[#F5F5F7] -mx-4 px-4 pt-2 pb-2">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-xl font-bold">Calendar</h1>
@@ -4999,7 +4999,7 @@ export default function App() {
                 <div className="flex items-center gap-1.5">
                   {(["list", "week", "month"] as const).map((v) => (
                     <button key={v} onClick={() => setCalendarView(v)}
-                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${calendarView === v ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${calendarView === v ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                       {v === "list" ? "☰ List" : v === "week" ? "📆 Week" : "📅 Month"}
                     </button>
                   ))}
@@ -5027,10 +5027,10 @@ export default function App() {
                         <div className="flex gap-1 flex-shrink-0">
                           {previewMedia.slice(0, 2).map((m) => (
                             <div key={m.id} className="w-10 h-10 rounded-lg overflow-hidden">
-                              {isVideo(m.dataUrl) ? <div className="w-full h-full bg-[hsl(220,14%,20%)] flex items-center justify-center text-xs">▶</div> : <img src={m.dataUrl} alt="" className="w-full h-full object-cover" />}
+                              {isVideo(m.dataUrl) ? <div className="w-full h-full bg-[#E3E3ED] flex items-center justify-center text-xs">▶</div> : <img src={m.dataUrl} alt="" className="w-full h-full object-cover" />}
                             </div>
                           ))}
-                          {previewMedia.length === 0 && <div className="w-10 h-10 rounded-lg bg-[hsl(220,14%,20%)] flex items-center justify-center text-lg">💾</div>}
+                          {previewMedia.length === 0 && <div className="w-10 h-10 rounded-lg bg-[#E3E3ED] flex items-center justify-center text-lg">💾</div>}
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className={`text-xs ${dimText} line-clamp-1`}>{draft.caption || "No caption"}</p>
@@ -5039,7 +5039,7 @@ export default function App() {
                         <div className="flex flex-col gap-1.5 flex-shrink-0">
                           {draft.mediaIds?.length ? (
                             <button onClick={() => openPostForEdit(draft)}
-                              className="text-xs px-2.5 py-1 rounded-lg bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,75%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/30]">
+                              className="text-xs px-2.5 py-1 rounded-lg bg-[#7C3AED/20] text-[#A78BFA] border border-[#7C3AED/30] hover:bg-[#7C3AED/30]">
                               ✏️ Edit
                             </button>
                           ) : null}
@@ -5059,11 +5059,11 @@ export default function App() {
               <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
                 <span className="text-6xl">📅</span>
                 <div>
-                  <p className="font-semibold text-[hsl(220,10%,80%)] text-lg">No posts scheduled</p>
+                  <p className="font-semibold text-[#3D3D5C] text-lg">No posts scheduled</p>
                   <p className={`text-sm ${dimText} mt-1`}>Create your first post to see it here</p>
                 </div>
                 <button onClick={() => setCreatePostModal(true)}
-                  className="px-5 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold hover:bg-[hsl(263,70%,58%)] transition-colors">
+                  className="px-5 py-2.5 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold hover:bg-[#6D28D9] transition-colors">
                   + Create Post{plan === "free" && monthPostCount >= limits.maxPostsPerMonth && <DiamondBadge />}
                 </button>
               </div>
@@ -5085,16 +5085,16 @@ export default function App() {
                     const dayPosts = postsByDate[dk] ?? [];
                     const isToday = dk === todayStr();
                     return (
-                      <div key={dk} className={`rounded-xl border ${isToday ? "border-[hsl(263,70%,65%)/40] bg-[hsl(263,70%,65%)/5]" : border} p-3`}>
+                      <div key={dk} className={`rounded-xl border ${isToday ? "border-[#7C3AED/40] bg-[#7C3AED/5]" : border} p-3`}>
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2">
-                            <span className={`text-xs font-semibold ${isToday ? "text-[hsl(263,70%,75%)]" : dimText}`}>
+                            <span className={`text-xs font-semibold ${isToday ? "text-[#A78BFA]" : dimText}`}>
                               {WEEK_DAY_SHORT[i]}
                             </span>
-                            <span className={`text-xs ${isToday ? "text-[hsl(263,70%,75%)]" : dimText}`}>
+                            <span className={`text-xs ${isToday ? "text-[#A78BFA]" : dimText}`}>
                               {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                             </span>
-                            {isToday && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,75%)]">Today</span>}
+                            {isToday && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#7C3AED/20] text-[#A78BFA]">Today</span>}
                           </div>
                           {dayPosts.length > 0 && <span className={`text-[10px] ${dimText}`}>{dayPosts.length} post{dayPosts.length !== 1 ? "s" : ""}</span>}
                         </div>
@@ -5105,12 +5105,12 @@ export default function App() {
                             {dayPosts.map((post) => {
                               const sc = postStatusClasses(post);
                               return (
-                                <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`flex items-center gap-2 py-1 border-t ${border} cursor-pointer hover:bg-[hsl(220,14%,14%)] rounded transition-colors`}>
+                                <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`flex items-center gap-2 py-1 border-t ${border} cursor-pointer hover:bg-[#F2F2F7] rounded transition-colors`}>
                                   <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
                                   <p className={`text-xs ${dimText} truncate flex-1`}>{post.caption || `${post.slideCount} slides`}</p>
-                                  {post.scheduledTime && <span className="text-[10px] text-[hsl(220,10%,40%)]">{post.scheduledTime}</span>}
+                                  {post.scheduledTime && <span className="text-[10px] text-[#AAAABC]">{post.scheduledTime}</span>}
                                   <div className="flex gap-2 flex-shrink-0">
-                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-[10px] ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️</button> : null}
+                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-[10px] ${dimText} hover:text-[#8B5CF6]`}>✏️</button> : null}
                                   </div>
                                 </div>
                               );
@@ -5146,7 +5146,7 @@ export default function App() {
                                   showGlobalToast("Calendar exported!");
                                 } catch { showGlobalToast("Export failed. Try again."); }
                               }}
-                              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}
+                              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border transition-colors ${border} ${dimText} hover:bg-[#EBEBF0]`}
                               title={plan === "free" ? "Pro feature — upgrade to export" : "Export to .ics"}>
                               <Download className="w-3 h-3" />
                               Export{plan === "free" && <DiamondBadge />}
@@ -5157,19 +5157,19 @@ export default function App() {
                           {wg.posts.map((post) => {
                             const sc = postStatusClasses(post);
                             return (
-                              <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} p-3 space-y-2 cursor-pointer hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                              <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} p-3 space-y-2 cursor-pointer hover:border-[#7C3AED/40] transition-colors`}>
                                 <div className="flex items-start justify-between gap-2">
                                   <div className="flex items-center gap-1.5 flex-wrap">
                                     <span className={`w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
                                     <span className={`text-xs ${dimText}`}>{post.slideCount} slide{post.slideCount !== 1 ? "s" : ""}</span>
                                     {post.tagsSummary && <span className="text-sm leading-none">{post.tagsSummary}</span>}
                                     {post.mediaIds?.some((id) => { const m = mediaItems.find((x) => x.id === id); return m && isVideo(m.dataUrl, m.media_type); }) && (
-                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[hsl(220,14%,22%)] text-white/70 border border-[hsl(220,13%,30%)]">▶ Video</span>
+                                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#E0E0EA] text-[#2D2D44] border border-[#C8C8D4]">▶ Video</span>
                                     )}
                                   </div>
                                   <div className="text-right flex-shrink-0">
                                     <div className={`text-xs ${dimText}`}>{formatDayShort(post.scheduledDate ?? post.day)}</div>
-                                    {post.scheduledTime && <div className="text-[10px] text-[hsl(220,10%,40%)]">🕐 {post.scheduledTime}</div>}
+                                    {post.scheduledTime && <div className="text-[10px] text-[#AAAABC]">🕐 {post.scheduledTime}</div>}
                                   </div>
                                 </div>
                                 {post.caption && <p className="text-sm text-[hsl(220,10%,75%)] leading-relaxed">{post.caption}</p>}
@@ -5179,7 +5179,7 @@ export default function App() {
                                   </span>
                                   {getPostStatus(post) !== "posted" && (
                                     <div className="flex gap-3 items-center">
-                                      {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                      {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[#8B5CF6]`}>✏️ Edit</button> : null}
                                       <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
                                     </div>
                                   )}
@@ -5213,8 +5213,8 @@ export default function App() {
                     const isSelected = calendarDaySelected === dk;
                     return (
                       <button key={dk} onClick={() => setCalendarDaySelected(isSelected ? null : dk)}
-                        className={`rounded-lg py-1.5 flex flex-col items-center gap-1 transition-colors min-h-[48px] ${isSelected ? "bg-[hsl(263,70%,65%)/20] border border-[hsl(263,70%,65%)/40]" : isToday ? `border ${border} bg-[hsl(220,14%,14%)]` : "hover:bg-[hsl(220,14%,14%)]"}`}>
-                        <span className={`text-xs font-medium ${isToday ? "text-[hsl(263,70%,75%)]" : dimText}`}>{day}</span>
+                        className={`rounded-lg py-1.5 flex flex-col items-center gap-1 transition-colors min-h-[48px] ${isSelected ? "bg-[#7C3AED/20] border border-[#7C3AED/40]" : isToday ? `border ${border} bg-[#F2F2F7]` : "hover:bg-[#F2F2F7]"}`}>
+                        <span className={`text-xs font-medium ${isToday ? "text-[#A78BFA]" : dimText}`}>{day}</span>
                         <div className="flex flex-wrap gap-0.5 justify-center max-w-[32px]">
                           {dayPosts.slice(0, 3).map((p, pi) => <span key={pi} className={`w-1.5 h-1.5 rounded-full ${postStatusClasses(p).dot}`} />)}
                         </div>
@@ -5227,12 +5227,12 @@ export default function App() {
                   if (!dayPosts.length) return <p className={`text-center py-3 text-xs ${dimText}`}>No posts on {formatDayShort(calendarDaySelected)}.</p>;
                   return (
                     <div className="space-y-2 pt-1">
-                      <p className="text-xs font-medium text-[hsl(220,10%,60%)]">{formatDayShort(calendarDaySelected)}</p>
+                      <p className="text-xs font-medium text-[#7878A0]">{formatDayShort(calendarDaySelected)}</p>
                       {dayPosts.map((post) => {
                         const sc = postStatusClasses(post);
                         const allThumbs = (post.mediaIds ?? []).slice(0, 3).map((id) => mediaMap[id]).filter(Boolean) as MediaItem[];
                         return (
-                          <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} overflow-hidden cursor-pointer hover:border-[hsl(263,70%,65%)/40] transition-colors`}>
+                          <div key={post.id} onClick={() => { setPreviewPost(post); setPreviewSlide(0); }} className={`${card} border ${sc.card} overflow-hidden cursor-pointer hover:border-[#7C3AED/40] transition-colors`}>
                             <div className="flex items-stretch">
                               {allThumbs.length > 0 && (
                                 <div className="w-14 flex-shrink-0 overflow-hidden">
@@ -5247,7 +5247,7 @@ export default function App() {
                                 {post.caption && <p className={`text-xs ${dimText} line-clamp-2`}>{post.caption}</p>}
                                 {getPostStatus(post) !== "posted" && (
                                   <div className="flex gap-3 justify-end">
-                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[hsl(263,70%,70%)]`}>✏️ Edit</button> : null}
+                                    {post.mediaIds?.length ? <button onClick={(e) => { e.stopPropagation(); openPostForEdit(post); }} className={`text-xs ${dimText} hover:text-[#8B5CF6]`}>✏️ Edit</button> : null}
                                     <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmPost(post); }} className={`text-xs ${dimText} hover:text-red-400`}>🗑️ Delete</button>
                                   </div>
                                 )}
@@ -5276,7 +5276,7 @@ export default function App() {
             <div className={`${card} p-5 space-y-4`}>
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold">🏷️ Your Plan</p>
-                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${plan === "free" ? "bg-[hsl(220,13%,22%)] text-[hsl(220,10%,60%)]" : "bg-[hsl(263,70%,65%)/20] text-[hsl(263,70%,70%)]"}`}>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${plan === "free" ? "bg-[#E0E0E8] text-[#7878A0]" : "bg-[#7C3AED/20] text-[#8B5CF6]"}`}>
                   {PLAN_LABELS[plan]}
                 </span>
               </div>
@@ -5285,26 +5285,26 @@ export default function App() {
                   <div>
                     <div className="flex justify-between text-xs mb-1">
                       <span className={dimText}>Posts this month</span>
-                      <span className={`font-medium ${monthPostCount >= limits.maxPostsPerMonth ? "text-red-400" : "text-[hsl(220,10%,70%)]"}`}>{monthPostCount} / {limits.maxPostsPerMonth}</span>
+                      <span className={`font-medium ${monthPostCount >= limits.maxPostsPerMonth ? "text-red-400" : "text-[#6B6B80]"}`}>{monthPostCount} / {limits.maxPostsPerMonth}</span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-[hsl(220,13%,18%)] overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${monthPostCount >= limits.maxPostsPerMonth ? "bg-red-500" : "bg-[hsl(263,70%,60%)]"}`} style={{ width: `${Math.min(100, (monthPostCount / limits.maxPostsPerMonth) * 100)}%` }} />
+                    <div className="w-full h-1.5 rounded-full bg-[#E5E5EA] overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${monthPostCount >= limits.maxPostsPerMonth ? "bg-red-500" : "bg-[#7C3AED]"}`} style={{ width: `${Math.min(100, (monthPostCount / limits.maxPostsPerMonth) * 100)}%` }} />
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between text-xs mb-1">
                       <span className={dimText}>Media pool</span>
-                      <span className={`font-medium ${mediaTotal >= limits.maxMedia ? "text-red-400" : "text-[hsl(220,10%,70%)]"}`}>{mediaTotal} / {limits.maxMedia}</span>
+                      <span className={`font-medium ${mediaTotal >= limits.maxMedia ? "text-red-400" : "text-[#6B6B80]"}`}>{mediaTotal} / {limits.maxMedia}</span>
                     </div>
-                    <div className="w-full h-1.5 rounded-full bg-[hsl(220,13%,18%)] overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${mediaTotal >= limits.maxMedia ? "bg-red-500" : "bg-[hsl(263,70%,60%)]"}`} style={{ width: `${Math.min(100, (mediaTotal / limits.maxMedia) * 100)}%` }} />
+                    <div className="w-full h-1.5 rounded-full bg-[#E5E5EA] overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${mediaTotal >= limits.maxMedia ? "bg-red-500" : "bg-[#7C3AED]"}`} style={{ width: `${Math.min(100, (mediaTotal / limits.maxMedia) * 100)}%` }} />
                     </div>
                   </div>
                   <p className={`text-xs ${dimText}`}>
                     Free plan: {limits.maxPostsPerMonth} posts/month · {limits.maxMedia} media items · 1 account
                   </p>
                   <button onClick={() => { setUpgradeModalData({ reasons: [], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
-                    className="w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)/15] border border-[hsl(263,70%,65%)/30] text-[hsl(263,70%,70%)] text-sm font-medium hover:bg-[hsl(263,70%,65%)/25] transition-colors">
+                    className="w-full py-2.5 rounded-xl bg-[#7C3AED/15] border border-[#7C3AED/30] text-[#8B5CF6] text-sm font-medium hover:bg-[#7C3AED/25] transition-colors">
                     💎 View Pro plans
                   </button>
                 </div>
@@ -5327,10 +5327,10 @@ export default function App() {
             <div className={`${card} p-5 space-y-4`}>
               <p className="text-sm font-semibold">⏰ Timing</p>
               <div>
-                <p className={`text-xs ${dimText} mb-1.5`}>Daily carousel reminder <span className="text-[hsl(220,10%,35%)]">(default {DEFAULT_NOTIFICATION_TIME})</span></p>
+                <p className={`text-xs ${dimText} mb-1.5`}>Daily carousel reminder <span className="text-[#BBBBCC]">(default {DEFAULT_NOTIFICATION_TIME})</span></p>
                 <div className="flex gap-2 items-center">
                   <input type="time" value={sd.notificationTime} onChange={(e) => updateDraft((s) => ({ ...s, notificationTime: e.target.value }))} className={inputCls} />
-                  <button onClick={resetNotificationTime} className={`text-xs px-3 py-2 rounded-lg border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] hover:text-white transition-colors`}>↺ Reset</button>
+                  <button onClick={resetNotificationTime} className={`text-xs px-3 py-2 rounded-lg border ${border} ${dimText} hover:bg-[#EBEBF0] hover:text-[#1A1A2E] transition-colors`}>↺ Reset</button>
                 </div>
               </div>
             </div>
@@ -5352,7 +5352,7 @@ export default function App() {
                     return <button key={t}
                       disabled={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Caption tone") : () => updateDraft((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
-                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
+                      className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>{t}</button>;
                   })}
                 </div>
               </div>
@@ -5365,28 +5365,28 @@ export default function App() {
                     onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                     placeholder="Add hashtag…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
                   <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
-                    className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white">Add</button>
+                    className="text-xs px-3 py-2 rounded-lg bg-[#7C3AED] text-white">Add</button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-2">
                   {SUGGESTED_HASHTAGS.filter((h) => !sd.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
                     <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
-                      className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>+ #{h}</button>
+                      className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[#EBEBF0]`}`}>+ #{h}</button>
                   ))}
                 </div>
                 {sd.captionSettings.hashtags.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
                     {sd.captionSettings.hashtags.map((h) => (
-                      <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] flex items-center gap-1">
+                      <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[#7C3AED/15] text-[#8B5CF6] border border-[#7C3AED/25] flex items-center gap-1">
                         #{h}
                         <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
-                          className="text-[hsl(263,70%,50%)] hover:text-red-400 text-[10px]">✕</button>
+                          className="text-[#5B21B6] hover:text-red-400 text-[10px]">✕</button>
                       </span>
                     ))}
                   </div>
                 )}
               </div>
               <div>
-                <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
+                <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[#BBBBCC]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
                 <textarea
                   rows={1}
                   readOnly={plan === "free"}
@@ -5408,15 +5408,15 @@ export default function App() {
                 <p className={`text-xs ${dimText} mb-1.5`}>Add custom tag — type a word and pick an emoji{plan === "free" && <DiamondBadge />}</p>
                 {/* Emoji preview row */}
                 {newTagInput.trim() && plan !== "free" && (
-                  <div className="mb-2 p-2.5 rounded-xl border border-[hsl(263,70%,65%)/25] bg-[hsl(263,70%,65%)/8] flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                  <div className="mb-2 p-2.5 rounded-xl border border-[#7C3AED/25] bg-[#7C3AED/8] flex items-center gap-3 flex-wrap">
+                    <span className="text-sm font-medium text-[#2D2D44]">
                       <span className="text-xl mr-1">{tagInputEmoji}</span>
                       {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}
                     </span>
                     <div className="flex gap-1 flex-wrap">
                       {ALT_EMOJIS.slice(0, 10).map((em) => (
                         <button key={em} onClick={() => setTagInputEmoji(em)}
-                          className={`text-base px-1.5 py-0.5 rounded-lg transition-colors ${tagInputEmoji === em ? "bg-[hsl(263,70%,65%)/30] ring-1 ring-[hsl(263,70%,65%)]" : "hover:bg-[hsl(220,14%,18%)]"}`}>
+                          className={`text-base px-1.5 py-0.5 rounded-lg transition-colors ${tagInputEmoji === em ? "bg-[#7C3AED/30] ring-1 ring-[#7C3AED]" : "hover:bg-[#E8E8F0]"}`}>
                           {em}
                         </button>
                       ))}
@@ -5436,10 +5436,10 @@ export default function App() {
                     onKeyDown={(e) => { if (e.key === "Enter" && plan !== "free") addCustomTag(); }}
                     placeholder="e.g. Beach, Gym, Party…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-40 cursor-pointer" : ""}`} />
                   <button onClick={() => { if (plan === "free") { openProGate("Custom tags"); return; } addCustomTag(); }} disabled={plan !== "free" && !newTagInput.trim()}
-                    className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white disabled:opacity-40">Add</button>
+                    className="text-xs px-3 py-2 rounded-lg bg-[#7C3AED] text-white disabled:opacity-40">Add</button>
                 </div>
                 {newTagInput.trim() && plan !== "free" && (
-                  <p className={`text-[10px] ${dimText} mt-1`}>Will be saved as: <span className="text-[hsl(220,10%,70%)]">{tagInputEmoji} {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}</span></p>
+                  <p className={`text-[10px] ${dimText} mt-1`}>Will be saved as: <span className="text-[#6B6B80]">{tagInputEmoji} {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}</span></p>
                 )}
               </div>
               <div>
@@ -5465,7 +5465,7 @@ export default function App() {
                   <div className="flex flex-wrap gap-1.5">
                     {sd.hiddenBaseTags.map((tag) => (
                       <button key={tag} onClick={() => updateDraft((s) => ({ ...s, hiddenBaseTags: s.hiddenBaseTags.filter((t) => t !== tag) }))}
-                        className={`text-xs px-2.5 py-1.5 rounded-lg border ${border} ${dimText} opacity-50 hover:opacity-100 hover:bg-[hsl(220,14%,16%)]`}>
+                        className={`text-xs px-2.5 py-1.5 rounded-lg border ${border} ${dimText} opacity-50 hover:opacity-100 hover:bg-[#EBEBF0]`}>
                         {tagIcon(tag)} {tagLabel(tag)} ↺
                       </button>
                     ))}
@@ -5492,7 +5492,7 @@ export default function App() {
                       <button key={String(opt)}
                         onClick={() => updateDraft((s) => ({ ...s, carouselSize: val }))}
                         className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium
-                          ${active ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)] text-white" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                          ${active ? "bg-[#7C3AED] border-[#7C3AED] text-white" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                         {opt === "random" ? "🎲 Random" : String(opt)}
                       </button>
                     );
@@ -5520,19 +5520,19 @@ export default function App() {
                           onClick={plan === "free" ? undefined : () => updateDraft((s) => ({ ...s, slideOrderRule: rule }))}
                           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${
                             plan === "free" ? `${border} opacity-50 cursor-not-allowed` :
-                            active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
-                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                            {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
+                            active ? "border-[#7C3AED/60] bg-[#7C3AED/10]" : `${border} hover:bg-[#F2F2F7]`}`}>
+                          <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[#7C3AED] border-[#7C3AED]" : "border-[#C0C0CC]"}`}>
+                            {active && plan !== "free" && <span className="text-[#1A1A2E] text-[8px] font-bold">✓</span>}
                           </div>
                           <span className="text-sm">{icon}</span>
                           <div>
-                            <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
+                            <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[#1A1A2E]" : "text-[#6B6B80]"}`}>{label}</p>
                             <p className={`text-[10px] ${dimText}`}>{desc}</p>
                           </div>
                         </button>
                         {/* Tag selector for "Include specific tags" */}
                         {rule === "me-first" && active && plan !== "free" && (
-                          <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5]">
+                          <div className="mt-2 p-3 rounded-xl border border-[#7C3AED/20] bg-[#7C3AED/5]">
                             <p className={`text-[10px] font-medium ${dimText} mb-2`}>Select tags that must appear:</p>
                             <div className="flex flex-wrap gap-1.5">
                               {allAvailableTags.map((tag) => {
@@ -5540,7 +5540,7 @@ export default function App() {
                                 return (
                                   <button key={tag}
                                     onClick={() => updateDraft((s) => ({ ...s, preferredTags: tagActive ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
-                                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${tagActive ? tagColor(tag, sd.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                    className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${tagActive ? tagColor(tag, sd.customTags) : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                                     {tagIcon(tag)} {tagLabel(tag)}
                                   </button>
                                 );
@@ -5550,7 +5550,7 @@ export default function App() {
                         )}
                         {/* Tag sequence editor for "Set exact order" */}
                         {rule === "tag-sequence" && active && plan !== "free" && (
-                          <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
+                          <div className="mt-2 p-3 rounded-xl border border-[#7C3AED/20] bg-[#7C3AED/5] space-y-2">
                             <p className={`text-[10px] font-medium ${dimText}`}>Tap tags to set order (first = first slide):</p>
                             <div className="flex flex-wrap gap-1.5">
                               {allAvailableTags.map((tag) => {
@@ -5565,7 +5565,7 @@ export default function App() {
                                         : [...s.tagSequence, tag]
                                     }))}
                                     className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all
-                                      ${inSeq ? tagColor(tag, sd.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                      ${inSeq ? tagColor(tag, sd.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                                     {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
                                     {tagIcon(tag)} {tagLabel(tag)}
                                   </button>
@@ -5588,7 +5588,7 @@ export default function App() {
 
               {/* Additional AI notes */}
               <div>
-                <p className={`text-xs font-medium ${dimText} mb-1.5`}>Additional AI notes <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
+                <p className={`text-xs font-medium ${dimText} mb-1.5`}>Additional AI notes <span className="font-normal text-[#BBBBCC]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
                 <textarea
                   readOnly={plan === "free"}
                   onClick={plan === "free" ? () => openProGate("Additional AI notes") : undefined}
@@ -5598,7 +5598,7 @@ export default function App() {
                   rows={1}
                   style={{ minHeight: 40 }}
                   placeholder="e.g. always include a DJ photo, prefer night shots"
-                  className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
+                  className={`w-full bg-[#F8F8FA] border ${border} rounded-xl p-3 text-sm text-[#2D2D44] placeholder:text-[#BBBBCC] resize-none focus:outline-none focus:border-[#7C3AED/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                 />
               </div>
             </div>
@@ -5610,14 +5610,14 @@ export default function App() {
               </div>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                  <p className="text-sm font-medium text-[#2D2D44]">
                     Prevent duplicate media across posts{plan === "free" && <DiamondBadge />}
                   </p>
                   <p className={`text-xs ${dimText} mt-0.5 leading-relaxed`}>Avoid using the same photo or video in multiple drafts or scheduled posts</p>
                 </div>
                 <button
                   onClick={plan === "free" ? () => openProGate("Post Safety — Prevent duplicate media") : () => setPreventDuplicates((v) => !v)}
-                  className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,25%)]"}`}>
+                  className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[#7C3AED]" : "bg-[#D8D8E0]"}`}>
                   <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0"}`} />
                 </button>
               </div>
@@ -5628,7 +5628,7 @@ export default function App() {
                 <p className="text-xs text-amber-400 text-center font-medium">● Unsaved changes</p>
               )}
               <button onClick={handleSaveSettings} disabled={settingsSaving}
-                className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
+                className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[#7C3AED] hover:bg-[#6D28D9]"}`}>
                 {settingsSaving ? "Saving…" : settingsSaveFailed ? "✗ Failed — try again" : settingsSaved ? "✓ Saved!" : "Save Settings"}
               </button>
               <p className={`text-xs ${dimText} text-center`}>{mediaItems.length} items in pool · {approvedPosts.length} posts</p>
@@ -5646,41 +5646,41 @@ export default function App() {
 
       {/* ── SELECTION BAR ── */}
       {selectionMode && (
-        <div className={`fixed bottom-0 left-0 right-0 z-30 bg-[hsl(220,14%,10%)] border-t ${border} px-4 py-4 flex items-center justify-between`}>
-          <button onClick={cancelSelection} className={`text-sm ${dimText} hover:text-white`}>Cancel</button>
+        <div className={`fixed bottom-0 left-0 right-0 z-30 bg-[#F8F8FA] border-t ${border} px-4 py-4 flex items-center justify-between`}>
+          <button onClick={cancelSelection} className={`text-sm ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
           <span className={`text-sm ${dimText}`}>
             {selectionMode === "carousel" ? (selectedIds.length < 2 ? `Select ${2 - selectedIds.length} more` : `${selectedIds.length} selected`) : (selectedIds.length === 0 ? "Tap an image" : "1 selected")}
           </span>
           {selectionMode === "carousel"
-            ? <button onClick={handleBuildCarouselFromSelection} disabled={selectedIds.length < 2} className="px-4 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold disabled:opacity-40">Build →</button>
-            : <button onClick={handleStartSinglePost} disabled={selectedIds.length === 0} className="px-4 py-2 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold disabled:opacity-40">Continue →</button>}
+            ? <button onClick={handleBuildCarouselFromSelection} disabled={selectedIds.length < 2} className="px-4 py-2 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold disabled:opacity-40">Build →</button>
+            : <button onClick={handleStartSinglePost} disabled={selectedIds.length === 0} className="px-4 py-2 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold disabled:opacity-40">Continue →</button>}
         </div>
       )}
 
       {/* ── BULK ACTION TOOLBAR ── */}
       {bulkMode && (
-        <div className={`fixed bottom-0 left-0 right-0 z-30 bg-[hsl(220,14%,10%)] border-t ${border} px-4 pt-3 pb-5 space-y-3`}>
+        <div className={`fixed bottom-0 left-0 right-0 z-30 bg-[#F8F8FA] border-t ${border} px-4 pt-3 pb-5 space-y-3`}>
           <div className="flex items-center justify-between">
             <button onClick={cancelBulkMode}
-              className="text-sm font-medium text-white bg-[hsl(220,14%,20%)] hover:bg-[hsl(220,14%,26%)] px-3 py-1.5 rounded-lg border border-[hsl(220,13%,28%)] transition-colors">
+              className="text-sm font-medium text-[#1A1A2E] bg-[#E3E3ED] hover:bg-[hsl(220,14%,26%)] px-3 py-1.5 rounded-lg border border-[#D0D0DC] transition-colors">
               ← Back
             </button>
-            <span className={`text-sm font-medium ${bulkSelectedIds.length === 0 ? dimText : "text-white"}`}>
+            <span className={`text-sm font-medium ${bulkSelectedIds.length === 0 ? dimText : "text-[#1A1A2E]"}`}>
               {bulkSelectedIds.length === 0 ? "Select items" : `${bulkSelectedIds.length} selected`}
             </span>
             <button onClick={() => {
               const poolItems = openFolder ? mediaItems.filter((m) => openFolder.mediaIds.includes(m.id)) : filteredSortedMedia;
               setBulkSelectedIds(poolItems.map((m) => m.id));
-            }} className={`text-xs ${dimText} hover:text-white`}>Select All</button>
+            }} className={`text-xs ${dimText} hover:text-[#1A1A2E]`}>Select All</button>
           </div>
           <div className="grid grid-cols-4 gap-2">
             <button onClick={() => { if (bulkSelectedIds.length > 0) setFolderPickerOpen(true); }}
               disabled={bulkSelectedIds.length === 0}
-              className={`py-2.5 rounded-xl border ${border} text-xs font-medium flex flex-col items-center gap-1 ${dimText} hover:bg-[hsl(220,14%,18%)] disabled:opacity-40 transition-colors`}>
+              className={`py-2.5 rounded-xl border ${border} text-xs font-medium flex flex-col items-center gap-1 ${dimText} hover:bg-[#E8E8F0] disabled:opacity-40 transition-colors`}>
               <FolderPlus className="w-5 h-5" />Folder
             </button>
             <button onClick={handleBulkCreatePost} disabled={bulkSelectedIds.length === 0}
-              className={`py-2.5 rounded-xl bg-[hsl(263,70%,65%)/15] border border-[hsl(263,70%,65%)/30] text-xs font-medium flex flex-col items-center gap-1 text-[hsl(263,70%,75%)] hover:bg-[hsl(263,70%,65%)/25] disabled:opacity-40 transition-colors`}>
+              className={`py-2.5 rounded-xl bg-[#7C3AED/15] border border-[#7C3AED/30] text-xs font-medium flex flex-col items-center gap-1 text-[#A78BFA] hover:bg-[#7C3AED/25] disabled:opacity-40 transition-colors`}>
               <LayoutTemplate className="w-5 h-5" />
               {bulkSelectedIds.length === 1 ? "Single" : bulkSelectedIds.length >= 2 ? "Carousel" : "Post"}
             </button>
@@ -5690,7 +5690,7 @@ export default function App() {
                 await Promise.all(bulkSelectedIds.map((id) => toggleFavorite(id)));
               }}
               disabled={bulkSelectedIds.length === 0}
-              className={`py-2.5 rounded-xl border ${border} text-xs font-medium flex flex-col items-center gap-1 ${dimText} hover:bg-[hsl(220,14%,18%)] disabled:opacity-40 transition-colors`}>
+              className={`py-2.5 rounded-xl border ${border} text-xs font-medium flex flex-col items-center gap-1 ${dimText} hover:bg-[#E8E8F0] disabled:opacity-40 transition-colors`}>
               <Heart className="w-5 h-5" />Favourite
             </button>
             <button onClick={handleBulkDelete} disabled={bulkSelectedIds.length === 0}
@@ -6394,19 +6394,19 @@ export default function App() {
         const uItem = mediaItems.find(m => m.id === usedViewerItem.id) ?? usedViewerItem;
         const dateStr = uItem.createdAt ? new Date(uItem.createdAt).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" }) : "";
         return (
-          <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+          <div className="fixed inset-0 z-40 flex flex-col bg-[#F5F5F7]" style={{ userSelect: "none" }}>
             {/* Top bar */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pt-10 pb-3">
               <div className="flex items-center gap-2">
                 {uItem.tag && (
-                  <span className={`text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-white/15 leading-none flex items-center gap-1 ${tagColor(uItem.tag, appSettings.customTags)}`}>
+                  <span className={`text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-[#E0E0E8] leading-none flex items-center gap-1 ${tagColor(uItem.tag, appSettings.customTags)}`}>
                     {tagIcon(uItem.tag)} {tagLabel(uItem.tag)}
                   </span>
                 )}
-                {dateStr && <span className="text-white/50 text-xs bg-black/40 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5">{dateStr}</span>}
+                {dateStr && <span className="text-[#9999B0] text-xs bg-black/40 backdrop-blur-sm border border-[#E5E5EA] rounded-full px-3 py-1.5">{dateStr}</span>}
               </div>
               <button onClick={() => { setUsedViewerItem(null); setUsedViewerPost(null); setUsedViewerRemoveConfirm(false); }}
-                className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white text-base leading-none">✕</button>
+                className="w-8 h-8 rounded-full bg-black/40 backdrop-blur-sm border border-[#E5E5EA] flex items-center justify-center text-[#1A1A2E] hover:text-[#1A1A2E] text-base leading-none">✕</button>
             </div>
 
             {/* Media */}
@@ -6430,7 +6430,7 @@ export default function App() {
                       <Trash2 className="w-4 h-4" /> Remove from Post
                     </button>
                   ) : (
-                    <div className="bg-[hsl(220,14%,12%)] rounded-xl p-4 border border-[hsl(220,13%,22%)]">
+                    <div className="bg-[#FFFFFF] rounded-xl p-4 border border-[#E0E0E8]">
                       <p className="text-sm font-semibold text-center mb-1">Remove from post?</p>
                       <p className={`text-xs ${dimText} text-center mb-4`}>The media stays in your pool.</p>
                       <div className="flex gap-2">
@@ -6452,13 +6452,13 @@ export default function App() {
 
       {/* ── SINGLE POST POOL PICKER ── */}
       {singlePickerOpen && (
-        <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,8%)]">
-          <div className={`flex-shrink-0 flex items-center justify-between px-5 py-4 border-b ${border} bg-[hsl(220,14%,10%)]`}>
+        <div className="fixed inset-0 z-40 flex flex-col bg-[#F5F5F7]">
+          <div className={`flex-shrink-0 flex items-center justify-between px-5 py-4 border-b ${border} bg-[#F8F8FA]`}>
             <div>
               <p className="font-semibold">Choose Image</p>
               <p className={`text-xs ${dimText}`}>Tap any image to use it</p>
             </div>
-            <button onClick={() => setSinglePickerOpen(false)} className={`${dimText} hover:text-white text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[hsl(220,14%,18%)]`}>✕</button>
+            <button onClick={() => setSinglePickerOpen(false)} className={`${dimText} hover:text-[#1A1A2E] text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#E8E8F0]`}>✕</button>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
             {(() => {
@@ -6476,14 +6476,14 @@ export default function App() {
                           setSingleCaption(""); setSingleCaptionOptions(null); setSingleCaptionIdx(null); setSingleEditing(false);
                         }}
                         className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all
-                          ${isCurrent ? "border-[hsl(263,70%,65%)] opacity-60" : "border-transparent hover:border-[hsl(263,70%,65%)/50]"}`}>
-                        {brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                          ${isCurrent ? "border-[#7C3AED] opacity-60" : "border-transparent hover:border-[#7C3AED/50]"}`}>
+                        {brokenImages.has(item.id) ? <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {isCurrent && (
                           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-                            <span className="text-white text-xs font-semibold">Current</span>
+                            <span className="text-[#1A1A2E] text-xs font-semibold">Current</span>
                           </div>
                         )}
-                        {item.tag && !isCurrent && <span style={{ padding: "1px 3px", fontSize: 8 }} className="absolute top-1 left-1 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
+                        {item.tag && !isCurrent && <span style={{ padding: "1px 3px", fontSize: 8 }} className="absolute top-1 left-1 rounded bg-black/60 text-[#1A1A2E]">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
@@ -6496,16 +6496,16 @@ export default function App() {
 
       {/* ── ADD MORE ── */}
       {addMoreOpen && (
-        <div className="fixed inset-0 z-30 flex flex-col bg-[hsl(220,14%,8%)]">
-          <div className={`flex items-center justify-between px-5 py-4 border-b ${border} bg-[hsl(220,14%,10%)]`}>
+        <div className="fixed inset-0 z-30 flex flex-col bg-[#F5F5F7]">
+          <div className={`flex items-center justify-between px-5 py-4 border-b ${border} bg-[#F8F8FA]`}>
             <div><p className="font-semibold">Add Media Files</p><p className={`text-xs ${dimText}`}>{carouselIds.length}/{MAX_CAROUSEL} slides selected</p></div>
-            <button onClick={() => setAddMoreOpen(false)} className={`${dimText} hover:text-white text-xl`}>✕</button>
+            <button onClick={() => setAddMoreOpen(false)} className={`${dimText} hover:text-[#1A1A2E] text-xl`}>✕</button>
           </div>
-          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${border} bg-[hsl(220,14%,10%)]`}>
+          <div className={`flex items-center justify-between px-4 py-2.5 border-b ${border} bg-[#F8F8FA]`}>
             <span className={`text-xs ${dimText}`}>Tap to add · tap again to remove</span>
             <div className="flex gap-2">
-              <button onClick={() => addMoreCameraRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/25]">📷 Camera</button>
-              <button onClick={() => addMoreLibraryRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/30] hover:bg-[hsl(263,70%,65%)/25]">📁 Camera Roll</button>
+              <button onClick={() => addMoreCameraRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[#7C3AED/15] text-[#8B5CF6] border border-[#7C3AED/30] hover:bg-[#7C3AED/25]">📷 Camera</button>
+              <button onClick={() => addMoreLibraryRef.current?.click()} className="text-xs px-3 py-1.5 rounded-lg bg-[#7C3AED/15] text-[#8B5CF6] border border-[#7C3AED/30] hover:bg-[#7C3AED/25]">📁 Camera Roll</button>
             </div>
           </div>
           <div className="flex-1 overflow-y-auto p-4">
@@ -6526,23 +6526,23 @@ export default function App() {
                             setCarouselIds((prev) => [...prev, item.id]);
                           }
                         }}
-                        className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${isSelected ? "border-[hsl(263,70%,65%)]" : "border-transparent hover:border-[hsl(263,70%,65%)/50]"}`}>
-                        {isVideo(item.dataUrl) ? <video src={item.url ?? item.dataUrl} muted autoPlay loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[hsl(220,14%,16%)] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
+                        className={`relative rounded-xl overflow-hidden aspect-square border-2 transition-all ${isSelected ? "border-[#7C3AED]" : "border-transparent hover:border-[#7C3AED/50]"}`}>
+                        {isVideo(item.dataUrl) ? <video src={item.url ?? item.dataUrl} muted autoPlay loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} /> : brokenImages.has(item.id) ? <div className="w-full h-full bg-[#EBEBF0] flex items-center justify-center text-3xl">{tagIcon(item.tag ?? "other")}</div> : <img src={item.dataUrl} alt="" className="w-full h-full object-cover" onError={() => setBrokenImages((p) => new Set([...p, item.id]))} />}
                         {/* Number badge */}
                         {isSelected && (
-                          <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center shadow-lg">
-                            <span className="text-white text-[10px] font-bold">{selectedIdx + 1}</span>
+                          <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-[#7C3AED] flex items-center justify-center shadow-lg">
+                            <span className="text-[#1A1A2E] text-[10px] font-bold">{selectedIdx + 1}</span>
                           </div>
                         )}
                         {/* Checkmark overlay */}
                         {isSelected && (
-                          <div className="absolute inset-0 bg-[hsl(263,70%,65%)/20] flex items-center justify-center">
-                            <div className="w-8 h-8 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center">
-                              <span className="text-white text-sm font-bold">✓</span>
+                          <div className="absolute inset-0 bg-[#7C3AED/20] flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-full bg-[#7C3AED] flex items-center justify-center">
+                              <span className="text-[#1A1A2E] text-sm font-bold">✓</span>
                             </div>
                           </div>
                         )}
-                        {item.tag && !isSelected && <span style={{ padding: "1px 3px", fontSize: 8 }} className="absolute top-1 left-1 rounded bg-black/60 text-white">{tagIcon(item.tag)}</span>}
+                        {item.tag && !isSelected && <span style={{ padding: "1px 3px", fontSize: 8 }} className="absolute top-1 left-1 rounded bg-black/60 text-[#1A1A2E]">{tagIcon(item.tag)}</span>}
                       </button>
                     );
                   })}
@@ -6550,8 +6550,8 @@ export default function App() {
               );
             })()}
           </div>
-          <div className={`p-4 border-t ${border} bg-[hsl(220,14%,10%)]`}>
-            <button onClick={() => setAddMoreOpen(false)} className="w-full py-3 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold">Done ({carouselIds.length} selected)</button>
+          <div className={`p-4 border-t ${border} bg-[#F8F8FA]`}>
+            <button onClick={() => setAddMoreOpen(false)} className="w-full py-3 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold">Done ({carouselIds.length} selected)</button>
           </div>
         </div>
       )}
@@ -6564,7 +6564,7 @@ export default function App() {
           {/* Scrollable content — pointer-events:auto captures only card area */}
           <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) { setPreviewPost(null); setPreviewDotsOpen(false); } }}>
             {/* Instagram post card */}
-            <div className="w-full max-w-sm bg-black text-white">
+            <div className="w-full max-w-sm bg-black text-[#1A1A2E]">
               {/* Post header — Instagram style */}
               <div className="flex items-center px-3 py-2.5 gap-2">
                 {/* Avatar */}
@@ -6573,31 +6573,31 @@ export default function App() {
                     <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
                       {profile?.avatar_url
                         ? <img src={profile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-                        : <span className="text-white text-xs font-bold">{(igUsername ?? "?")[0]?.toUpperCase()}</span>}
+                        : <span className="text-[#1A1A2E] text-xs font-bold">{(igUsername ?? "?")[0]?.toUpperCase()}</span>}
                     </div>
                   </div>
                 </div>
                 {/* Username + date/status */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold leading-tight text-white">{igUsername}</p>
+                  <p className="text-sm font-semibold leading-tight text-[#1A1A2E]">{igUsername}</p>
                   {previewPost.status === "draft"
                     ? <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30 font-medium">Draft</span>
-                    : <p className="text-[11px] text-white/50 leading-tight">{formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>}
+                    : <p className="text-[11px] text-[#9999B0] leading-tight">{formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>}
                 </div>
                 {/* Three dots + X */}
                 <div className="flex items-center gap-1 relative">
-                  <button onClick={() => setPreviewDotsOpen((o) => !o)} className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors rounded-full hover:bg-white/10">
+                  <button onClick={() => setPreviewDotsOpen((o) => !o)} className="w-8 h-8 flex items-center justify-center text-[#6B6B80] hover:text-[#1A1A2E] transition-colors rounded-full hover:bg-[#F2F2F7]">
                     <MoreHorizontal className="w-5 h-5" />
                   </button>
                   {previewDotsOpen && (
-                    <div className="absolute right-8 top-0 bg-[hsl(220,14%,13%)] border border-white/10 rounded-xl shadow-xl overflow-hidden z-10 w-36" onClick={(e) => e.stopPropagation()}>
-                      <button className="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/10 transition-colors border-b border-white/10"
+                    <div className="absolute right-8 top-0 bg-[#F2F2F7] border border-[#E5E5EA] rounded-xl shadow-xl overflow-hidden z-10 w-36" onClick={(e) => e.stopPropagation()}>
+                      <button className="w-full text-left px-4 py-3 text-sm text-[#1A1A2E] hover:bg-[#F2F2F7] transition-colors border-b border-[#E5E5EA]"
                         onClick={() => { setPreviewDotsOpen(false); const p = previewPost; setPreviewPost(null); setEditingPost(p); goToScreen("carousel"); }}>Edit</button>
-                      <button className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/10 transition-colors"
+                      <button className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-[#F2F2F7] transition-colors"
                         onClick={() => { setPreviewDotsOpen(false); setDeleteConfirmPost(previewPost); setPreviewPost(null); }}>Delete</button>
                     </div>
                   )}
-                  <button onClick={() => { setPreviewPost(null); setPreviewDotsOpen(false); }} className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors rounded-full hover:bg-white/10">
+                  <button onClick={() => { setPreviewPost(null); setPreviewDotsOpen(false); }} className="w-8 h-8 flex items-center justify-center text-[#6B6B80] hover:text-[#1A1A2E] transition-colors rounded-full hover:bg-[#F2F2F7]">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -6635,31 +6635,31 @@ export default function App() {
                     {previewItems[previewSlide]?.tag && (
                       <div
                         style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
-                        className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-white/90 border border-white/15 leading-none flex items-center gap-1 pointer-events-none">
+                        className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-[#1A1A2E] border border-[#E0E0E8] leading-none flex items-center gap-1 pointer-events-none">
                         {tagIcon(previewItems[previewSlide].tag!)} {tagLabel(previewItems[previewSlide].tag!)}
                       </div>
                     )}
                     {/* Slide counter — top-right overlay */}
                     {previewItems.length > 1 && (
-                      <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur-sm">
+                      <div className="absolute top-3 right-3 bg-black/50 text-[#1A1A2E] text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur-sm">
                         {previewSlide + 1} / {previewItems.length}
                       </div>
                     )}
                     {previewSlide > 0 && (
-                      <button onClick={() => setPreviewSlide((s) => s - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm backdrop-blur-sm">‹</button>
+                      <button onClick={() => setPreviewSlide((s) => s - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-[#1A1A2E] text-sm backdrop-blur-sm">‹</button>
                     )}
                     {previewSlide < previewItems.length - 1 && (
-                      <button onClick={() => setPreviewSlide((s) => s + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm backdrop-blur-sm">›</button>
+                      <button onClick={() => setPreviewSlide((s) => s + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-[#1A1A2E] text-sm backdrop-blur-sm">›</button>
                     )}
                   </>
                 ) : (
-                  <div className="w-full h-full bg-[hsl(220,14%,10%)] flex flex-col items-center justify-center gap-3">
+                  <div className="w-full h-full bg-[#F8F8FA] flex flex-col items-center justify-center gap-3">
                     {previewPost?.mediaIds?.length ? (
                       /* Still loading from server */
-                      <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+                      <div className="w-8 h-8 rounded-full border-2 border-[#D8D8E0] border-t-white/60 animate-spin" />
                     ) : (
                       /* Post has no media attached */
-                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-white/20 text-2xl">□</div>
+                      <div className="w-12 h-12 rounded-xl bg-[#F8F8FA] flex items-center justify-center text-[#AAAABC] text-2xl">□</div>
                     )}
                   </div>
                 )}
@@ -6670,7 +6670,7 @@ export default function App() {
                 <div className="flex justify-center gap-[5px] py-2.5 bg-black">
                   {previewItems.map((_, i) => (
                     <button key={i} onClick={() => setPreviewSlide(i)}
-                      className={`rounded-full transition-all ${i === previewSlide ? "w-2 h-2 bg-[#0095f6]" : "w-1.5 h-1.5 bg-white/30"}`} />
+                      className={`rounded-full transition-all ${i === previewSlide ? "w-2 h-2 bg-[#0095f6]" : "w-1.5 h-1.5 bg-[#E0E0E8]"}`} />
                   ))}
                 </div>
               )}
@@ -6678,54 +6678,54 @@ export default function App() {
               {/* Action bar */}
               <div className="flex items-center px-3 py-2">
                 <div className="flex gap-4 flex-1">
-                  <button className="text-white/90 hover:text-white/50 transition-colors">
+                  <button className="text-[#1A1A2E] hover:text-[#9999B0] transition-colors">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
                   </button>
-                  <button className="text-white/90 hover:text-white/50 transition-colors">
+                  <button className="text-[#1A1A2E] hover:text-[#9999B0] transition-colors">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                   </button>
-                  <button className="text-white/90 hover:text-white/50 transition-colors">
+                  <button className="text-[#1A1A2E] hover:text-[#9999B0] transition-colors">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   </button>
                 </div>
-                <button className="text-white/90 hover:text-white/50 transition-colors">
+                <button className="text-[#1A1A2E] hover:text-[#9999B0] transition-colors">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 </button>
               </div>
 
               {/* Likes */}
               <div className="px-3 pb-1">
-                <p className="text-sm font-semibold text-white">Liked by <span className="font-semibold">{igUsername}</span> and others</p>
+                <p className="text-sm font-semibold text-[#1A1A2E]">Liked by <span className="font-semibold">{igUsername}</span> and others</p>
               </div>
 
               {/* Caption */}
               {previewPost.caption && (
                 <div className="px-3 pb-2">
-                  <div className="text-sm text-white leading-snug">
+                  <div className="text-sm text-[#1A1A2E] leading-snug">
                     <span className="font-semibold">{igUsername} </span>
-                    <span className="text-white/90" style={{ whiteSpace: "pre-wrap" }}>
+                    <span className="text-[#1A1A2E]" style={{ whiteSpace: "pre-wrap" }}>
                       {previewPost.caption.length > 180 ? previewPost.caption.slice(0, 180) + "… " : previewPost.caption}
                     </span>
-                    {previewPost.caption.length > 180 && <span className="text-white/50 text-sm">more</span>}
+                    {previewPost.caption.length > 180 && <span className="text-[#9999B0] text-sm">more</span>}
                   </div>
                 </div>
               )}
 
               {/* Comments */}
               <div className="px-3 pb-2">
-                <p className="text-sm text-white/40">View all comments</p>
+                <p className="text-sm text-[#8888A0]">View all comments</p>
               </div>
 
               {/* Timestamp */}
               <div className="px-3 pb-4">
-                <p className="text-[10px] text-white/30 uppercase tracking-wide">{previewPost.scheduledTime ?? "12:00"} · {formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>
+                <p className="text-[10px] text-[#AAAABC] uppercase tracking-wide">{previewPost.scheduledTime ?? "12:00"} · {formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>
               </div>
             </div>
             {/* Close button for posted posts */}
             {getPostStatus(previewPost) === "posted" && (
               <div className="w-full max-w-sm px-4 pb-6">
                 <button onClick={() => setPreviewPost(null)}
-                  className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm transition-colors">
+                  className="w-full py-3 rounded-xl bg-[#F2F2F7] hover:bg-[#EBEBF0] text-[#1A1A2E] font-semibold text-sm transition-colors">
                   Close
                 </button>
               </div>
@@ -6739,12 +6739,12 @@ export default function App() {
       {discardConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setDiscardConfirm(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative w-full max-w-xs bg-[#F2F2F7] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto">
                 <span className="text-amber-400 text-xl">⚠️</span>
               </div>
-              <p className="font-semibold text-[hsl(220,10%,90%)]">Discard changes?</p>
+              <p className="font-semibold text-[#1A1A2E]">Discard changes?</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>Any unsaved changes to this post will be lost.</p>
             </div>
             <div className="space-y-2">
@@ -6766,12 +6766,12 @@ export default function App() {
                   setDiscardAction(null);
                   fn();
                 }}
-                  className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium text-[hsl(263,70%,70%)] hover:bg-[hsl(263,70%,65%)/10] transition-colors`}>
+                  className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium text-[#8B5CF6] hover:bg-[#7C3AED/10] transition-colors`}>
                   💾 Save as Draft
                 </button>
               )}
               <button onClick={() => setDiscardConfirm(false)}
-                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[#E8E8F0] transition-colors`}>
                 No, keep editing
               </button>
             </div>
@@ -6783,12 +6783,12 @@ export default function App() {
       {deleteConfirmPost && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setDeleteConfirmPost(null)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative w-full max-w-xs bg-[#F2F2F7] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto">
                 <span className="text-red-400 text-xl">🗑️</span>
               </div>
-              <p className="font-semibold text-[hsl(220,10%,90%)]">Delete this post?</p>
+              <p className="font-semibold text-[#1A1A2E]">Delete this post?</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>
                 {(deleteConfirmPost.slideCount ?? 1) > 1
                   ? "The media files will be returned to your pool."
@@ -6797,7 +6797,7 @@ export default function App() {
             </div>
             <div className="flex gap-3">
               <button onClick={() => setDeleteConfirmPost(null)}
-                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[#E8E8F0] transition-colors`}>
                 Cancel
               </button>
               <button onClick={() => confirmDeletePost(deleteConfirmPost)}
@@ -6813,12 +6813,12 @@ export default function App() {
       {upgradeModalOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setUpgradeModalOpen(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative bg-[hsl(220,14%,11%)] border border-[hsl(220,13%,20%)] rounded-t-3xl w-full max-w-lg pb-10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="relative bg-[#FFFFFF] border border-[#E5E5EA] rounded-t-3xl w-full max-w-lg pb-10 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="px-6 pt-5 pb-4 border-b border-[hsl(220,13%,18%)]">
+            <div className="px-6 pt-5 pb-4 border-b border-[#E5E5EA]">
               <div className="flex items-center justify-between mb-1">
                 <h2 className="text-lg font-bold">Choose Your Plan 💎</h2>
-                <button onClick={() => setUpgradeModalOpen(false)} className={`${dimText} hover:text-white text-xl leading-none`}>✕</button>
+                <button onClick={() => setUpgradeModalOpen(false)} className={`${dimText} hover:text-[#1A1A2E] text-xl leading-none`}>✕</button>
               </div>
               <p className={`text-sm ${dimText}`}>
                 {upgradeModalData.reasons.length > 0 ? upgradeModalData.reasons[0] : "Unlock powerful features with a paid plan"}
@@ -6830,7 +6830,7 @@ export default function App() {
                 <div className={`flex rounded-lg border ${border} overflow-hidden`}>
                   {(["monthly", "yearly"] as const).map((p) => (
                     <button key={p} onClick={() => setProfileBillingPeriod(p)}
-                      className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[hsl(263,70%,65%)] text-white" : dimText}`}>
+                      className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[#7C3AED] text-white" : dimText}`}>
                       {p}
                     </button>
                   ))}
@@ -6843,13 +6843,13 @@ export default function App() {
               {/* Pro + Agency cards side by side */}
               <div className="grid grid-cols-2 gap-3">
                 {/* PRO card */}
-                <div className={`rounded-xl border p-4 space-y-3 flex flex-col ${plan === "pro" ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : "border-[hsl(263,70%,65%)/40] bg-[hsl(263,70%,65%)/6]"}`}>
+                <div className={`rounded-xl border p-4 space-y-3 flex flex-col ${plan === "pro" ? "border-[#7C3AED] bg-[#7C3AED/10]" : "border-[#7C3AED/40] bg-[#7C3AED/6]"}`}>
                   <div>
-                    <p className="font-bold text-sm text-[hsl(263,70%,72%)]">Pro 💎</p>
-                    <p className="text-base font-bold text-white mt-0.5">
-                      {profileBillingPeriod === "yearly" ? "€7.99" : "€9.99"}<span className="text-xs font-normal text-[hsl(220,10%,55%)]">/mo</span>
+                    <p className="font-bold text-sm text-[#8B5CF6]">Pro 💎</p>
+                    <p className="text-base font-bold text-[#1A1A2E] mt-0.5">
+                      {profileBillingPeriod === "yearly" ? "€7.99" : "€9.99"}<span className="text-xs font-normal text-[#8888A0]">/mo</span>
                     </p>
-                    {profileBillingPeriod === "yearly" && <p className="text-[10px] text-[hsl(220,10%,45%)]">billed €95.88/yr</p>}
+                    {profileBillingPeriod === "yearly" && <p className="text-[10px] text-[#9999B0]">billed €95.88/yr</p>}
                   </div>
                   <ul className={`space-y-1.5 text-[11px] ${dimText} flex-1`}>
                     <li>✓ Unlimited posts</li>
@@ -6861,11 +6861,11 @@ export default function App() {
                     <li>✓ Schedule AI</li>
                     <li>✓ Favorites filter</li>
                     <li>✓ Calendar Export (.ics)</li>
-                    <li className="text-[hsl(220,10%,35%)]">✗ Multi-account</li>
-                    <li className="text-[hsl(220,10%,35%)]">✗ Analytics</li>
+                    <li className="text-[#BBBBCC]">✗ Multi-account</li>
+                    <li className="text-[#BBBBCC]">✗ Analytics</li>
                   </ul>
                   {plan === "pro" ? (
-                    <p className="text-[10px] text-[hsl(263,70%,65%)] font-semibold text-center">Current plan</p>
+                    <p className="text-[10px] text-[#7C3AED] font-semibold text-center">Current plan</p>
                   ) : (
                     <button
                       onClick={async () => {
@@ -6878,8 +6878,8 @@ export default function App() {
                         finally { setCheckoutLoading(false); }
                       }}
                       disabled={checkoutLoading}
-                      className="w-full py-2.5 rounded-lg bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white font-semibold text-xs transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
-                      {checkoutLoading && <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                      className="w-full py-2.5 rounded-lg bg-[#7C3AED] hover:bg-[#6D28D9] text-white font-semibold text-xs transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+                      {checkoutLoading && <span className="w-3 h-3 rounded-full border-2 border-[#C8C8D4] border-t-white animate-spin" />}
                       Upgrade to Pro
                     </button>
                   )}
@@ -6889,10 +6889,10 @@ export default function App() {
                 <div className={`rounded-xl border p-4 space-y-3 flex flex-col ${plan === "agency" ? "border-amber-500 bg-amber-500/10" : "border-amber-500/30 bg-amber-500/5"}`}>
                   <div>
                     <p className="font-bold text-sm text-amber-400">Agency 🏆</p>
-                    <p className="text-base font-bold text-white mt-0.5">
-                      {profileBillingPeriod === "yearly" ? "€23.99" : "€29.99"}<span className="text-xs font-normal text-[hsl(220,10%,55%)]">/mo</span>
+                    <p className="text-base font-bold text-[#1A1A2E] mt-0.5">
+                      {profileBillingPeriod === "yearly" ? "€23.99" : "€29.99"}<span className="text-xs font-normal text-[#8888A0]">/mo</span>
                     </p>
-                    {profileBillingPeriod === "yearly" && <p className="text-[10px] text-[hsl(220,10%,45%)]">billed €287.88/yr</p>}
+                    {profileBillingPeriod === "yearly" && <p className="text-[10px] text-[#9999B0]">billed €287.88/yr</p>}
                   </div>
                   <ul className={`space-y-1.5 text-[11px] ${dimText} flex-1`}>
                     <li>✓ Everything in Pro</li>
@@ -6922,7 +6922,7 @@ export default function App() {
                       }}
                       disabled={checkoutLoading}
                       className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-white font-semibold text-xs transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
-                      {checkoutLoading && <span className="w-3 h-3 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                      {checkoutLoading && <span className="w-3 h-3 rounded-full border-2 border-[#C8C8D4] border-t-white animate-spin" />}
                       Upgrade to Agency
                     </button>
                   )}
@@ -6932,7 +6932,7 @@ export default function App() {
               {/* Continue on Free */}
               {upgradeModalData.canContinue && (
                 <button onClick={() => { setUpgradeModalOpen(false); upgradeModalData.onContinue(); }}
-                  className={`w-full py-2.5 rounded-xl border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] text-sm font-medium transition-colors`}>
+                  className={`w-full py-2.5 rounded-xl border ${border} ${dimText} hover:bg-[#EBEBF0] text-sm font-medium transition-colors`}>
                   Continue on Free
                 </button>
               )}
@@ -6945,17 +6945,17 @@ export default function App() {
       {confirmDeleteFolder && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setConfirmDeleteFolder(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative w-full max-w-xs bg-[#F2F2F7] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto">
                 <span className="text-red-400 text-xl">📁</span>
               </div>
-              <p className="font-semibold text-[hsl(220,10%,90%)]">Delete this folder?</p>
+              <p className="font-semibold text-[#1A1A2E]">Delete this folder?</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>The media inside will stay in your pool.</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirmDeleteFolder(false)}
-                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[#E8E8F0] transition-colors`}>
                 Cancel
               </button>
               <button onClick={() => {
@@ -6974,13 +6974,13 @@ export default function App() {
       {longPressFolder && !folderToDelete && (
         <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setLongPressFolder(null)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative w-full max-w-sm bg-[hsl(220,14%,13%)] border-t ${border} rounded-t-2xl p-4 space-y-2 shadow-2xl pb-8`} onClick={(e) => e.stopPropagation()}>
-            <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider px-1 pb-1">📁 {longPressFolder.name}</p>
-            <button className="w-full text-left px-4 py-3 rounded-xl text-sm text-[hsl(220,10%,85%)] hover:bg-[hsl(220,14%,18%)] transition-colors"
+          <div className={`relative w-full max-w-sm bg-[#F2F2F7] border-t ${border} rounded-t-2xl p-4 space-y-2 shadow-2xl pb-8`} onClick={(e) => e.stopPropagation()}>
+            <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider px-1 pb-1">📁 {longPressFolder.name}</p>
+            <button className="w-full text-left px-4 py-3 rounded-xl text-sm text-[#2D2D44] hover:bg-[#E8E8F0] transition-colors"
               onClick={() => { setOpenFolder(longPressFolder); setLongPressFolder(null); }}>Open folder</button>
             <button className="w-full text-left px-4 py-3 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition-colors"
               onClick={() => { setFolderToDelete(longPressFolder); setLongPressFolder(null); }}>Delete folder</button>
-            <button className="w-full text-left px-4 py-3 rounded-xl text-sm text-[hsl(220,10%,55%)] hover:bg-[hsl(220,14%,18%)] transition-colors"
+            <button className="w-full text-left px-4 py-3 rounded-xl text-sm text-[#8888A0] hover:bg-[#E8E8F0] transition-colors"
               onClick={() => setLongPressFolder(null)}>Cancel</button>
           </div>
         </div>
@@ -6990,17 +6990,17 @@ export default function App() {
       {folderToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setFolderToDelete(null)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative w-full max-w-xs bg-[#F2F2F7] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto">
                 <span className="text-red-400 text-xl">📁</span>
               </div>
-              <p className="font-semibold text-[hsl(220,10%,90%)]">Delete "{folderToDelete.name}"?</p>
+              <p className="font-semibold text-[#1A1A2E]">Delete "{folderToDelete.name}"?</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>The media inside will stay in your pool.</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setFolderToDelete(null)}
-                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[#E8E8F0] transition-colors`}>
                 Cancel
               </button>
               <button onClick={() => { handleDeleteFolder(folderToDelete!.id); setFolderToDelete(null); }}
@@ -7016,26 +7016,26 @@ export default function App() {
       {confirmRemoveItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={() => setConfirmRemoveItem(null)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative w-full max-w-xs bg-[#F2F2F7] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`} onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-[hsl(263,70%,65%)/15] border border-[hsl(263,70%,65%)/30] flex items-center justify-center mx-auto overflow-hidden">
+              <div className="w-12 h-12 rounded-full bg-[#7C3AED/15] border border-[#7C3AED/30] flex items-center justify-center mx-auto overflow-hidden">
                 {isVideo(confirmRemoveItem.dataUrl)
                   ? <video src={confirmRemoveItem.url ?? confirmRemoveItem.dataUrl} muted loop playsInline preload="auto" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                   : <img src={confirmRemoveItem.dataUrl} alt="" className="w-full h-full object-cover" />}
               </div>
-              <p className="font-semibold text-[hsl(220,10%,90%)]">Remove from folder?</p>
+              <p className="font-semibold text-[#1A1A2E]">Remove from folder?</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>The item will stay in your pool.</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirmRemoveItem(null)}
-                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                className={`flex-1 py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[#E8E8F0] transition-colors`}>
                 Cancel
               </button>
               <button onClick={() => {
                 if (openFolder && confirmRemoveItem) { handleRemoveFromFolder(openFolder.id, confirmRemoveItem.id); }
                 setConfirmRemoveItem(null);
               }}
-                className="flex-1 py-2.5 rounded-xl bg-[hsl(263,70%,60%)] hover:bg-[hsl(263,70%,55%)] text-white text-sm font-semibold transition-colors">
+                className="flex-1 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-sm font-semibold transition-colors">
                 Remove
               </button>
             </div>
@@ -7048,7 +7048,7 @@ export default function App() {
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4"
           onClick={() => { setCreateFolderOpen(false); setNewFolderName(""); setFolderNameError(false); }}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,12%)] border ${border} rounded-2xl p-5 space-y-4`}
+          <div className={`relative w-full max-w-xs bg-[#FFFFFF] border ${border} rounded-2xl p-5 space-y-4`}
             onClick={(e) => e.stopPropagation()}>
             <p className="font-semibold text-sm">New Folder</p>
             <div className="space-y-1">
@@ -7075,12 +7075,12 @@ export default function App() {
             <div className="flex gap-2">
               <button
                 onClick={() => { setCreateFolderOpen(false); setNewFolderName(""); setFolderNameError(false); }}
-                className={`flex-1 py-2 rounded-xl border ${border} text-sm ${dimText} hover:text-white transition-colors`}>
+                className={`flex-1 py-2 rounded-xl border ${border} text-sm ${dimText} hover:text-[#1A1A2E] transition-colors`}>
                 Cancel
               </button>
               <button
                 onClick={submitCreateFolder}
-                className="flex-1 py-2 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-medium transition-colors">
+                className="flex-1 py-2 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-sm font-medium transition-colors">
                 Create
               </button>
             </div>
@@ -7092,7 +7092,7 @@ export default function App() {
       {folderPickerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onClick={() => setFolderPickerOpen(false)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative w-full max-w-xs bg-[hsl(220,14%,12%)] border ${border} rounded-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative w-full max-w-xs bg-[#FFFFFF] border ${border} rounded-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
             <p className="font-semibold text-sm">Move {bulkSelectedIds.length} item{bulkSelectedIds.length !== 1 ? "s" : ""} to Folder</p>
             {folders.length === 0 ? (
               <p className={`text-xs ${dimText} italic py-2`}>No folders yet — create one first.</p>
@@ -7101,7 +7101,7 @@ export default function App() {
                 {folders.map((f) => (
                   <button key={f.id}
                     onClick={() => { handleMoveToFolder(f.id, bulkSelectedIds); setFolderPickerOpen(false); cancelBulkMode(); }}
-                    className={`w-full text-left px-3 py-2.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,18%)] text-sm flex items-center gap-3 transition-colors`}>
+                    className={`w-full text-left px-3 py-2.5 rounded-xl border ${border} hover:bg-[#E8E8F0] text-sm flex items-center gap-3 transition-colors`}>
                     <span className="text-lg">📁</span>
                     <span>{f.name}</span>
                     <span className={`ml-auto text-xs ${dimText}`}>{f.mediaIds.length} items</span>
@@ -7118,10 +7118,10 @@ export default function App() {
                 setCreateFolderOpen(true);
               }
             }}
-              className={`w-full py-2.5 rounded-xl border-2 border-dashed border-[hsl(220,13%,25%)] hover:border-[hsl(263,70%,65%)/50] text-sm ${dimText} hover:text-white transition-colors flex items-center justify-center gap-1.5`}>
+              className={`w-full py-2.5 rounded-xl border-2 border-dashed border-[#D8D8E0] hover:border-[#7C3AED/50] text-sm ${dimText} hover:text-white transition-colors flex items-center justify-center gap-1.5`}>
               + New Folder{plan === "free" && <DiamondBadge />}
             </button>
-            <button onClick={() => setFolderPickerOpen(false)} className={`w-full py-2 text-sm ${dimText} hover:text-white`}>Cancel</button>
+            <button onClick={() => setFolderPickerOpen(false)} className={`w-full py-2 text-sm ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
           </div>
         </div>
       )}
@@ -7130,12 +7130,12 @@ export default function App() {
       {aiTypeModal && (
         <div className="fixed inset-0 z-40 flex items-end justify-center" onClick={() => setAiTypeModal(false)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative w-full max-w-sm bg-[hsl(220,14%,12%)] border ${border} rounded-t-2xl flex flex-col`}
+          <div className={`relative w-full max-w-sm bg-[#FFFFFF] border ${border} rounded-t-2xl flex flex-col`}
             style={{ maxHeight: "85vh" }} onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <p className="font-semibold">AI Carousel</p>
-              <button onClick={() => setAiTypeModal(false)} className={`${dimText} hover:text-white text-xl`}>✕</button>
+              <button onClick={() => setAiTypeModal(false)} className={`${dimText} hover:text-[#1A1A2E] text-xl`}>✕</button>
             </div>
 
             {/* Scrollable body */}
@@ -7146,7 +7146,7 @@ export default function App() {
                 <div className="flex gap-2">
                   {([["all", "🌐 All"], ["tag", "🏷️ Tag"], ["folder", "📁 Folder"]] as const).map(([val, label]) => (
                     <button key={val} onClick={() => { setAiCarouselSource(val); setAiCarouselTags([]); setAiCarouselFolderId(""); }}
-                      className={`text-xs px-3 py-1.5 rounded-lg border flex-1 transition-all font-medium ${aiCarouselSource === val ? "bg-[hsl(263,70%,55%)] text-white border-[hsl(263,70%,55%)] shadow-sm" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                      className={`text-xs px-3 py-1.5 rounded-lg border flex-1 transition-all font-medium ${aiCarouselSource === val ? "bg-[#6D28D9] text-white border-[#6D28D9] shadow-sm" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                       {label}
                     </button>
                   ))}
@@ -7158,7 +7158,7 @@ export default function App() {
                       return (
                         <button key={tag}
                           onClick={() => setAiCarouselTags((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
-                          className={`text-[10px] px-2 py-1.5 rounded-lg border transition-colors ${active ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                          className={`text-[10px] px-2 py-1.5 rounded-lg border transition-colors ${active ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                           {tagIcon(tag)} {tagLabel(tag)}
                         </button>
                       );
@@ -7174,7 +7174,7 @@ export default function App() {
                       <p className={`text-xs ${dimText} italic`}>No folders yet — create one in the Pool.</p>
                     ) : folders.map((f) => (
                       <button key={f.id} onClick={() => setAiCarouselFolderId(aiCarouselFolderId === f.id ? "" : f.id)}
-                        className={`w-full text-left text-xs px-3 py-2 rounded-lg border transition-colors ${aiCarouselFolderId === f.id ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                        className={`w-full text-left text-xs px-3 py-2 rounded-lg border transition-colors ${aiCarouselFolderId === f.id ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                         📁 {f.name} <span className="opacity-50">({f.mediaIds.length} items)</span>
                       </button>
                     ))}
@@ -7186,7 +7186,7 @@ export default function App() {
               <div className={`rounded-xl border ${border} p-4`}>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-[hsl(220,10%,85%)]">🎯 Smart Picks</p>
+                    <p className="font-medium text-sm text-[#2D2D44]">🎯 Smart Picks</p>
                     <p className={`text-xs mt-1 ${dimText}`}>
                       {aiRuleBasedEnabled ? "Me-first, preferred tags, best unused media" : "Random — AI picks freely from source"}
                     </p>
@@ -7194,7 +7194,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setAiRuleBasedEnabled((v) => !v)}
-                    style={{ width: 44, height: 24, borderRadius: 12, padding: 2, flexShrink: 0, position: "relative", backgroundColor: aiRuleBasedEnabled ? "hsl(263,70%,60%)" : "hsl(220,13%,22%)", border: "none", cursor: "pointer", transition: "background-color 0.2s" }}>
+                    style={{ width: 44, height: 24, borderRadius: 12, padding: 2, flexShrink: 0, position: "relative", backgroundColor: aiRuleBasedEnabled ? "#7C3AED" : "#E0E0E8", border: "none", cursor: "pointer", transition: "background-color 0.2s" }}>
                     <span style={{
                       display: "block",
                       width: 20, height: 20, borderRadius: "50%",
@@ -7210,9 +7210,9 @@ export default function App() {
             </div>
 
             {/* Pinned Generate Now button */}
-            <div className="px-5 pb-6 pt-3 flex-shrink-0 border-t border-[hsl(220,13%,18%)] space-y-2">
+            <div className="px-5 pb-6 pt-3 flex-shrink-0 border-t border-[#E5E5EA] space-y-2">
               <button onClick={handleAIGenerateRuleBased} disabled={aiGenerating}
-                className="w-full py-3.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold disabled:opacity-40 transition-colors">
+                className="w-full py-3.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-sm font-semibold disabled:opacity-40 transition-colors">
                 {aiGenerating ? "Generating…" : "🎯 Generate Now"}
               </button>
               <p className={`text-center text-[10px] ${dimText}`}>
@@ -7227,7 +7227,7 @@ export default function App() {
       {tagPickerItem && (
         <div className="fixed inset-0 z-40 flex flex-col justify-end" onClick={closeTagPicker}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative bg-[hsl(220,14%,12%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative bg-[#FFFFFF] border-t border-[#E5E5EA] rounded-t-2xl p-5`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
@@ -7238,11 +7238,11 @@ export default function App() {
                   <p className={`text-xs ${dimText} truncate max-w-[180px]`}>{tagPickerItem.name}</p>
                 </div>
               </div>
-              <button onClick={closeTagPicker} className={`${dimText} hover:text-white text-xl`}>✕</button>
+              <button onClick={closeTagPicker} className={`${dimText} hover:text-[#1A1A2E] text-xl`}>✕</button>
             </div>
             {plan === "free" && (
-              <div className="mb-4 p-3 rounded-xl border border-[hsl(263,70%,65%)/30] bg-[hsl(263,70%,65%)/8]">
-                <p className="text-xs font-semibold text-[hsl(263,70%,75%)]">💎 AI Tagging &amp; manual tag editing is a Pro feature.</p>
+              <div className="mb-4 p-3 rounded-xl border border-[#7C3AED/30] bg-[#7C3AED/8]">
+                <p className="text-xs font-semibold text-[#A78BFA]">💎 AI Tagging &amp; manual tag editing is a Pro feature.</p>
                 <p className={`text-xs ${dimText} mt-0.5`}>Upgrade to Pro to tag your media correctly.</p>
               </div>
             )}
@@ -7256,7 +7256,7 @@ export default function App() {
                       ? `${border} opacity-40 cursor-not-allowed`
                       : tagPickerItem.tag === tag
                         ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current"
-                        : `${border} ${dimText} hover:bg-[hsl(220,14%,18%)]`
+                        : `${border} ${dimText} hover:bg-[#E8E8F0]`
                   }`}>
                   <span className="text-base">{tagIcon(tag)}</span><span>{tagLabel(tag)}</span>
                   {tagPickerItem.tag === tag && plan !== "free" && <span className="ml-auto text-xs">✓</span>}
@@ -7265,7 +7265,7 @@ export default function App() {
             </div>
             {plan === "free" && (
               <button onClick={() => { closeTagPicker(); openProGate("AI Tagging & manual tag editing"); }}
-                className="mt-4 w-full py-2.5 rounded-xl bg-[hsl(263,70%,65%)] text-white text-sm font-semibold">
+                className="mt-4 w-full py-2.5 rounded-xl bg-[#7C3AED] text-white text-sm font-semibold">
                 Upgrade to Pro 💎
               </button>
             )}
@@ -7279,7 +7279,7 @@ export default function App() {
         return (
           <div className="fixed inset-0 z-40 flex flex-col justify-end">
             <div className="absolute inset-0 bg-black/80" />
-            <div className={`relative bg-[hsl(220,14%,10%)] border-t border-[hsl(220,13%,20%)] rounded-t-3xl overflow-hidden`}>
+            <div className={`relative bg-[#F8F8FA] border-t border-[#E5E5EA] rounded-t-3xl overflow-hidden`}>
               {/* Video player */}
               <div className="w-full bg-black" style={{ maxHeight: "40vh" }}>
                 <video
@@ -7299,13 +7299,13 @@ export default function App() {
                     </span>
                   </div>
                   <p className={`text-xs ${dimText} mt-0.5 truncate`}>{currentVideo.name}</p>
-                  <p className="text-[11px] text-[hsl(220,10%,35%)] mt-0.5">AI can't analyze video — pick a tag below.</p>
+                  <p className="text-[11px] text-[#BBBBCC] mt-0.5">AI can't analyze video — pick a tag below.</p>
                 </div>
                 {/* Tag grid */}
                 <div className="grid grid-cols-3 gap-2 max-h-44 overflow-y-auto">
                   {allAvailableTags.map((tag) => (
                     <button key={tag} onClick={() => handleVideoTagSelect(tag)}
-                      className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,18%)] hover:border-[hsl(263,70%,65%)/40] ${dimText} transition-all`}>
+                      className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border ${border} hover:bg-[#E8E8F0] hover:border-[#7C3AED/40] ${dimText} transition-all`}>
                       <span className="text-xl">{tagIcon(tag)}</span>
                       <span className="text-[10px] font-medium">{tagLabel(tag)}</span>
                     </button>
@@ -7315,7 +7315,7 @@ export default function App() {
                 {videoTagQueue.length > 1 && (
                   <div className="flex items-center justify-center gap-1.5 pb-1">
                     {Array.from({ length: videoTagQueue.length }).map((_, i) => (
-                      <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 0 ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,28%)]"}`} />
+                      <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 0 ? "bg-[#7C3AED]" : "bg-[#D0D0DC]"}`} />
                     ))}
                   </div>
                 )}
@@ -7329,13 +7329,13 @@ export default function App() {
 
       {/* ── DUPLICATES BANNER ── */}
       {duplicatesBanner.length > 0 && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-[hsl(220,20%,15%)] border-b border-[hsl(220,13%,25%)] px-4 py-3 flex items-center gap-3">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-[hsl(220,20%,15%)] border-b border-[#D8D8E0] px-4 py-3 flex items-center gap-3">
           <span className="text-lg">⚠️</span>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-[hsl(220,10%,85%)]">File already exists</p>
-            <p className="text-xs text-[hsl(220,10%,55%)] mt-0.5 truncate">{duplicatesBanner.join(", ")}</p>
+            <p className="text-sm font-semibold text-[#2D2D44]">File already exists</p>
+            <p className="text-xs text-[#8888A0] mt-0.5 truncate">{duplicatesBanner.join(", ")}</p>
           </div>
-          <button onClick={() => setDuplicatesBanner([])} className={`${dimText} hover:text-white text-lg leading-none`}>✕</button>
+          <button onClick={() => setDuplicatesBanner([])} className={`${dimText} hover:text-[#1A1A2E] text-lg leading-none`}>✕</button>
         </div>
       )}
 
@@ -7343,10 +7343,10 @@ export default function App() {
       {folderAddSourceSheet && openFolder && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setFolderAddSourceSheet(false)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
-            <p className="text-sm font-semibold text-center pb-1">Add to <span className="text-[hsl(263,70%,70%)]">{openFolder.name}</span></p>
+          <div className={`relative bg-[#FFFFFF] border-t border-[#E5E5EA] rounded-t-2xl p-5 space-y-3`} onClick={(e) => e.stopPropagation()}>
+            <p className="text-sm font-semibold text-center pb-1">Add to <span className="text-[#8B5CF6]">{openFolder.name}</span></p>
             <button onClick={() => { setFolderAddSourceSheet(false); folderCameraInputRef.current?.click(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors`}>
               <span className="text-2xl">📷</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">Take Photo</p>
@@ -7354,7 +7354,7 @@ export default function App() {
               </div>
             </button>
             <button onClick={() => { setFolderAddSourceSheet(false); folderFileInputRef.current?.click(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors`}>
               <span className="text-2xl">🖼️</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">Camera Roll</p>
@@ -7369,14 +7369,14 @@ export default function App() {
                 setOpenFolder(null);
                 goToScreen("pool");
               }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors`}>
               <span className="text-2xl">🗂️</span>
               <div className="text-left">
                 <p className="text-sm font-semibold">From Pool</p>
                 <p className={`text-xs ${dimText}`}>Select from already uploaded media</p>
               </div>
             </button>
-            <button onClick={() => setFolderAddSourceSheet(false)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
+            <button onClick={() => setFolderAddSourceSheet(false)} className={`w-full py-3 text-sm ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
           </div>
         </div>
       )}
@@ -7385,7 +7385,7 @@ export default function App() {
       {folderItemContextMenu && openFolder && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setFolderItemContextMenu(null)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-2`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative bg-[#FFFFFF] border-t border-[#E5E5EA] rounded-t-2xl p-5 space-y-2`} onClick={(e) => e.stopPropagation()}>
             {/* Preview */}
             <div className="flex items-center gap-3 mb-3">
               <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0">
@@ -7404,8 +7404,8 @@ export default function App() {
               setRenameSheet(item);
               setRenameInput(item.display_name ?? item.name);
             }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
-              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors text-left`}>
+              <svg className="w-5 h-5 text-[#2D2D44]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
               <div>
                 <p className="text-sm font-semibold">Rename</p>
                 <p className={`text-xs ${dimText}`}>Give this file a custom name</p>
@@ -7415,7 +7415,7 @@ export default function App() {
               handleRemoveFromFolder(openFolder.id, folderItemContextMenu!.id);
               setFolderItemContextMenu(null);
             }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors text-left`}>
               <span className="text-xl">📤</span>
               <div>
                 <p className="text-sm font-semibold">Remove from Folder</p>
@@ -7433,7 +7433,7 @@ export default function App() {
                 <p className="text-xs text-red-400/60">Removed everywhere permanently</p>
               </div>
             </button>
-            <button onClick={() => setFolderItemContextMenu(null)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
+            <button onClick={() => setFolderItemContextMenu(null)} className={`w-full py-3 text-sm ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
           </div>
         </div>
       )}
@@ -7442,9 +7442,9 @@ export default function App() {
       {poolItemContextMenu && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => setPoolItemContextMenu(null)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-2`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative bg-[#FFFFFF] border-t border-[#E5E5EA] rounded-t-2xl p-5 space-y-2`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[hsl(220,14%,18%)]">
+              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-[#E8E8F0]">
                 {isVideo(poolItemContextMenu.dataUrl, poolItemContextMenu.media_type)
                   ? <div className="w-full h-full flex items-center justify-center text-xl">🎥</div>
                   : <img src={poolItemContextMenu.url || poolItemContextMenu.dataUrl} alt="" className="w-full h-full object-cover" />}
@@ -7460,8 +7460,8 @@ export default function App() {
               setRenameSheet(item);
               setRenameInput(item.display_name ?? item.name);
             }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
-              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors text-left`}>
+              <svg className="w-5 h-5 text-[#2D2D44]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
               <div>
                 <p className="text-sm font-semibold">Rename</p>
                 <p className={`text-xs ${dimText}`}>Give this file a custom name</p>
@@ -7473,8 +7473,8 @@ export default function App() {
               setBulkMode(true);
               setBulkSelectedIds([item.id]);
             }}
-              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[hsl(220,14%,16%)] transition-colors text-left`}>
-              <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x={3} y={3} width={7} height={7} rx={1}/><rect x={14} y={3} width={7} height={7} rx={1}/><rect x={3} y={14} width={7} height={7} rx={1}/><rect x={14} y={14} width={7} height={7} rx={1}/></svg>
+              className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border ${border} hover:bg-[#EBEBF0] transition-colors text-left`}>
+              <svg className="w-5 h-5 text-[#2D2D44]" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><rect x={3} y={3} width={7} height={7} rx={1}/><rect x={14} y={3} width={7} height={7} rx={1}/><rect x={3} y={14} width={7} height={7} rx={1}/><rect x={14} y={14} width={7} height={7} rx={1}/></svg>
               <div>
                 <p className="text-sm font-semibold">Select</p>
                 <p className={`text-xs ${dimText}`}>Multi-select to batch actions</p>
@@ -7488,7 +7488,7 @@ export default function App() {
                 <p className="text-xs text-red-400/60">Remove permanently</p>
               </div>
             </button>
-            <button onClick={() => setPoolItemContextMenu(null)} className={`w-full py-3 text-sm ${dimText} hover:text-white`}>Cancel</button>
+            <button onClick={() => setPoolItemContextMenu(null)} className={`w-full py-3 text-sm ${dimText} hover:text-[#1A1A2E]`}>Cancel</button>
           </div>
         </div>
       )}
@@ -7497,10 +7497,10 @@ export default function App() {
       {renameSheet && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" onClick={() => !renameSaving && setRenameSheet(null)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative bg-[hsl(220,14%,11%)] border-t border-[hsl(220,13%,20%)] rounded-t-2xl p-5 space-y-4`} onClick={(e) => e.stopPropagation()}>
+          <div className={`relative bg-[#FFFFFF] border-t border-[#E5E5EA] rounded-t-2xl p-5 space-y-4`} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold">Rename File</p>
-              <button onClick={() => setRenameSheet(null)} className={`${dimText} hover:text-white text-xl w-8 h-8 flex items-center justify-center`}>✕</button>
+              <button onClick={() => setRenameSheet(null)} className={`${dimText} hover:text-[#1A1A2E] text-xl w-8 h-8 flex items-center justify-center`}>✕</button>
             </div>
             <input
               autoFocus
@@ -7509,13 +7509,13 @@ export default function App() {
               onChange={(e) => setRenameInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleRenameMedia(renameSheet, renameInput); }}
               placeholder="Enter a name…"
-              className={`w-full bg-[hsl(220,14%,14%)] border ${border} rounded-xl px-4 py-3 text-sm text-white placeholder-[hsl(220,10%,40%)] outline-none focus:border-[hsl(263,70%,55%)]`}
+              className={`w-full bg-[#F2F2F7] border ${border} rounded-xl px-4 py-3 text-sm text-white placeholder-[#AAAABC] outline-none focus:border-[#6D28D9]`}
             />
             <div className="flex gap-3">
               <button onClick={() => setRenameSheet(null)} disabled={renameSaving}
-                className={`flex-1 py-3 rounded-xl border ${border} text-sm ${dimText} hover:text-white transition-colors`}>Cancel</button>
+                className={`flex-1 py-3 rounded-xl border ${border} text-sm ${dimText} hover:text-[#1A1A2E] transition-colors`}>Cancel</button>
               <button onClick={() => handleRenameMedia(renameSheet, renameInput)} disabled={renameSaving || !renameInput.trim()}
-                className="flex-1 py-3 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold disabled:opacity-50 transition-colors">
+                className="flex-1 py-3 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-sm font-semibold disabled:opacity-50 transition-colors">
                 {renameSaving ? "Saving…" : "Save"}
               </button>
             </div>
@@ -7527,19 +7527,19 @@ export default function App() {
       {profileDrawerOpen && !profileSubpage && (
         <>
           <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setProfileDrawerOpen(false)} />
-          <div className={`fixed top-0 right-0 h-full z-50 bg-[hsl(220,14%,11%)] border-l ${border} flex flex-col shadow-2xl`}
+          <div className={`fixed top-0 right-0 h-full z-50 bg-[#FFFFFF] border-l ${border} flex flex-col shadow-2xl`}
             style={{ width: "min(280px, 100vw)" }}>
             {/* Drawer Header */}
             <div className={`px-5 pt-6 pb-5 border-b ${border} flex-shrink-0`}>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center flex-shrink-0">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-[#7C3AED/40] bg-[#F2F2F7] flex items-center justify-center flex-shrink-0">
                   {profileAvatarUrl
                     ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
-                    : <span className="text-2xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
+                    : <span className="text-2xl font-bold text-[#8B5CF6]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
                   }
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-[hsl(220,10%,90%)] truncate text-sm">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
+                  <p className="font-semibold text-[#1A1A2E] truncate text-sm">{profileDisplayName || session?.user?.email?.split("@")[0] || "User"}</p>
                   <div className="flex items-center gap-1 mt-0.5 min-w-0">
                     <p className={`text-xs ${dimText} truncate`}>{session?.user?.email}</p>
                     {emailVerified === true
@@ -7566,15 +7566,15 @@ export default function App() {
                 { icon: "⚙️", label: "Account Settings", sub: "account" as const },
               ] as { icon: string; label: string; sub: "profile" | "usage" | "billing" | "account" | "preferences" }[]).map(({ icon, label, sub }) => (
                 <button key={sub} onClick={() => { setProfileDrawerOpen(false); setProfileSubpage(sub); }}
-                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[hsl(220,14%,16%)] transition-colors">
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[#EBEBF0] transition-colors">
                   <span className="text-base">{icon}</span>
-                  <span className="flex-1 text-sm font-medium text-[hsl(220,10%,85%)]">{label}</span>
-                  <ChevronRight className="w-4 h-4 text-[hsl(220,10%,35%)]" />
+                  <span className="flex-1 text-sm font-medium text-[#2D2D44]">{label}</span>
+                  <ChevronRight className="w-4 h-4 text-[#BBBBCC]" />
                 </button>
               ))}
-              <div className="mx-5 my-2 border-t border-[hsl(220,13%,20%)]" />
+              <div className="mx-5 my-2 border-t border-[#E5E5EA]" />
               <button onClick={() => supabase?.auth.signOut()}
-                className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[hsl(220,14%,16%)] transition-colors">
+                className="w-full flex items-center gap-3 px-5 py-3.5 text-left hover:bg-[#EBEBF0] transition-colors">
                 <span className="text-base">🚪</span>
                 <span className="flex-1 text-sm font-medium text-red-400">Sign Out</span>
               </button>
@@ -7585,15 +7585,15 @@ export default function App() {
 
       {/* ── PROFILE SUBPAGES ── */}
       {profileSubpage && (
-        <div className="fixed inset-0 z-50 bg-[hsl(220,14%,8%)] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#F5F5F7] flex flex-col overflow-hidden">
           {/* Subpage top bar */}
-          <div className={`flex items-center px-4 py-3 border-b ${border} flex-shrink-0 bg-[hsl(220,14%,8%)]`}>
+          <div className={`flex items-center px-4 py-3 border-b ${border} flex-shrink-0 bg-[#F5F5F7]`}>
             <button onClick={() => { setProfileSubpage(null); setProfileDrawerOpen(true); }}
-              className="flex items-center gap-1 text-sm text-[hsl(220,10%,55%)] hover:text-white transition-colors pr-3">
+              className="flex items-center gap-1 text-sm text-[#8888A0] hover:text-[#1A1A2E] transition-colors pr-3">
               <ChevronLeft className="w-4 h-4" />
               Back
             </button>
-            <span className="flex-1 text-center text-sm font-semibold text-[hsl(220,10%,90%)] pr-12">
+            <span className="flex-1 text-center text-sm font-semibold text-[#1A1A2E] pr-12">
               {profileSubpage === "profile" ? "Profile"
                 : profileSubpage === "usage" ? "Analytics Dashboard"
                 : profileSubpage === "billing" ? "Plan & Billing"
@@ -7608,18 +7608,18 @@ export default function App() {
               <div className="px-4 pt-6 space-y-5">
                 <div className="flex flex-col items-center">
                   <button onClick={() => !avatarUploading && avatarInputRef.current?.click()} className="relative">
-                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[hsl(263,70%,65%)/40] bg-[hsl(220,14%,14%)] flex items-center justify-center">
+                    <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#7C3AED/40] bg-[#F2F2F7] flex items-center justify-center">
                       {profileAvatarUrl
                         ? <img src={profileAvatarUrl} className="w-full h-full object-cover" alt="avatar" />
-                        : <span className="text-3xl font-bold text-[hsl(263,70%,70%)]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
+                        : <span className="text-3xl font-bold text-[#8B5CF6]">{profileDisplayName?.[0]?.toUpperCase() ?? session?.user?.email?.[0]?.toUpperCase() ?? "?"}</span>
                       }
                       {avatarUploading && (
                         <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-full">
-                          <span className="text-white text-xs animate-pulse">⏳</span>
+                          <span className="text-[#1A1A2E] text-xs animate-pulse">⏳</span>
                         </div>
                       )}
                     </div>
-                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[hsl(263,70%,65%)] flex items-center justify-center text-white text-xs">{avatarUploading ? "⏳" : "📷"}</div>
+                    <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-[#7C3AED] flex items-center justify-center text-white text-xs">{avatarUploading ? "⏳" : "📷"}</div>
                   </button>
                   <p className={`mt-2 text-xs ${dimText}`}>Tap to change photo</p>
                 </div>
@@ -7627,7 +7627,7 @@ export default function App() {
                   <div className="space-y-1.5">
                     <label className={`text-xs ${dimText}`}>Email</label>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-[hsl(220,10%,80%)]">{session?.user?.email}</span>
+                      <span className="text-sm text-[#3D3D5C]">{session?.user?.email}</span>
                       {emailVerified === true && <span className="text-xs text-emerald-400 font-medium flex items-center gap-1">✓ verified</span>}
                       {emailVerified === false && <span className="text-xs text-amber-400">⚠️ not verified</span>}
                     </div>
@@ -7650,9 +7650,9 @@ export default function App() {
                     <div className="flex gap-2">
                       <input value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)}
                         placeholder="Your name"
-                        className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none focus:border-[hsl(263,70%,65%)/60]`} />
+                        className={`flex-1 bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none focus:border-[#7C3AED/60]`} />
                       <button onClick={handleSaveProfile} disabled={profileSaving}
-                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)]"}`}>
+                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[#7C3AED]"}`}>
                         {profileSaving ? "…" : profileSaveFailed ? "✗" : profileSaved ? "✓" : "Save"}
                       </button>
                     </div>
@@ -7666,13 +7666,13 @@ export default function App() {
               <div className="px-4 pt-6 space-y-6 pb-6">
                 {analyticsLoading && !analytics.overview ? (
                   <div className="flex items-center justify-center py-20">
-                    <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+                    <div className="w-8 h-8 rounded-full border-2 border-[#D8D8E0] border-t-white/60 animate-spin" />
                   </div>
                 ) : (
                   <>
                     {/* ── SECTION 1: OVERVIEW ── */}
                     <div>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Overview</p>
+                      <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider mb-3">Overview</p>
                       <div className="grid grid-cols-2 gap-2.5">
                         {[
                           { label: "Posts this month", value: analytics.overview?.postsThisMonth ?? monthPostCount, max: limits.maxPostsPerMonth },
@@ -7684,11 +7684,11 @@ export default function App() {
                         ].map(({ label, value, max }) => (
                           <div key={label} className={`${card} p-4 space-y-1.5`}>
                             <p className={`text-[11px] ${dimText}`}>{label}</p>
-                            <p className="text-2xl font-bold text-white">{value}</p>
+                            <p className="text-2xl font-bold text-[#1A1A2E]">{value}</p>
                             {max !== Infinity && (
                               <>
-                                <div className="h-1 rounded-full bg-[hsl(220,14%,16%)] overflow-hidden">
-                                  <div className="h-full rounded-full bg-[hsl(263,70%,65%)]" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
+                                <div className="h-1 rounded-full bg-[#EBEBF0] overflow-hidden">
+                                  <div className="h-full rounded-full bg-[#7C3AED]" style={{ width: `${Math.min(100, (value / max) * 100)}%` }} />
                                 </div>
                                 <p className={`text-[10px] ${dimText}`}>of {max}</p>
                               </>
@@ -7698,7 +7698,7 @@ export default function App() {
                       </div>
                       {plan === "free" && (
                         <button onClick={() => setProfileSubpage("billing")}
-                          className="w-full mt-3 py-2.5 rounded-xl bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white text-sm font-semibold">
+                          className="w-full mt-3 py-2.5 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-sm font-semibold">
                           Upgrade Plan
                         </button>
                       )}
@@ -7706,11 +7706,11 @@ export default function App() {
 
                     {/* ── SECTION 2: POSTING FREQUENCY (Agency) ── */}
                     <div>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Posting Frequency</p>
+                      <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider mb-3">Posting Frequency</p>
                       {plan !== "agency" ? (
                         <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
                           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">🏆</div>
-                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Agency Plan Required</p>
+                          <p className="text-sm font-semibold text-[#6B6B80]">Agency Plan Required</p>
                           <p className={`text-xs ${dimText}`}>Posts per week chart for the last 4 weeks</p>
                           <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Posting Frequency chart"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
                             className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold">Upgrade to Agency</button>
@@ -7721,10 +7721,10 @@ export default function App() {
                         <div className={`${card} p-4`}>
                           <ResponsiveContainer width="100%" height={160}>
                             <BarChart data={analytics.freq} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "hsl(220,10%,50%)" }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize: 11, fill: "hsl(220,10%,50%)" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                              <Tooltip contentStyle={{ background: "hsl(220,14%,14%)", border: "1px solid hsl(220,13%,22%)", borderRadius: 8, color: "#fff", fontSize: 12 }} cursor={{ fill: "hsl(220,14%,20%)" }} />
-                              <Bar dataKey="count" name="Posts" fill="hsl(263,70%,65%)" radius={[4, 4, 0, 0]} />
+                              <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#9999B0" }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11, fill: "#9999B0" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip contentStyle={{ background: "#F2F2F7", border: "1px solid #E0E0E8", borderRadius: 8, color: "#fff", fontSize: 12 }} cursor={{ fill: "#E3E3ED" }} />
+                              <Bar dataKey="count" name="Posts" fill="#7C3AED" radius={[4, 4, 0, 0]} />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -7733,11 +7733,11 @@ export default function App() {
 
                     {/* ── SECTION 3: TAG DISTRIBUTION (Agency) ── */}
                     <div>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Tag Distribution</p>
+                      <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider mb-3">Tag Distribution</p>
                       {plan !== "agency" ? (
                         <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
                           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">🏆</div>
-                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Agency Plan Required</p>
+                          <p className="text-sm font-semibold text-[#6B6B80]">Agency Plan Required</p>
                           <p className={`text-xs ${dimText}`}>See your most used tags + trending tag alerts</p>
                           <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Tag Distribution & Trending Tags"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
                             className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold">Upgrade to Agency</button>
@@ -7745,7 +7745,7 @@ export default function App() {
                       ) : analytics.tagDist.length === 0 ? (
                         <div className={`${card} p-5 flex items-center justify-center`}><p className={`text-sm ${dimText}`}>No tagged posts yet</p></div>
                       ) : (() => {
-                        const TOP_COLORS = ["hsl(263,70%,65%)", "hsl(200,80%,60%)", "hsl(340,70%,65%)", "hsl(150,60%,55%)", "hsl(40,80%,60%)"];
+                        const TOP_COLORS = ["#7C3AED", "hsl(200,80%,60%)", "hsl(340,70%,65%)", "hsl(150,60%,55%)", "hsl(40,80%,60%)"];
                         const top5 = analytics.tagDist.slice(0, 5);
                         const otherCount = analytics.tagDist.slice(5).reduce((s, t) => s + t.count, 0);
                         const chartData = [...top5, ...(otherCount > 0 ? [{ tag: "other", count: otherCount }] : [])];
@@ -7757,7 +7757,7 @@ export default function App() {
                                   <Pie data={chartData} dataKey="count" cx="50%" cy="50%" innerRadius={35} outerRadius={55} strokeWidth={0}>
                                     {chartData.map((_, i) => <Cell key={i} fill={i < TOP_COLORS.length ? TOP_COLORS[i] : "hsl(220,15%,35%)"} />)}
                                   </Pie>
-                                  <Tooltip contentStyle={{ background: "hsl(220,14%,14%)", border: "1px solid hsl(220,13%,22%)", borderRadius: 8, color: "#fff", fontSize: 12 }} />
+                                  <Tooltip contentStyle={{ background: "#F2F2F7", border: "1px solid #E0E0E8", borderRadius: 8, color: "#fff", fontSize: 12 }} />
                                 </PieChart>
                               </ResponsiveContainer>
                               <ul className="flex-1 space-y-1.5">
@@ -7765,7 +7765,7 @@ export default function App() {
                                   <li key={d.tag} className="flex items-center gap-2">
                                     <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0" style={{ background: i < TOP_COLORS.length ? TOP_COLORS[i] : "hsl(220,15%,35%)" }} />
                                     <span className={`text-[11px] ${dimText} truncate flex-1`}>#{d.tag}</span>
-                                    <span className="text-[11px] text-[hsl(220,10%,55%)]">{d.count}</span>
+                                    <span className="text-[11px] text-[#8888A0]">{d.count}</span>
                                   </li>
                                 ))}
                               </ul>
@@ -7785,11 +7785,11 @@ export default function App() {
 
                     {/* ── SECTION 4: BEST POSTING TIMES (Agency) ── */}
                     <div>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Best Posting Times</p>
+                      <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider mb-3">Best Posting Times</p>
                       {plan !== "agency" ? (
                         <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
                           <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-lg">🏆</div>
-                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Agency Plan Required</p>
+                          <p className="text-sm font-semibold text-[#6B6B80]">Agency Plan Required</p>
                           <p className={`text-xs ${dimText}`}>Heatmap of your posting patterns by day & hour</p>
                           <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Best Posting Times heatmap"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
                             className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-white text-xs font-semibold">Upgrade to Agency</button>
@@ -7804,15 +7804,15 @@ export default function App() {
                           <div className={`${card} p-4`}>
                             <div style={{ display: "grid", gridTemplateColumns: "26px repeat(7,1fr)", gap: 2 }}>
                               <div />
-                              {DAYS.map(d => <div key={d} className="text-center text-[9px] text-[hsl(220,10%,45%)] font-medium pb-0.5">{d}</div>)}
+                              {DAYS.map(d => <div key={d} className="text-center text-[9px] text-[#9999B0] font-medium pb-0.5">{d}</div>)}
                               {Array.from({ length: 24 }, (_, h) => (
                                 <>{
-                                  [<div key={`l${h}`} className="text-[9px] text-[hsl(220,10%,38%)] flex items-center justify-end pr-1">{h}h</div>,
+                                  [<div key={`l${h}`} className="text-[9px] text-[#AAAABC] flex items-center justify-end pr-1">{h}h</div>,
                                     ...DAYS.map((_, di) => {
                                       const c = getCell(di, h);
                                       const ity = c ? c.count / maxCt : 0;
                                       return <div key={`${di}-${h}`} title={c ? `${c.count} post${c.count !== 1 ? "s" : ""}` : ""}
-                                        style={{ background: ity > 0 ? `hsla(263,70%,65%,${0.15 + ity * 0.85})` : "hsl(220,14%,13%)", borderRadius: 2, height: 10 }} />;
+                                        style={{ background: ity > 0 ? `hsla(263,70%,65%,${0.15 + ity * 0.85})` : "#F2F2F7", borderRadius: 2, height: 10 }} />;
                                     })
                                   ]
                                 }</>
@@ -7832,17 +7832,17 @@ export default function App() {
 
                     {/* ── SECTION 5: CONTENT MIX (Pro+Agency) ── */}
                     <div>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Content Mix</p>
+                      <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider mb-3">Content Mix</p>
                       {plan === "free" ? (
                         <div className={`${card} p-5 flex flex-col items-center gap-3 text-center`}>
-                          <div className="w-10 h-10 rounded-xl bg-[hsl(263,70%,65%)/10] border border-[hsl(263,70%,65%)/20] flex items-center justify-center text-lg">💎</div>
-                          <p className="text-sm font-semibold text-[hsl(220,10%,70%)]">Pro Plan Required</p>
+                          <div className="w-10 h-10 rounded-xl bg-[#7C3AED/10] border border-[#7C3AED/20] flex items-center justify-center text-lg">💎</div>
+                          <p className="text-sm font-semibold text-[#6B6B80]">Pro Plan Required</p>
                           <p className={`text-xs ${dimText}`}>Image vs video ratio and carousel stats</p>
                           <button onClick={() => { setProfileSubpage(null); setUpgradeModalData({ reasons: ["Content Mix stats"], canContinue: false, onContinue: () => {} }); setUpgradeModalOpen(true); }}
-                            className="px-4 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white text-xs font-semibold">Upgrade to Pro</button>
+                            className="px-4 py-2 rounded-lg bg-[#7C3AED] text-white text-xs font-semibold">Upgrade to Pro</button>
                         </div>
                       ) : !analytics.contentMix ? (
-                        <div className={`${card} p-5 flex items-center justify-center`}><div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" /></div>
+                        <div className={`${card} p-5 flex items-center justify-center`}><div className="w-5 h-5 rounded-full border-2 border-[#D8D8E0] border-t-white/60 animate-spin" /></div>
                       ) : (() => {
                         const { imageCount, videoCount, avgSlides } = analytics.contentMix!;
                         const total = imageCount + videoCount || 1;
@@ -7850,26 +7850,26 @@ export default function App() {
                         return (
                           <div className={`${card} p-4 space-y-4`}>
                             <div className="space-y-1.5">
-                              <div className="flex justify-between text-xs text-[hsl(220,10%,70%)]">
+                              <div className="flex justify-between text-xs text-[#6B6B80]">
                                 <span>📷 Images {imgPct}%</span>
                                 <span>🎥 Videos {100 - imgPct}%</span>
                               </div>
                               <div className="h-3 rounded-full overflow-hidden flex">
-                                <div style={{ width: `${imgPct}%`, background: "hsl(263,70%,65%)" }} />
+                                <div style={{ width: `${imgPct}%`, background: "#7C3AED" }} />
                                 <div style={{ width: `${100 - imgPct}%`, background: "hsl(200,80%,60%)" }} />
                               </div>
-                              <div className="flex justify-between text-[10px] text-[hsl(220,10%,40%)]">
+                              <div className="flex justify-between text-[10px] text-[#AAAABC]">
                                 <span>{imageCount} images</span>
                                 <span>{videoCount} videos</span>
                               </div>
                             </div>
-                            <div className="flex justify-around pt-1 border-t border-[hsl(220,13%,18%)]">
+                            <div className="flex justify-around pt-1 border-t border-[#E5E5EA]">
                               <div className="text-center">
-                                <p className="text-xl font-bold text-white">{avgSlides}</p>
+                                <p className="text-xl font-bold text-[#1A1A2E]">{avgSlides}</p>
                                 <p className={`text-[10px] ${dimText}`}>avg slides/carousel</p>
                               </div>
                               <div className="text-center">
-                                <p className="text-xl font-bold text-white">{imageCount + videoCount}</p>
+                                <p className="text-xl font-bold text-[#1A1A2E]">{imageCount + videoCount}</p>
                                 <p className={`text-[10px] ${dimText}`}>total media</p>
                               </div>
                             </div>
@@ -7880,18 +7880,18 @@ export default function App() {
 
                     {/* ── SECTION 6: INSTAGRAM METRICS (teaser) ── */}
                     <div>
-                      <p className="text-xs font-semibold text-[hsl(220,10%,45%)] uppercase tracking-wider mb-3">Instagram Performance</p>
+                      <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider mb-3">Instagram Performance</p>
                       <div className={`${card} p-5 space-y-4`} style={{ opacity: 0.65 }}>
                         <div className="grid grid-cols-2 gap-3">
                           {["Reach", "Likes", "Comments", "Follower Growth"].map(metric => (
-                            <div key={metric} className={`bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-center`}>
-                              <p className="text-xl font-bold text-[hsl(220,10%,38%)]">—</p>
+                            <div key={metric} className={`bg-[#F8F8FA] border ${border} rounded-xl p-3 text-center`}>
+                              <p className="text-xl font-bold text-[#AAAABC]">—</p>
                               <p className={`text-[11px] ${dimText} mt-0.5`}>{metric}</p>
                             </div>
                           ))}
                         </div>
                         <p className={`text-xs ${dimText} text-center`}>Connect your Instagram account to see real performance data</p>
-                        <button disabled className={`w-full py-2.5 rounded-xl border ${border} text-[hsl(220,10%,38%)] text-sm font-medium cursor-not-allowed`}>
+                        <button disabled className={`w-full py-2.5 rounded-xl border ${border} text-[#AAAABC] text-sm font-medium cursor-not-allowed`}>
                           Connect Instagram — Coming Soon
                         </button>
                       </div>
@@ -7909,7 +7909,7 @@ export default function App() {
                     <div className={`flex rounded-lg border ${border} overflow-hidden`}>
                       {(["monthly","yearly"] as const).map((p) => (
                         <button key={p} onClick={() => setProfileBillingPeriod(p)}
-                          className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[hsl(263,70%,65%)] text-white" : dimText}`}>
+                          className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors ${profileBillingPeriod === p ? "bg-[#7C3AED] text-white" : dimText}`}>
                           {p}
                         </button>
                       ))}
@@ -7926,10 +7926,10 @@ export default function App() {
                     ].map((tier) => {
                       const isCurrent = tier.key === plan;
                       return (
-                        <div key={tier.key} className={`p-3 rounded-xl border text-center ${isCurrent ? "border-[hsl(263,70%,65%)] bg-[hsl(263,70%,65%)/10]" : `border-[hsl(220,13%,22%)] bg-[hsl(220,14%,9%)]`}`}>
-                          <p className="text-xs font-semibold text-[hsl(220,10%,85%)]">{tier.name}</p>
+                        <div key={tier.key} className={`p-3 rounded-xl border text-center ${isCurrent ? "border-[#7C3AED] bg-[#7C3AED/10]" : `border-[#E0E0E8] bg-[#F8F8FA]`}`}>
+                          <p className="text-xs font-semibold text-[#2D2D44]">{tier.name}</p>
                           <p className={`text-[11px] mt-1 ${dimText}`}>{profileBillingPeriod === "yearly" ? tier.yearlyPrice : tier.price}</p>
-                          {isCurrent && <p className="text-[9px] mt-1.5 text-[hsl(263,70%,70%)] font-medium">Current</p>}
+                          {isCurrent && <p className="text-[9px] mt-1.5 text-[#8B5CF6] font-medium">Current</p>}
                         </div>
                       );
                     })}
@@ -7949,7 +7949,7 @@ export default function App() {
                       </div>
                       <div className="flex justify-between">
                         <span>Status</span>
-                        <span className={`capitalize ${subInfo?.status === "active" ? "text-emerald-400" : "text-[hsl(220,10%,60%)]"}`}>
+                        <span className={`capitalize ${subInfo?.status === "active" ? "text-emerald-400" : "text-[#7878A0]"}`}>
                           {subInfo?.status ?? "—"}
                         </span>
                       </div>
@@ -7967,8 +7967,8 @@ export default function App() {
                         finally { setCheckoutLoading(false); }
                       }}
                       disabled={checkoutLoading}
-                      className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white disabled:opacity-60 flex items-center justify-center gap-2">
-                      {checkoutLoading && <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />}
+                      className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[#7C3AED] hover:bg-[#6D28D9] text-white disabled:opacity-60 flex items-center justify-center gap-2">
+                      {checkoutLoading && <span className="w-3.5 h-3.5 rounded-full border-2 border-[#C8C8D4] border-t-white animate-spin" />}
                       {checkoutLoading ? "Opening checkout…" : `Upgrade to Pro — ${profileBillingPeriod === "yearly" ? "€7.99/mo" : "€9.99/mo"}`}
                     </button>
                   ) : (
@@ -7980,7 +7980,7 @@ export default function App() {
                           else showGlobalToast("Could not open billing portal. Try again.");
                         } catch { showGlobalToast("Could not open billing portal. Try again."); }
                       }}
-                      className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)] text-white">
+                      className="w-full py-2.5 rounded-xl font-semibold text-sm bg-[#7C3AED] hover:bg-[#6D28D9] text-white">
                       Manage Subscription
                     </button>
                   )}
@@ -7993,7 +7993,7 @@ export default function App() {
                           else showGlobalToast("Could not open billing portal. Try again.");
                         } catch { showGlobalToast("Could not open billing portal. Try again."); }
                       }}
-                      className={`w-full py-2 rounded-xl text-sm border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>
+                      className={`w-full py-2 rounded-xl text-sm border ${border} ${dimText} hover:bg-[#EBEBF0]`}>
                       Cancel Plan
                     </button>
                   )}
@@ -8006,15 +8006,15 @@ export default function App() {
               <div className="px-4 pt-6 space-y-4">
                 {/* Profile info */}
                 <div className={`${card} p-5 space-y-4`}>
-                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Profile Info</p>
+                  <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Profile Info</p>
                   <div className="space-y-1.5">
                     <label className={`text-xs ${dimText}`}>Display Name</label>
                     <div className="flex gap-2">
                       <input value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)}
                         placeholder="Your name"
-                        className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                        className={`flex-1 bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none`} />
                       <button onClick={handleSaveProfile} disabled={profileSaving}
-                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)]"}`}>
+                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[#7C3AED]"}`}>
                         {profileSaving ? "…" : profileSaveFailed ? "✗" : profileSaved ? "✓" : "Save"}
                       </button>
                     </div>
@@ -8024,9 +8024,9 @@ export default function App() {
                     <div className="flex gap-2">
                       <input value={profileInstagram} onChange={(e) => setProfileInstagram(e.target.value)}
                         placeholder="@yourusername"
-                        className={`flex-1 bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`} />
+                        className={`flex-1 bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none`} />
                       <button onClick={handleSaveProfile} disabled={profileSaving}
-                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)]"}`}>
+                        className={`px-3 py-2 rounded-xl text-white text-xs font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[#7C3AED]"}`}>
                         {profileSaving ? "…" : profileSaveFailed ? "✗" : profileSaved ? "✓" : "Save"}
                       </button>
                     </div>
@@ -8034,20 +8034,20 @@ export default function App() {
                 </div>
                 {/* Password reset */}
                 <div className={`${card} p-5 space-y-3`}>
-                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Password</p>
+                  <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Password</p>
                   <p className={`text-xs ${dimText}`}>Get a password reset link sent to your email address.</p>
                   <button onClick={handleForgotPassword}
-                    className={`w-full py-2.5 rounded-xl border ${border} text-sm ${dimText} hover:text-white hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                    className={`w-full py-2.5 rounded-xl border ${border} text-sm ${dimText} hover:text-[#1A1A2E] hover:bg-[#EBEBF0] transition-colors`}>
                     Send Password Reset Email
                   </button>
                 </div>
                 {/* Regional */}
                 <div className={`${card} p-5 space-y-4`}>
-                  <p className="text-xs font-semibold text-[hsl(220,10%,50%)] uppercase tracking-wider">Regional Settings</p>
+                  <p className="text-xs font-semibold text-[#9999B0] uppercase tracking-wider">Regional Settings</p>
                   <div className="space-y-1.5">
                     <label className={`text-xs ${dimText}`}>Language</label>
                     <select value={profileLanguage} onChange={(e) => setProfileLanguage(e.target.value)}
-                      className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                      className={`w-full bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none`}>
                       <option value="en">English</option>
                       <option value="de">Deutsch</option>
                     </select>
@@ -8055,7 +8055,7 @@ export default function App() {
                   <div className="space-y-1.5">
                     <label className={`text-xs ${dimText}`}>Timezone</label>
                     <select value={profileTimezone} onChange={(e) => setProfileTimezone(e.target.value)}
-                      className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl px-3 py-2 text-sm text-[hsl(220,10%,85%)] focus:outline-none`}>
+                      className={`w-full bg-[#F8F8FA] border ${border} rounded-xl px-3 py-2 text-sm text-[#2D2D44] focus:outline-none`}>
                       <optgroup label="Europe">
                         <option value="Europe/London">Europe/London</option>
                         <option value="Europe/Paris">Europe/Paris</option>
@@ -8129,7 +8129,7 @@ export default function App() {
                     </select>
                   </div>
                   <button onClick={handleSaveProfile} disabled={profileSaving}
-                    className={`w-full py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
+                    className={`w-full py-2.5 rounded-xl text-white text-sm font-medium disabled:opacity-50 transition-colors ${profileSaveFailed ? "bg-red-500" : profileSaved ? "bg-emerald-500" : "bg-[#7C3AED] hover:bg-[#6D28D9]"}`}>
                     {profileSaving ? "Saving…" : profileSaveFailed ? "✗ Failed — try again" : profileSaved ? "✓ Saved!" : "Save Regional Settings"}
                   </button>
                 </div>
@@ -8142,7 +8142,7 @@ export default function App() {
                   </button>
                 </div>
                 <button onClick={() => supabase?.auth.signOut()}
-                  className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)] transition-colors`}>
+                  className={`w-full py-2.5 rounded-xl text-sm font-medium border ${border} ${dimText} hover:bg-[#EBEBF0] transition-colors`}>
                   Sign Out
                 </button>
               </div>
@@ -8160,7 +8160,7 @@ export default function App() {
                     <div className="flex items-center justify-between mb-1.5">
                       <label className={`text-xs font-medium ${dimText} flex items-center gap-1`}>Caption Prompt{plan === "free" && <DiamondBadge />}</label>
                       <button onClick={() => { if (plan === "free") { openProGate("Caption prompt"); return; } setAppSettings((s) => ({ ...s, captionSettings: { ...s.captionSettings, captionPrompt: DEFAULT_CAPTION_PROMPT } })); }}
-                        className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}>↺ Reset</button>
+                        className={`text-[10px] px-2 py-1 rounded border ${border} ${dimText} hover:bg-[#EBEBF0]`}>↺ Reset</button>
                     </div>
                     <textarea
                       rows={1}
@@ -8188,7 +8188,7 @@ export default function App() {
                         return <button key={t}
                           disabled={plan === "free"}
                           onClick={plan === "free" ? () => openProGate("Caption tone") : () => updateDraft((s) => { const tones = s.captionSettings.tone.split(",").map((x) => x.trim()).filter(Boolean); const next = tones.includes(t) ? tones.filter((x) => x !== t) : [...tones, t]; return { ...s, captionSettings: { ...s.captionSettings, tone: next.join(", ") } }; })}
-                          className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>{t}</button>;
+                          className={`text-xs px-2 py-1 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-40 cursor-not-allowed` : active ? activeNavCls : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>{t}</button>;
                       })}
                     </div>
                   </div>
@@ -8202,21 +8202,21 @@ export default function App() {
                         onKeyDown={(e) => { if (plan === "free" || e.key !== "Enter") return; const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
                         placeholder="Add hashtag…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`} />
                       <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } const v = newHashtagInput.trim(); if (v && !sd.captionSettings.hashtags.includes(v)) { updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, v] } })); setNewHashtagInput(""); } }}
-                        className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white">Add</button>
+                        className="text-xs px-3 py-2 rounded-lg bg-[#7C3AED] text-white">Add</button>
                     </div>
                     <div className="flex flex-wrap gap-1.5 mb-2">
                       {SUGGESTED_HASHTAGS.filter((h) => !sd.captionSettings.hashtags.includes(h)).slice(0, 6).map((h) => (
                         <button key={h} disabled={plan === "free"} onClick={plan === "free" ? () => openProGate("Preferred hashtags") : () => updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: [...s.captionSettings.hashtags, h] } }))}
-                          className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>+ #{h}</button>
+                          className={`text-xs px-2 py-1 rounded-lg border ${border} ${plan === "free" ? "opacity-40 cursor-not-allowed" : `${dimText} hover:bg-[#EBEBF0]`}`}>+ #{h}</button>
                       ))}
                     </div>
                     {sd.captionSettings.hashtags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {sd.captionSettings.hashtags.map((h) => (
-                          <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[hsl(263,70%,65%)/15] text-[hsl(263,70%,70%)] border border-[hsl(263,70%,65%)/25] flex items-center gap-1">
+                          <span key={h} className="text-xs px-2 py-1 rounded-lg bg-[#7C3AED/15] text-[#8B5CF6] border border-[#7C3AED/25] flex items-center gap-1">
                             #{h}
                             <button onClick={() => { if (plan === "free") { openProGate("Preferred hashtags"); return; } updateDraft((s) => ({ ...s, captionSettings: { ...s.captionSettings, hashtags: s.captionSettings.hashtags.filter((x) => x !== h) } })); }}
-                              className="text-[hsl(263,70%,50%)] hover:text-red-400 text-[10px]">✕</button>
+                              className="text-[#5B21B6] hover:text-red-400 text-[10px]">✕</button>
                           </span>
                         ))}
                       </div>
@@ -8224,7 +8224,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[hsl(220,10%,35%)]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
+                    <p className={`text-xs ${dimText} mb-1.5 flex items-center gap-1`}>Additional instructions <span className="text-[#BBBBCC]">(appended to every prompt)</span>{plan === "free" && <DiamondBadge />}</p>
                     <textarea
                       rows={1}
                       readOnly={plan === "free"}
@@ -8255,7 +8255,7 @@ export default function App() {
                         return (
                           <button key={String(opt)}
                             onClick={() => setAppSettings((s) => ({ ...s, carouselSize: val }))}
-                            className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium ${active ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)] text-white" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                            className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors font-medium ${active ? "bg-[#7C3AED] border-[#7C3AED] text-white" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                             {opt === "random" ? "🎲 Random" : String(opt)}
                           </button>
                         );
@@ -8280,18 +8280,18 @@ export default function App() {
                             <button
                               disabled={plan === "free"}
                               onClick={plan === "free" ? undefined : () => setAppSettings((s) => ({ ...s, slideOrderRule: rule }))}
-                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? "border-[hsl(263,70%,65%)/60] bg-[hsl(263,70%,65%)/10]" : `${border} hover:bg-[hsl(220,14%,15%)]`}`}>
-                              <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[hsl(263,70%,65%)] border-[hsl(263,70%,65%)]" : "border-[hsl(220,13%,35%)]"}`}>
-                                {active && plan !== "free" && <span className="text-white text-[8px] font-bold">✓</span>}
+                              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border text-left transition-all ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? "border-[#7C3AED/60] bg-[#7C3AED/10]" : `${border} hover:bg-[#F2F2F7]`}`}>
+                              <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${active && plan !== "free" ? "bg-[#7C3AED] border-[#7C3AED]" : "border-[#C0C0CC]"}`}>
+                                {active && plan !== "free" && <span className="text-[#1A1A2E] text-[8px] font-bold">✓</span>}
                               </div>
                               <span className="text-sm">{icon}</span>
                               <div>
-                                <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[hsl(220,10%,90%)]" : "text-[hsl(220,10%,70%)]"}`}>{label}</p>
+                                <p className={`text-xs font-medium ${active && plan !== "free" ? "text-[#1A1A2E]" : "text-[#6B6B80]"}`}>{label}</p>
                                 <p className={`text-[10px] ${dimText}`}>{desc}</p>
                               </div>
                             </button>
                             {rule === "me-first" && active && plan !== "free" && (
-                              <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5]">
+                              <div className="mt-2 p-3 rounded-xl border border-[#7C3AED/20] bg-[#7C3AED/5]">
                                 <p className={`text-[10px] font-medium ${dimText} mb-2`}>Select tags that must appear:</p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {allAvailableTags.map((tag) => {
@@ -8299,7 +8299,7 @@ export default function App() {
                                     return (
                                       <button key={tag}
                                         onClick={() => setAppSettings((s) => ({ ...s, preferredTags: tagActive ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
-                                        className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${tagActive ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                        className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${tagActive ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                                         {tagIcon(tag)} {tagLabel(tag)}
                                       </button>
                                     );
@@ -8308,7 +8308,7 @@ export default function App() {
                               </div>
                             )}
                             {rule === "tag-sequence" && active && plan !== "free" && (
-                              <div className="mt-2 p-3 rounded-xl border border-[hsl(263,70%,65%)/20] bg-[hsl(263,70%,65%)/5] space-y-2">
+                              <div className="mt-2 p-3 rounded-xl border border-[#7C3AED/20] bg-[#7C3AED/5] space-y-2">
                                 <p className={`text-[10px] font-medium ${dimText}`}>Tap tags to set order (first = first slide):</p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {allAvailableTags.map((tag) => {
@@ -8317,7 +8317,7 @@ export default function App() {
                                     return (
                                       <button key={tag}
                                         onClick={() => setAppSettings((s) => ({ ...s, tagSequence: inSeq ? s.tagSequence.filter((t) => t !== tag) : [...s.tagSequence, tag] }))}
-                                        className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all ${inSeq ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                                        className={`text-xs px-2.5 py-1.5 rounded-lg border flex items-center gap-1 transition-all ${inSeq ? tagColor(tag, appSettings.customTags) + " ring-1 ring-inset ring-current" : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                                         {inSeq && <span className="text-[9px] font-bold opacity-70">{idx + 1}.</span>}
                                         {tagIcon(tag)} {tagLabel(tag)}
                                       </button>
@@ -8339,14 +8339,14 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[hsl(220,10%,35%)]">— AI prioritizes these</span>{plan === "free" && <DiamondBadge />}</p>
+                    <p className={`text-xs font-medium ${dimText} mb-2`}>Preferred content tags <span className="font-normal text-[#BBBBCC]">— AI prioritizes these</span>{plan === "free" && <DiamondBadge />}</p>
                     <div className="flex flex-wrap gap-2">
                       {allAvailableTags.map((tag) => {
                         const active = appSettings.preferredTags.includes(tag);
                         return <button key={tag}
                           disabled={plan === "free"}
                           onClick={plan === "free" ? () => openProGate("Preferred content tags") : () => setAppSettings((s) => ({ ...s, preferredTags: active ? s.preferredTags.filter((t) => t !== tag) : [...s.preferredTags, tag] }))}
-                          className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[hsl(220,14%,16%)]`}`}>
+                          className={`text-xs px-2.5 py-1.5 rounded-lg border transition-colors ${plan === "free" ? `${border} opacity-50 cursor-not-allowed` : active ? tagColor(tag, appSettings.customTags) : `${border} ${dimText} hover:bg-[#EBEBF0]`}`}>
                           {tagIcon(tag)} {tagLabel(tag)}
                         </button>;
                       })}
@@ -8354,7 +8354,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <p className={`text-xs font-medium ${dimText} mb-1.5`}>Custom AI instructions <span className="font-normal text-[hsl(220,10%,35%)]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
+                    <p className={`text-xs font-medium ${dimText} mb-1.5`}>Custom AI instructions <span className="font-normal text-[#BBBBCC]">(optional)</span>{plan === "free" && <DiamondBadge />}</p>
                     <textarea
                       readOnly={plan === "free"}
                       onClick={plan === "free" ? () => openProGate("Custom AI instructions") : undefined}
@@ -8364,7 +8364,7 @@ export default function App() {
                       rows={1}
                       style={{ minHeight: 40 }}
                       placeholder="e.g. always include a DJ photo, prefer night shots on weekends"
-                      className={`w-full bg-[hsl(220,14%,9%)] border ${border} rounded-xl p-3 text-sm text-[hsl(220,10%,85%)] placeholder:text-[hsl(220,10%,30%)] resize-none focus:outline-none focus:border-[hsl(263,70%,65%)/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
+                      className={`w-full bg-[#F8F8FA] border ${border} rounded-xl p-3 text-sm text-[#2D2D44] placeholder:text-[#BBBBCC] resize-none focus:outline-none focus:border-[#7C3AED/50] ${plan === "free" ? "opacity-50 cursor-pointer" : ""}`}
                     />
                   </div>
                 </div>
@@ -8375,15 +8375,15 @@ export default function App() {
                   <div>
                     <p className={`text-xs ${dimText} mb-1.5`}>Add custom tag — type a word and pick an emoji{plan === "free" && <DiamondBadge />}</p>
                     {newTagInput.trim() && plan !== "free" && (
-                      <div className="mb-2 p-2.5 rounded-xl border border-[hsl(263,70%,65%)/25] bg-[hsl(263,70%,65%)/8] flex items-center gap-3 flex-wrap">
-                        <span className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                      <div className="mb-2 p-2.5 rounded-xl border border-[#7C3AED/25] bg-[#7C3AED/8] flex items-center gap-3 flex-wrap">
+                        <span className="text-sm font-medium text-[#2D2D44]">
                           <span className="text-xl mr-1">{tagInputEmoji}</span>
                           {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}
                         </span>
                         <div className="flex gap-1 flex-wrap">
                           {ALT_EMOJIS.slice(0, 10).map((em) => (
                             <button key={em} onClick={() => setTagInputEmoji(em)}
-                              className={`text-base px-1.5 py-0.5 rounded-lg transition-colors ${tagInputEmoji === em ? "bg-[hsl(263,70%,65%)/30] ring-1 ring-[hsl(263,70%,65%)]" : "hover:bg-[hsl(220,14%,18%)]"}`}>
+                              className={`text-base px-1.5 py-0.5 rounded-lg transition-colors ${tagInputEmoji === em ? "bg-[#7C3AED/30] ring-1 ring-[#7C3AED]" : "hover:bg-[#E8E8F0]"}`}>
                               {em}
                             </button>
                           ))}
@@ -8397,10 +8397,10 @@ export default function App() {
                         onKeyDown={(e) => { if (e.key === "Enter" && plan !== "free") addCustomTag(); }}
                         placeholder="e.g. Beach, Gym, Party…" className={`flex-1 ${inputCls} ${plan === "free" ? "opacity-40 cursor-pointer" : ""}`} />
                       <button onClick={() => { if (plan === "free") { openProGate("Custom tags"); return; } addCustomTag(); }} disabled={plan !== "free" && !newTagInput.trim()}
-                        className="text-xs px-3 py-2 rounded-lg bg-[hsl(263,70%,65%)] text-white disabled:opacity-40">Add</button>
+                        className="text-xs px-3 py-2 rounded-lg bg-[#7C3AED] text-white disabled:opacity-40">Add</button>
                     </div>
                     {newTagInput.trim() && plan !== "free" && (
-                      <p className={`text-[10px] ${dimText} mt-1`}>Will be saved as: <span className="text-[hsl(220,10%,70%)]">{tagInputEmoji} {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}</span></p>
+                      <p className={`text-[10px] ${dimText} mt-1`}>Will be saved as: <span className="text-[#6B6B80]">{tagInputEmoji} {newTagInput.trim().charAt(0).toUpperCase() + newTagInput.trim().slice(1)}</span></p>
                     )}
                   </div>
                   <div>
@@ -8426,7 +8426,7 @@ export default function App() {
                       <div className="flex flex-wrap gap-1.5">
                         {appSettings.hiddenBaseTags.map((tag) => (
                           <button key={tag} onClick={() => setAppSettings((s) => ({ ...s, hiddenBaseTags: s.hiddenBaseTags.filter((t) => t !== tag) }))}
-                            className={`text-xs px-2.5 py-1.5 rounded-lg border ${border} ${dimText} opacity-50 hover:opacity-100 hover:bg-[hsl(220,14%,16%)]`}>
+                            className={`text-xs px-2.5 py-1.5 rounded-lg border ${border} ${dimText} opacity-50 hover:opacity-100 hover:bg-[#EBEBF0]`}>
                             {tagIcon(tag)} {tagLabel(tag)} ↺
                           </button>
                         ))}
@@ -8440,14 +8440,14 @@ export default function App() {
                   <p className="text-sm font-semibold">🛡️ Post Safety</p>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[hsl(220,10%,85%)]">
+                      <p className="text-sm font-medium text-[#2D2D44]">
                         Prevent duplicate media across posts{plan === "free" && <DiamondBadge />}
                       </p>
                       <p className={`text-xs ${dimText} mt-0.5 leading-relaxed`}>Avoid using the same photo or video in multiple drafts or scheduled posts</p>
                     </div>
                     <button
                       onClick={plan === "free" ? () => openProGate("Post Safety — Prevent duplicate media") : () => setPreventDuplicates((v) => !v)}
-                      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[hsl(263,70%,65%)]" : "bg-[hsl(220,13%,25%)]"}`}>
+                      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors ${plan !== "free" && preventDuplicates ? "bg-[#7C3AED]" : "bg-[#D8D8E0]"}`}>
                       <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${plan !== "free" && preventDuplicates ? "translate-x-5" : "translate-x-0"}`} />
                     </button>
                   </div>
@@ -8458,7 +8458,7 @@ export default function App() {
                   <p className="text-sm font-semibold">🔔 Notifications</p>
 
                   {/* Permission status */}
-                  <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl border ${notifyPermission === "granted" ? "border-emerald-500/30 bg-emerald-500/5" : notifyPermission === "denied" ? "border-red-500/30 bg-red-500/5" : "border-[hsl(220,13%,22%)] bg-[hsl(220,14%,12%)]"}`}>
+                  <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl border ${notifyPermission === "granted" ? "border-emerald-500/30 bg-emerald-500/5" : notifyPermission === "denied" ? "border-red-500/30 bg-red-500/5" : "border-[#E0E0E8] bg-[#FFFFFF]"}`}>
                     <div className="flex items-center gap-2">
                       <span className="text-sm">{notifyPermission === "granted" ? "✅" : notifyPermission === "denied" ? "🚫" : notifyPermission === "unsupported" ? "❌" : "⚠️"}</span>
                       <span className="text-xs font-medium">
@@ -8467,7 +8467,7 @@ export default function App() {
                     </div>
                     {notifyPermission === "default" && (
                       <button onClick={requestNotificationPermission}
-                        className="text-xs px-3 py-1.5 rounded-lg bg-[hsl(263,70%,65%)] text-white font-medium">
+                        className="text-xs px-3 py-1.5 rounded-lg bg-[#7C3AED] text-white font-medium">
                         Enable
                       </button>
                     )}
@@ -8480,7 +8480,7 @@ export default function App() {
                       <p className={`text-[11px] ${dimText}`}>Remind me when I have posts scheduled today</p>
                     </div>
                     <button onClick={() => setNotifyDaily(v => !v)}
-                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${notifyDaily ? "bg-[hsl(263,70%,65%)] justify-end" : "bg-[hsl(220,14%,20%)] justify-start"}`}>
+                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${notifyDaily ? "bg-[#7C3AED] justify-end" : "bg-[#E3E3ED] justify-start"}`}>
                       <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
                     </button>
                   </div>
@@ -8500,7 +8500,7 @@ export default function App() {
                       <p className={`text-[11px] ${dimText}`}>Get notified about new InstaFlow features</p>
                     </div>
                     <button onClick={() => setNotifyUpdates(v => !v)}
-                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${notifyUpdates ? "bg-[hsl(263,70%,65%)] justify-end" : "bg-[hsl(220,14%,20%)] justify-start"}`}>
+                      className={`w-10 h-6 rounded-full transition-colors flex items-center ${notifyUpdates ? "bg-[#7C3AED] justify-end" : "bg-[#E3E3ED] justify-start"}`}>
                       <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
                     </button>
                   </div>
@@ -8531,8 +8531,8 @@ export default function App() {
                                 <span className="font-medium">{rec.emoji} {dayNames[rec.dayOfWeek]} {String(rec.hour).padStart(2, "0")}:00</span>
                                 <span className={dimText}>{rec.label}</span>
                               </div>
-                              <div className="w-full h-1 rounded-full bg-[hsl(220,14%,20%)]">
-                                <div className="h-1 rounded-full bg-[hsl(263,70%,65%)]" style={{ width: `${barWidth}%` }} />
+                              <div className="w-full h-1 rounded-full bg-[#E3E3ED]">
+                                <div className="h-1 rounded-full bg-[#7C3AED]" style={{ width: `${barWidth}%` }} />
                               </div>
                             </div>
                           );
@@ -8544,7 +8544,7 @@ export default function App() {
                           <p className={`text-[11px] ${dimText}`}>Pre-fill the time picker with today's top slot</p>
                         </div>
                         <button onClick={() => { const next = !autoSuggestTime; setAutoSuggestTime(next); localStorage.setItem("autoSuggestTime", String(next)); }}
-                          className={`w-10 h-6 rounded-full transition-colors flex items-center flex-shrink-0 ${autoSuggestTime ? "bg-[hsl(263,70%,65%)] justify-end" : "bg-[hsl(220,14%,20%)] justify-start"}`}>
+                          className={`w-10 h-6 rounded-full transition-colors flex items-center flex-shrink-0 ${autoSuggestTime ? "bg-[#7C3AED] justify-end" : "bg-[#E3E3ED] justify-start"}`}>
                           <span className="w-4 h-4 rounded-full bg-white mx-1 shadow block" />
                         </button>
                       </div>
@@ -8558,7 +8558,7 @@ export default function App() {
                     <p className="text-xs text-amber-400 text-center font-medium">● Unsaved changes</p>
                   )}
                   <button onClick={handleSaveSettings} disabled={settingsSaving}
-                    className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[hsl(263,70%,65%)] hover:bg-[hsl(263,70%,58%)]"}`}>
+                    className={`w-full py-3 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-60 ${settingsSaveFailed ? "bg-red-500" : settingsSaved ? "bg-emerald-500" : "bg-[#7C3AED] hover:bg-[#6D28D9]"}`}>
                     {settingsSaving ? "Saving…" : settingsSaveFailed ? "✗ Failed — try again" : settingsSaved ? "✓ Saved!" : "Save Preferences"}
                   </button>
                 </div>
@@ -8573,12 +8573,12 @@ export default function App() {
       {deleteAccountConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
           <div className="absolute inset-0 bg-black/70" onClick={() => setDeleteAccountConfirm(false)} />
-          <div className={`relative w-full max-w-sm bg-[hsl(220,14%,13%)] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`}>
+          <div className={`relative w-full max-w-sm bg-[#F2F2F7] border ${border} rounded-2xl p-6 space-y-4 shadow-2xl`}>
             <div className="text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mx-auto">
                 <span className="text-red-400 text-xl">🗑</span>
               </div>
-              <p className="text-base font-semibold text-[hsl(220,10%,90%)]">Delete Account</p>
+              <p className="text-base font-semibold text-[#1A1A2E]">Delete Account</p>
               <p className={`text-sm ${dimText} leading-relaxed`}>This will permanently delete your account and all your data. This cannot be undone.</p>
             </div>
             <div className="space-y-2.5">
@@ -8587,7 +8587,7 @@ export default function App() {
                 Delete Account
               </button>
               <button onClick={() => setDeleteAccountConfirm(false)}
-                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[hsl(220,14%,18%)] transition-colors`}>
+                className={`w-full py-2.5 rounded-xl border ${border} text-sm font-medium ${dimText} hover:bg-[#E8E8F0] transition-colors`}>
                 Cancel
               </button>
             </div>
@@ -8622,11 +8622,11 @@ export default function App() {
       {createPostModal && (
         <div className="fixed inset-0 z-40 flex items-end justify-center" onClick={() => setCreatePostModal(false)}>
           <div className="absolute inset-0 bg-black/60" />
-          <div className={`relative w-full max-w-sm bg-[hsl(220,14%,12%)] border border-[hsl(220,13%,22%)] rounded-t-2xl flex flex-col`}
+          <div className={`relative w-full max-w-sm bg-[#FFFFFF] border border-[#E0E0E8] rounded-t-2xl flex flex-col`}
             style={{ maxHeight: "85vh" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <p className="font-semibold">Create Post</p>
-              <button onClick={() => setCreatePostModal(false)} className="text-[hsl(220,10%,50%)] hover:text-white text-xl">✕</button>
+              <button onClick={() => setCreatePostModal(false)} className="text-[#9999B0] hover:text-[#1A1A2E] text-xl">✕</button>
             </div>
             <div className="px-5 pb-6 space-y-3">
               {([
@@ -8636,11 +8636,11 @@ export default function App() {
                 { icon: "🤖", label: "AI Generate Carousel", sub: "Rule-based or by theme", action: () => { setCreatePostModal(false); setAiTypeModal(true); } },
               ] as const).map((opt) => (
                 <button key={opt.label} onClick={opt.action}
-                  className={`w-full text-left px-4 py-3 rounded-xl border border-[hsl(220,13%,22%)] hover:bg-[hsl(220,14%,16%)] transition-colors flex items-center gap-3`}>
+                  className={`w-full text-left px-4 py-3 rounded-xl border border-[#E0E0E8] hover:bg-[#EBEBF0] transition-colors flex items-center gap-3`}>
                   <span className="text-2xl">{opt.icon}</span>
                   <div>
-                    <p className="text-sm font-semibold text-[hsl(220,10%,85%)]">{opt.label}</p>
-                    <p className="text-xs text-[hsl(220,10%,50%)]">{opt.sub}</p>
+                    <p className="text-sm font-semibold text-[#2D2D44]">{opt.label}</p>
+                    <p className="text-xs text-[#9999B0]">{opt.sub}</p>
                   </div>
                 </button>
               ))}
