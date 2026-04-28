@@ -4242,8 +4242,8 @@ export default function App() {
                         {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                            style={{ top: 4, right: 4, width: 22, height: 22, background: "rgba(255,255,255,0.92)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center" }}
-                            className="absolute border border-white/40">
+                            style={{ top: 4, right: 4, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}
+                            className="absolute">
                             <Heart style={{ width: 13, height: 13 }} stroke={item.isFavorite ? "#E11D48" : "rgba(0,0,0,0.5)"} fill={item.isFavorite ? "#E11D48" : "none"} strokeWidth={2.2} />
                           </button>
                         )}
