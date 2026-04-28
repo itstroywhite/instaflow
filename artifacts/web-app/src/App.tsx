@@ -4242,9 +4242,9 @@ export default function App() {
                         {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                            style={{ top: 5, right: 5 }}
-                            className="absolute flex items-center justify-center">
-                            <Heart className="w-3 h-3" stroke={item.isFavorite ? "#E11D48" : "rgba(0,0,0,0.25)"} fill={item.isFavorite ? "#E11D48" : "none"} strokeWidth={2} />
+                            style={{ top: 2, right: 2, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
+                            className="absolute">
+                            <Heart style={{ width: 18, height: 18 }} stroke={item.isFavorite ? "#E11D48" : "rgba(0,0,0,0.3)"} fill={item.isFavorite ? "#E11D48" : "none"} strokeWidth={2} />
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
@@ -4639,15 +4639,15 @@ export default function App() {
                 />
                 {/* Your ideas collapsible */}
                 <div>
-                  <button onClick={() => setCaptionUserIdeasOpen((o) => !o)}
+                  <button onClick={() => { if (plan === "free") { openProGate("AI Caption Ideas"); return; } setCaptionUserIdeasOpen((o) => !o); }}
                     className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-[#111111] transition-colors`}>
                     <span>{captionUserIdeasOpen ? "▾" : "▸"}</span>
-                    <span>💡 Add your ideas <span className="opacity-60">(optional)</span></span>
+                    <span>💡 Your ideas 💎</span>
                   </button>
                   {captionUserIdeasOpen && (
                     <textarea
                       value={captionUserIdeas}
-                      onChange={(e) => setCaptionUserIdeas(e.target.value)}
+                      onChange={(e) => { if (plan === "free") { openProGate("AI Caption Ideas"); return; } setCaptionUserIdeas(e.target.value); }}
                       placeholder="e.g. mention the rooftop, reference the music..."
                       rows={2}
                       style={{ resize: "none" }}
@@ -4848,15 +4848,15 @@ export default function App() {
               />
               {/* Your ideas collapsible */}
               <div>
-                <button onClick={() => setSingleUserIdeasOpen((o) => !o)}
+                <button onClick={() => { if (plan === "free") { openProGate("AI Caption Ideas"); return; } setSingleUserIdeasOpen((o) => !o); }}
                   className={`text-xs flex items-center gap-1.5 ${dimText} hover:text-[#111111] transition-colors`}>
                   <span>{singleUserIdeasOpen ? "▾" : "▸"}</span>
-                  <span>💡 Add your ideas <span className="opacity-60">(optional)</span></span>
+                  <span>💡 Your ideas 💎</span>
                 </button>
                 {singleUserIdeasOpen && (
                   <textarea
                     value={singleUserIdeas}
-                    onChange={(e) => setSingleUserIdeas(e.target.value)}
+                    onChange={(e) => { if (plan === "free") { openProGate("AI Caption Ideas"); return; } setSingleUserIdeas(e.target.value); }}
                     placeholder="e.g. mention the rooftop, reference the music..."
                     rows={2}
                     style={{ resize: "none" }}
@@ -5709,7 +5709,7 @@ export default function App() {
           <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
-              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)' }}>
+              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 82px)' }}>
               {/* LEFT: filename pill + date below */}
               <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
                 {(liveItem.display_name || liveItem.name) && (
@@ -6555,15 +6555,15 @@ export default function App() {
         {/* Backdrop — pointer-events:none so nav bar remains clickable */}
         <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm" style={{ pointerEvents: 'none' }}>
           {/* Scrollable content — pointer-events:auto captures only card area */}
-          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 64px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) { setPreviewPost(null); setPreviewDotsOpen(false); } }}>
+          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 82px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) { setPreviewPost(null); setPreviewDotsOpen(false); } }}>
             {/* Instagram post card */}
-            <div className="w-full max-w-sm bg-black text-[#111111]">
+            <div className="w-full max-w-sm bg-white border border-[#EBEBEB] rounded-b-xl text-[#111111]">
               {/* Post header — Instagram style */}
               <div className="flex items-center px-3 py-2.5 gap-2">
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
                   <div className="w-9 h-9 rounded-full p-[2px]" style={{ background: "linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" }}>
-                    <div className="w-full h-full rounded-full bg-black flex items-center justify-center overflow-hidden">
+                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center overflow-hidden">
                       {profile?.avatar_url
                         ? <img src={profile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                         : <span className="text-[#111111] text-xs font-bold">{(igUsername ?? "?")[0]?.toUpperCase()}</span>}
@@ -6634,15 +6634,15 @@ export default function App() {
                     )}
                     {/* Slide counter — top-right overlay */}
                     {previewItems.length > 1 && (
-                      <div className="absolute top-3 right-3 bg-black/50 text-[#111111] text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur-sm">
+                      <div className="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-0.5 rounded-full font-medium backdrop-blur-sm">
                         {previewSlide + 1} / {previewItems.length}
                       </div>
                     )}
                     {previewSlide > 0 && (
-                      <button onClick={() => setPreviewSlide((s) => s - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-[#111111] text-sm backdrop-blur-sm">‹</button>
+                      <button onClick={() => setPreviewSlide((s) => s - 1)} className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm backdrop-blur-sm">‹</button>
                     )}
                     {previewSlide < previewItems.length - 1 && (
-                      <button onClick={() => setPreviewSlide((s) => s + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-[#111111] text-sm backdrop-blur-sm">›</button>
+                      <button onClick={() => setPreviewSlide((s) => s + 1)} className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-black/50 flex items-center justify-center text-white text-sm backdrop-blur-sm">›</button>
                     )}
                   </>
                 ) : (
@@ -6660,16 +6660,16 @@ export default function App() {
 
               {/* Dots (below image, IG style) */}
               {previewItems.length > 1 && (
-                <div className="flex justify-center gap-[5px] py-2.5 bg-black">
+                <div className="flex justify-center gap-[5px] py-2.5 bg-white border-b border-[#EBEBEB]">
                   {previewItems.map((_, i) => (
                     <button key={i} onClick={() => setPreviewSlide(i)}
-                      className={`rounded-full transition-all ${i === previewSlide ? "w-2 h-2 bg-[#0095f6]" : "w-1.5 h-1.5 bg-[#E8E8EE]"}`} />
+                      className={`rounded-full transition-all ${i === previewSlide ? "w-2 h-2 bg-[#0095f6]" : "w-1.5 h-1.5 bg-[#DBDBDB]"}`} />
                   ))}
                 </div>
               )}
 
               {/* Action bar */}
-              <div className="flex items-center px-3 py-2">
+              <div className="flex items-center px-3 py-2 border-b border-[#EBEBEB]">
                 <div className="flex gap-4 flex-1">
                   <button className="text-[#111111] hover:text-[#888888] transition-colors">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
@@ -6687,30 +6687,35 @@ export default function App() {
               </div>
 
               {/* Likes */}
-              <div className="px-3 pb-1">
-                <p className="text-sm font-semibold text-[#111111]">Liked by <span className="font-semibold">{igUsername}</span> and others</p>
+              <div className="px-3 pt-2 pb-1">
+                <p className="text-sm font-bold text-[#111111]">Liked by <span className="font-bold">{igUsername}</span> and others</p>
               </div>
 
               {/* Caption */}
               {previewPost.caption && (
                 <div className="px-3 pb-2">
-                  <div className="text-sm text-[#111111] leading-snug">
-                    <span className="font-semibold">{igUsername} </span>
-                    <span className="text-[#111111]" style={{ whiteSpace: "pre-wrap" }}>
-                      {previewPost.caption.length > 180 ? previewPost.caption.slice(0, 180) + "… " : previewPost.caption}
-                    </span>
-                    {previewPost.caption.length > 180 && <span className="text-[#888888] text-sm">more</span>}
+                  <div className="text-sm text-[#111111] leading-snug" style={{ whiteSpace: "pre-wrap" }}>
+                    <span className="font-bold">{igUsername} </span>
+                    {(() => {
+                      const raw = previewPost.caption.length > 200 ? previewPost.caption.slice(0, 200) + "…" : previewPost.caption;
+                      return raw.split(/(\s+)/).map((word, wi) =>
+                        word.startsWith("#") ? <span key={wi} className="text-[#7C3AED] font-medium">{word}</span>
+                        : word.startsWith("@") ? <span key={wi} className="text-[#0095f6] font-medium">{word}</span>
+                        : <span key={wi}>{word}</span>
+                      );
+                    })()}
+                    {previewPost.caption.length > 200 && <span className="text-[#888888]"> more</span>}
                   </div>
                 </div>
               )}
 
               {/* Comments */}
-              <div className="px-3 pb-2">
-                <p className="text-sm text-[#888888]">View all comments</p>
+              <div className="px-3 pb-1">
+                <p className="text-sm text-[#888888] cursor-pointer">View all comments</p>
               </div>
 
               {/* Timestamp */}
-              <div className="px-3 pb-4">
+              <div className="px-3 pb-4 border-t border-[#EBEBEB] pt-2 mt-1">
                 <p className="text-[10px] text-[#888888] uppercase tracking-wide">{previewPost.scheduledTime ?? "12:00"} · {formatDayShort(previewPost.scheduledDate ?? previewPost.day)}</p>
               </div>
             </div>
