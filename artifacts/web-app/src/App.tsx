@@ -4242,9 +4242,9 @@ export default function App() {
                         {!item.analyzing && !bulkMode && !folderAddMode && !selectionMode && (
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(item.id); }}
-                            style={{ top: 2, right: 2, width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center" }}
-                            className="absolute">
-                            <Heart style={{ width: 18, height: 18 }} stroke={item.isFavorite ? "#E11D48" : "rgba(0,0,0,0.3)"} fill={item.isFavorite ? "#E11D48" : "none"} strokeWidth={2} />
+                            style={{ top: 4, right: 4, width: 22, height: 22, background: "rgba(255,255,255,0.92)", borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center" }}
+                            className="absolute border border-white/40">
+                            <Heart style={{ width: 13, height: 13 }} stroke={item.isFavorite ? "#E11D48" : "rgba(0,0,0,0.5)"} fill={item.isFavorite ? "#E11D48" : "none"} strokeWidth={2.2} />
                           </button>
                         )}
                         {(selectionMode || bulkMode) && (
@@ -4339,7 +4339,7 @@ export default function App() {
                             const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
                             const bgCls = rec.score >= 0.8 ? "bg-green-500/15 border-green-500/30 text-green-300"
                               : rec.score >= 0.6 ? "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#7C3AED]"
-                              : rec.score >= 0.4 ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                              : rec.score >= 0.4 ? "bg-[#FFF7ED] border-[#FED7AA] text-[#C2410C]"
                               : "bg-[#EAEAEF] border-[#E8E8EE] text-[#555555]";
                             return (
                               <button key={rec.hour}
@@ -4354,7 +4354,7 @@ export default function App() {
                               const timeStr = `${String(rec.hour).padStart(2, "0")}:00`;
                               const bgCls = rec.score >= 0.8 ? "bg-green-500/15 border-green-500/30 text-green-300"
                                 : rec.score >= 0.6 ? "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#7C3AED]"
-                                : rec.score >= 0.4 ? "bg-amber-500/10 border-amber-500/20 text-amber-300"
+                                : rec.score >= 0.4 ? "bg-[#FFF7ED] border-[#FED7AA] text-[#C2410C]"
                                 : "bg-[#EAEAEF] border-[#E8E8EE] text-[#555555]";
                               return (
                                 <button key={rec.hour}
@@ -4373,7 +4373,7 @@ export default function App() {
                     <div className={`${card} p-4 relative overflow-hidden`}>
                       <p className="text-xs font-semibold text-[#888888] uppercase tracking-wider mb-2.5">✨ Best times to post today</p>
                       <div className="flex gap-1.5 blur-sm pointer-events-none select-none">
-                        {[{ l: "⚡ 19:00", c: "bg-green-500/15 border-green-500/30 text-green-300" }, { l: "👍 11:00", c: "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#7C3AED]" }, { l: "😐 14:00", c: "bg-amber-500/10 border-amber-500/20 text-amber-300" }].map((t) => (
+                        {[{ l: "⚡ 19:00", c: "bg-green-500/15 border-green-500/30 text-green-300" }, { l: "👍 11:00", c: "bg-[#7C3AED/15] border-[#7C3AED/30] text-[#7C3AED]" }, { l: "😐 14:00", c: "bg-[#FFF7ED] border-[#FED7AA] text-[#C2410C]" }].map((t) => (
                           <span key={t.l} className={`text-xs px-2.5 py-1 rounded-lg border font-medium ${t.c}`}>{t.l}</span>
                         ))}
                       </div>
@@ -6624,12 +6624,12 @@ export default function App() {
                           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0"; }} />
                       );
                     })()}
-                    {/* Tag badge — exact match to media pool viewer style */}
+                    {/* Tag badge — on image, always white text on dark bg */}
                     {previewItems[previewSlide]?.tag && (
                       <div
-                        style={{ position: "absolute", top: 8, left: 8, zIndex: 10 }}
-                        className="text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm text-[#111111] border border-[#E8E8EE] leading-none flex items-center gap-1 pointer-events-none">
-                        {tagIcon(previewItems[previewSlide].tag!)} {tagLabel(previewItems[previewSlide].tag!)}
+                        style={{ position: "absolute", top: 8, left: 8, zIndex: 10, background: "rgba(0,0,0,0.45)", borderRadius: 6, padding: "4px 8px" }}
+                        className="text-xs text-white font-semibold leading-none flex items-center gap-1 pointer-events-none">
+                        {tagIcon(previewItems[previewSlide].tag!)} <span style={{ color: "rgba(255,255,255,0.85)" }}>{tagLabel(previewItems[previewSlide].tag!)}</span>
                       </div>
                     )}
                     {/* Slide counter — top-right overlay */}
