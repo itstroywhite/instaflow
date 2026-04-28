@@ -30,22 +30,34 @@
 }
 
 :root {
-  --background: 220 14% 97%;
-  --foreground: 220 14% 11%;
-  --border: 220 13% 90%;
-  --input: 220 13% 96%;
-  --ring: 263 70% 60%;
+  /* Page bg #F5F4F9 ≈ hsl(250 14% 96%) */
+  --background: 250 14% 96%;
+  /* Primary text #111111 ≈ hsl(0 0% 7%) */
+  --foreground: 0 0% 7%;
+  /* Border #E8E8EE ≈ hsl(240 9% 92%) */
+  --border: 240 9% 92%;
+  /* Input bg #FFFFFF */
+  --input: 0 0% 100%;
+  /* Ring / focus: purple #7C3AED */
+  --ring: 263 75% 57%;
+  /* Card bg #FFFFFF */
   --card: 0 0% 100%;
-  --card-foreground: 220 14% 11%;
-  --primary: 263 70% 55%;
+  --card-foreground: 0 0% 7%;
+  /* Primary #7C3AED */
+  --primary: 263 75% 57%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 220 14% 95%;
-  --secondary-foreground: 220 10% 30%;
-  --muted: 220 14% 94%;
-  --muted-foreground: 220 10% 45%;
-  --accent: 263 60% 50%;
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 51%;
+  /* Secondary / hover #F2F2F5 ≈ hsl(240 6% 95%) */
+  --secondary: 240 6% 95%;
+  --secondary-foreground: 0 0% 33%;
+  /* Muted #EEEEF2 ≈ hsl(240 9% 94%) */
+  --muted: 240 9% 94%;
+  /* Muted text #888888 */
+  --muted-foreground: 0 0% 53%;
+  /* Accent purple light #F5F0FF ≈ hsl(270 100% 97%) */
+  --accent: 270 100% 97%;
+  --accent-foreground: 263 75% 38%;
+  /* Danger #EF4444 */
+  --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 100%;
 
   --app-font-sans: 'Inter', system-ui, sans-serif;
