@@ -5805,7 +5805,7 @@ export default function App() {
                             media_type: liveItem.media_type
                           });
                           // Use liveItem (fresh from mediaItems state) — prefer url, fall back to dataUrl
-                          const videoSrc = liveItem.url || liveItem.dataUrl || null;
+                          const videoSrc = liveItem.url ?? null;
                           console.log('[viewer] videoSrc:', videoSrc?.substring(0, 80));
                           console.log('[viewer] url:', liveItem.url);
                           console.log('[viewer] dataUrl:', liveItem.dataUrl?.substring(0, 80));
