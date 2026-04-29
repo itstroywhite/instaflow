@@ -1538,13 +1538,13 @@ export default function App() {
         });
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
-        const rawTone: string = captionSettingsRaw.tone ?? "";
+        const rawTone: string = (captionSettingsRaw.tone ?? "").trim();
         const validTones = rawTone.split(",").map((x: string) => x.trim()).filter((x: string) => SUGGESTED_TONES.includes(x));
         const normalizedCaptionSettings: CaptionSettings = {
           ...DEFAULT_CAPTION,
           ...captionSettingsRaw,
           captionPrompt: captionSettingsRaw.captionPrompt === DEFAULT_CAPTION_PROMPT ? "" : (captionSettingsRaw.captionPrompt ?? ""),
-          tone: validTones.join(", "),
+          tone: validTones.join(", ") || "",
           hashtags: captionSettingsRaw.hashtags ?? [],
           customInstructions: captionSettingsRaw.customInstructions ?? "",
         };
