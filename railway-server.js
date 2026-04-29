@@ -421,7 +421,7 @@ function mapMediaRow(r) {
   return {
     id: r.id, name: r.name, display_name: r.display_name ?? null, tag: r.tag,
     url: resolvedUrl,
-    dataUrl: resolvedUrl ?? "",
+    dataUrl: resolvedUrl,
     folderId: r.folder_id ?? null,
     used: r.used ?? false, createdAt: r.created_at,
     isFavorite: r.is_favorite ?? false,

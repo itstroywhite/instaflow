@@ -1523,11 +1523,15 @@ export default function App() {
         // anyUrl: also accept data: base64 strings for the dataUrl field
         const httpUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && s.startsWith("http") ? s : undefined);
         const anyUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && (s.startsWith("http") || s.startsWith("data:")) ? s : undefined);
-        setMediaItems(items.map((i: MediaItem) => ({
-          ...i,
-          url: httpUrl(i.url) ?? httpUrl(i.dataUrl),
-          dataUrl: anyUrl(i.url) ?? anyUrl(i.dataUrl) ?? "",
-        })));
+        setMediaItems(items.map((i: MediaItem) => {
+          const resolvedUrl = httpUrl(i.url) ?? httpUrl(i.dataUrl) ?? undefined;
+          const resolvedDataUrl = anyUrl(i.url) ?? anyUrl(i.dataUrl) ?? undefined;
+          return {
+            ...i,
+            url: resolvedUrl,
+            dataUrl: resolvedUrl ?? resolvedDataUrl ?? undefined,
+          };
+        }));
         const firstVideo = items.find((i: any) => i.media_type === 'video');
         if (firstVideo) console.log('[media-load] video item:', {
           id: firstVideo.id,
@@ -3547,23 +3551,19 @@ export default function App() {
   if (splashVisible) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-8"
-        style={{ background: "linear-gradient(160deg, hsl(263,60%,12%) 0%, hsl(220,14%,8%) 100%)" }}>
+        style={{ background: "#7C3AED", paddingTop: "env(safe-area-inset-top)" }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-20 h-20 rounded-[28px] flex items-center justify-center text-3xl font-black text-white select-none shadow-2xl"
-            style={{ background: "linear-gradient(135deg, hsl(263,70%,65%) 0%, hsl(263,50%,45%) 100%)" }}>
-            IF
-          </div>
-          <div className="flex flex-col items-center gap-0.5">
-            <span className="text-2xl font-bold tracking-tight text-white">
-              Insta<span style={{ color: "hsl(263,70%,72%)" }}>Flow</span>
+          <div className="flex flex-col items-center gap-1">
+            <span style={{ fontSize: 28, fontWeight: 900, color: "#FFFFFF", letterSpacing: "-0.5px" }}>
+              Insta<span style={{ color: "rgba(255,255,255,0.6)" }}>Flow</span>
             </span>
-            <span className="text-[11px] tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
+            <span className="text-[11px] tracking-widest uppercase" style={{ color: "rgba(255,255,255,0.5)" }}>
               Content Scheduler
             </span>
           </div>
         </div>
         <div className="w-6 h-6 rounded-full border-2 animate-spin"
-          style={{ borderColor: "rgba(255,255,255,0.15)", borderTopColor: "hsl(263,70%,65%)" }} />
+          style={{ borderColor: "rgba(255,255,255,0.25)", borderTopColor: "#FFFFFF" }} />
       </div>
     );
   }
@@ -4082,7 +4082,11 @@ export default function App() {
                     {folders.map((folder) => {
                       const imgs = folder.mediaIds.slice(0, 3).map((id) => mediaMap[id]).filter(Boolean) as MediaItem[];
                       return (
-                        <div key={folder.id} className="relative aspect-square cursor-pointer group"
+                        <div key={folder.id} style={{ position: "relative", paddingBottom: 4, paddingRight: 4 }}>
+                          {/* Fan layers — colored cards peeking behind */}
+                          <div style={{ position: "absolute", top: 4, left: 4, right: -4, bottom: -4, borderRadius: 12, background: "#C4B5FD", transform: "rotate(4deg)", zIndex: 0 }} />
+                          <div style={{ position: "absolute", top: 2, left: 2, right: -2, bottom: -2, borderRadius: 12, background: "#DDD6FE", transform: "rotate(2deg)", zIndex: 1 }} />
+                          <div style={{ position: "relative", zIndex: 2 }} className="aspect-square cursor-pointer group"
                           onClick={() => { if (!longPressFolder) setOpenFolder(folder); }}
                           onPointerDown={(e) => { const t = setTimeout(() => { setLongPressFolder(folder); }, 500); (e.currentTarget as HTMLElement).dataset.lpt = String(t); }}
                           onPointerUp={(e) => { clearTimeout(Number((e.currentTarget as HTMLElement).dataset.lpt)); }}
@@ -4115,6 +4119,7 @@ export default function App() {
                             <p className="text-[#111111] text-[10px] font-semibold truncate leading-tight">{folder.name}</p>
                             {(() => { const cnt = folder.mediaIds.filter((id) => mediaMap[id]).length; return <p className="text-[#888888] text-[8px]">{cnt} item{cnt !== 1 ? "s" : ""}</p>; })()}
                           </div>
+                          </div>{/* end inner content */}
                         </div>
                       );
                     })}
@@ -5802,18 +5807,19 @@ export default function App() {
                             dataUrl: liveItem.dataUrl?.substring(0, 100),
                             media_type: liveItem.media_type
                           });
-                          // Use liveItem (fresh from mediaItems state) so url is never stale
-                          const videoSrc = liveItem.url || undefined;
-                          console.log('[viewer] final videoSrc:', videoSrc);
+                          // Use liveItem (fresh from mediaItems state) — prefer url, fall back to dataUrl
+                          const videoSrc = liveItem.url || liveItem.dataUrl || null;
+                          console.log('[viewer] videoSrc:', videoSrc?.substring(0, 80));
+                          console.log('[viewer] url:', liveItem.url);
+                          console.log('[viewer] dataUrl:', liveItem.dataUrl?.substring(0, 80));
                           return videoSrc ? (
                           <video
-                            key={videoSrc}
+                            key={liveItem.id}
                             src={videoSrc}
                             poster={liveItem.thumbnail_url || (videoPosters[liveItem.id] ?? undefined)}
                             muted autoPlay loop playsInline controls preload="auto"
-                            onLoadStart={(e) => console.log('[viewer] id:', liveItem.id, 'name:', liveItem.name, 'src:', (e.target as HTMLVideoElement).src)}
-                            onError={(e) => console.error('[viewer] id:', liveItem.id, 'name:', liveItem.name, 'url:', liveItem.url, 'dataUrl:', liveItem.dataUrl?.slice(0, 80), 'error:', (e.target as HTMLVideoElement).error)}
-                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                            onError={(e) => console.error('[viewer] video error:', (e.target as HTMLVideoElement).src, (e.target as HTMLVideoElement).error)}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                           />
                           ) : (
                           <div className="relative w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
@@ -7519,7 +7525,8 @@ export default function App() {
               onChange={(e) => setRenameInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleRenameMedia(renameSheet, renameInput); }}
               placeholder="Enter a name…"
-              className={`w-full bg-[#F2F2F5] border ${border} rounded-xl px-4 py-3 text-sm text-white placeholder-[#888888] outline-none focus:border-[#6D28D9]`}
+              style={{ background: "#FFFFFF", color: "#111111", border: "1.5px solid #7C3AED", borderRadius: 10, padding: "10px 14px", fontSize: 15, fontWeight: 500, outline: "none", width: "100%", boxSizing: "border-box" }}
+              className="placeholder-[#AAAAAA]"
             />
             <div className="flex gap-3">
               <button onClick={() => setRenameSheet(null)} disabled={renameSaving}
