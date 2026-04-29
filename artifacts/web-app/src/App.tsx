@@ -1537,11 +1537,19 @@ export default function App() {
         });
         setApprovedPosts(posts);
         const captionSettingsRaw = settings.captionSettings ? JSON.parse(settings.captionSettings) : DEFAULT_CAPTION;
+        const normalizedCaptionSettings: CaptionSettings = {
+          ...DEFAULT_CAPTION,
+          ...captionSettingsRaw,
+          captionPrompt: captionSettingsRaw.captionPrompt === DEFAULT_CAPTION_PROMPT ? "" : (captionSettingsRaw.captionPrompt ?? ""),
+          tone: captionSettingsRaw.tone ?? "",
+          hashtags: captionSettingsRaw.hashtags ?? [],
+          customInstructions: captionSettingsRaw.customInstructions ?? "",
+        };
         const loaded: AppSettings = {
           notificationTime: settings.notificationTime ?? DEFAULT_NOTIFICATION_TIME,
           defaultScheduleTime: settings.defaultScheduleTime ?? DEFAULT_SCHEDULE_TIME,
           preferredTags: settings.preferredTags ? JSON.parse(settings.preferredTags) : DEFAULT_SETTINGS.preferredTags,
-          captionSettings: captionSettingsRaw,
+          captionSettings: normalizedCaptionSettings,
           customTags: settings.customTags ? JSON.parse(settings.customTags) : [],
           hiddenBaseTags: settings.hiddenBaseTags ? JSON.parse(settings.hiddenBaseTags) : [],
           instagramUsername: settings.instagramUsername ?? "",
@@ -1832,7 +1840,7 @@ export default function App() {
   useEffect(() => {
     const anyOpen = upgradeModalOpen || folderAddSourceSheet || viewerTagPickerOpen || editorSaveSheet ||
       discardConfirm || !!renameSheet || !!viewerItem || !!imageEditorItem || singlePickerOpen ||
-      folderPickerOpen || aiTypeModal || createPostModal;
+      folderPickerOpen || aiTypeModal || createPostModal || !!previewPost;
     if (anyOpen) {
       const scrollY = window.scrollY;
       document.body.style.overflow = "hidden";
@@ -1850,7 +1858,7 @@ export default function App() {
     return undefined;
   }, [upgradeModalOpen, folderAddSourceSheet, viewerTagPickerOpen, editorSaveSheet,
       discardConfirm, renameSheet, viewerItem, imageEditorItem, singlePickerOpen,
-      folderPickerOpen, aiTypeModal, createPostModal]); // eslint-disable-line
+      folderPickerOpen, aiTypeModal, createPostModal, previewPost]); // eslint-disable-line
 
   // Auto-expand caption textareas when value is set programmatically (e.g. AI generation)
   useEffect(() => {
@@ -3567,6 +3575,8 @@ export default function App() {
   const sd = settingsDraft ?? appSettings;
   return (
     <div className="min-h-screen bg-[#F5F4F9] text-[#111111] font-sans">
+      {/* iOS status bar area — fills behind clock/battery with purple */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: "env(safe-area-inset-top)", background: "#7C3AED", zIndex: 9999, pointerEvents: "none" }} />
       {/* Global toast */}
       {globalToast && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] bg-[#E8E8EE] text-[#111111] text-sm px-5 py-3 rounded-2xl shadow-2xl border border-[#D8D8E4] max-w-xs text-center pointer-events-none">
