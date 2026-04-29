@@ -4080,9 +4080,23 @@ export default function App() {
                       const imgs = folder.mediaIds.slice(0, 3).map((id) => mediaMap[id]).filter(Boolean) as MediaItem[];
                       return (
                         <div key={folder.id} style={{ position: "relative", paddingBottom: 4, paddingRight: 4 }}>
-                          {/* Fan layers — colored cards peeking behind */}
-                          <div style={{ position: "absolute", top: 4, left: 4, right: -4, bottom: -4, borderRadius: 12, background: "#C4B5FD", transform: "rotate(4deg)", zIndex: 0 }} />
-                          <div style={{ position: "absolute", top: 2, left: 2, right: -2, bottom: -2, borderRadius: 12, background: "#DDD6FE", transform: "rotate(2deg)", zIndex: 1 }} />
+                          {/* Fan layers — real preview images peeking behind */}
+                          {imgs[2] && (
+                            <div className="absolute inset-0 rounded-xl overflow-hidden border border-[#E0E0E8]"
+                              style={{ transform: "rotate(-7deg) scale(0.92)", zIndex: 1, opacity: 0.75 }}>
+                              {isVideo(imgs[2].dataUrl, imgs[2].media_type)
+                                ? (imgs[2].thumbnail_url || videoPosters[imgs[2].id] ? <img src={imgs[2].thumbnail_url || videoPosters[imgs[2].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#EAEAEF] flex items-center justify-center text-xl">🎥</div>)
+                                : <img src={imgs[2].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />}
+                            </div>
+                          )}
+                          {imgs[1] && (
+                            <div className="absolute inset-0 rounded-xl overflow-hidden border border-[#E0E0E8]"
+                              style={{ transform: "rotate(-3.5deg) scale(0.96)", zIndex: 2, opacity: 0.88 }}>
+                              {isVideo(imgs[1].dataUrl, imgs[1].media_type)
+                                ? (imgs[1].thumbnail_url || videoPosters[imgs[1].id] ? <img src={imgs[1].thumbnail_url || videoPosters[imgs[1].id]} alt="" loading="lazy" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#EAEAEF] flex items-center justify-center text-xl">🎥</div>)
+                                : <img src={imgs[1].dataUrl} alt="" loading="lazy" className="w-full h-full object-cover" />}
+                            </div>
+                          )}
                           <div style={{ position: "relative", zIndex: 2 }} className="aspect-square cursor-pointer group"
                           onClick={() => { if (!longPressFolder) setOpenFolder(folder); }}
                           onPointerDown={(e) => { const t = setTimeout(() => { setLongPressFolder(folder); }, 500); (e.currentTarget as HTMLElement).dataset.lpt = String(t); }}
