@@ -5723,7 +5723,7 @@ export default function App() {
           <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
-              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)' }}>
+              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
               {/* LEFT: filename pill + date below */}
               <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
                 {(liveItem.display_name || liveItem.name) && (
@@ -5805,7 +5805,7 @@ export default function App() {
                             media_type: liveItem.media_type
                           });
                           // Use liveItem (fresh from mediaItems state) — prefer url, fall back to dataUrl
-                          const videoSrc = liveItem.url ?? null;
+                          const videoSrc = (liveItem.url?.startsWith('http') ? liveItem.url : null) ?? (viewerItem?.url?.startsWith('http') ? viewerItem.url : null);
                           console.log('[viewer] videoSrc:', videoSrc?.substring(0, 80));
                           console.log('[viewer] url:', liveItem.url);
                           console.log('[viewer] dataUrl:', liveItem.dataUrl?.substring(0, 80));
@@ -6010,7 +6010,7 @@ export default function App() {
         return (
           <div className="fixed inset-0 z-50 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar */}
-            <div className="flex-shrink-0 flex items-center justify-between px-4 pb-3" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)' }}>
+            <div className="flex-shrink-0 flex items-center justify-between px-4 pb-3" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
               <button onClick={() => setImageEditorItem(null)} className="text-white/70 hover:text-white text-sm px-3 py-1.5 rounded-full border border-white/10 bg-black/30 transition-colors">Cancel</button>
               <span className="text-sm font-semibold text-white/90">Edit Photo</span>
               <button
@@ -6404,7 +6404,7 @@ export default function App() {
         return (
           <div className="fixed inset-0 z-40 flex flex-col bg-[#F5F4F9]" style={{ userSelect: "none" }}>
             {/* Top bar */}
-            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pb-3" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)' }}>
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-4 pb-3" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
               <div className="flex items-center gap-2">
                 {uItem.tag && (
                   <span className={`text-xs px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-sm border border-[#E8E8EE] leading-none flex items-center gap-1 ${tagColor(uItem.tag, appSettings.customTags)}`}>
@@ -6461,7 +6461,7 @@ export default function App() {
       {/* ── SINGLE POST POOL PICKER ── */}
       {singlePickerOpen && (
         <div className="fixed inset-0 z-40 flex flex-col bg-[#F5F4F9]">
-          <div className={`flex-shrink-0 flex items-center justify-between px-5 pb-4 border-b ${border} bg-[#F5F4F9]`} style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)' }}>
+          <div className={`flex-shrink-0 flex items-center justify-between px-5 pb-4 border-b ${border} bg-[#F5F4F9]`} style={{ paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
             <div>
               <p className="font-semibold">Choose Image</p>
               <p className={`text-xs ${dimText}`}>Tap any image to use it</p>
@@ -6505,7 +6505,7 @@ export default function App() {
       {/* ── ADD MORE ── */}
       {addMoreOpen && (
         <div className="fixed inset-0 z-30 flex flex-col bg-[#F5F4F9]">
-          <div className={`flex items-center justify-between px-5 pb-4 border-b ${border} bg-[#F5F4F9]`} style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)' }}>
+          <div className={`flex items-center justify-between px-5 pb-4 border-b ${border} bg-[#F5F4F9]`} style={{ paddingTop: 'calc(env(safe-area-inset-top) + 56px)' }}>
             <div><p className="font-semibold">Add Media Files</p><p className={`text-xs ${dimText}`}>{carouselIds.length}/{MAX_CAROUSEL} slides selected</p></div>
             <button onClick={() => setAddMoreOpen(false)} className={`${dimText} hover:text-[#111111] text-xl`}>✕</button>
           </div>
@@ -6570,7 +6570,7 @@ export default function App() {
         {/* Backdrop — pointer-events:none so nav bar remains clickable */}
         <div className="fixed inset-0 z-40 flex flex-col bg-black/95 backdrop-blur-sm" style={{ pointerEvents: 'none' }}>
           {/* Scrollable content — pointer-events:auto captures only card area */}
-          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) { setPreviewPost(null); setPreviewDotsOpen(false); } }}>
+          <div className="flex-1 overflow-y-auto flex flex-col items-center pb-4" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 56px)', pointerEvents: 'auto' }} onClick={(e) => { if (e.target === e.currentTarget) { setPreviewPost(null); setPreviewDotsOpen(false); } }}>
             {/* Instagram post card */}
             <div className="w-full max-w-sm bg-white border border-[#EBEBEB] rounded-b-xl text-[#111111]">
               {/* Post header — Instagram style */}
