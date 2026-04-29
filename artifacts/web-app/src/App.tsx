@@ -5812,84 +5812,15 @@ export default function App() {
                     {/* Current panel — only live video for the active item */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(liveItem.dataUrl, liveItem.media_type) ? (
-                        (() => {
-                          console.log('[viewer] video fields:', {
-                            url: liveItem.url,
-                            dataUrl: liveItem.dataUrl?.substring(0, 100),
-                            media_type: liveItem.media_type
-                          });
-                          // Use liveItem (fresh from mediaItems state) — prefer url, fall back to dataUrl
-                          const videoSrc = (liveItem.url?.startsWith('http') ? liveItem.url : null) ?? (viewerItem?.url?.startsWith('http') ? viewerItem.url : null);
-                          console.log('[viewer] videoSrc:', videoSrc?.substring(0, 80));
-                          console.log('[viewer] url:', liveItem.url);
-                          console.log('[viewer] dataUrl:', liveItem.dataUrl?.substring(0, 80));
-                          return videoSrc ? (
-                          <video
-                            key={liveItem.id}
-                            src={videoSrc}
-                            poster={liveItem.thumbnail_url || (videoPosters[liveItem.id] ?? undefined)}
-                            muted autoPlay loop playsInline controls preload="auto"
-                            onError={(e) => console.error('[viewer] video error:', (e.target as HTMLVideoElement).src, (e.target as HTMLVideoElement).error)}
-                            style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                          />
-                          ) : (
-                          <div className="relative w-full h-full bg-black flex flex-col items-center justify-center gap-3 text-white/60">
-                            {liveItem.thumbnail_url
-                              ? <img src={liveItem.thumbnail_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-20" />
-                              : null}
-                            <span className="relative text-4xl">⚠️</span>
-                            <span className="relative text-sm font-medium text-center px-6 text-white/70">
-                              Video file missing — tap below to re-upload
-                            </span>
-                            <button
-                              className="relative mt-1 px-5 py-2 rounded-full bg-white/15 hover:bg-white/25 active:bg-white/30 text-white text-sm font-semibold transition-colors"
-                              onClick={() => {
-                                const input = document.createElement("input");
-                                input.type = "file";
-                                input.accept = "video/*";
-                                input.onchange = async () => {
-                                  const file = input.files?.[0];
-                                  if (!file) return;
-                                  showGlobalToast("Re-uploading video…");
-                                  const reader = new FileReader();
-                                  reader.onload = async (ev) => {
-                                    const dataUrl = ev.target?.result as string;
-                                    const itemId = viewerItem.id;
-                                    const itemName = viewerItem.name;
-                                    try {
-                                      const saved = await apiPostWithTimeout("/media/upload", {
-                                        id: itemId, name: itemName, dataUrl,
-                                        tag: "video", fileHash: "", fileSize: file.size, dimensions: "",
-                                        media_type: "video",
-                                        thumbnail_url: viewerItem.thumbnail_url || "",
-                                        duration: viewerItem.duration || 0,
-                                      }, 180_000) as any;
-                                      const httpUrl2 = (s: any): string | undefined =>
-                                        typeof s === "string" && s.startsWith("http") ? s : undefined;
-                                      const newUrl = httpUrl2(saved.url);
-                                      if (newUrl) {
-                                        setMediaItems((prev) => prev.map((m) =>
-                                          m.id === itemId ? { ...m, url: newUrl, dataUrl: newUrl } : m));
-                                        setViewerItem((v) => v?.id === itemId ? { ...v, url: newUrl } : v);
-                                        showGlobalToast("Video fixed!");
-                                      } else {
-                                        showGlobalToast("Re-upload failed — try again");
-                                      }
-                                    } catch {
-                                      showGlobalToast("Re-upload failed — check connection");
-                                    }
-                                  };
-                                  reader.readAsDataURL(file);
-                                };
-                                input.click();
-                              }}
-                            >
-                              Re-upload video
-                            </button>
-                            {console.warn("[viewer] no URL for video id:", viewerItem.id, "name:", viewerItem.name) as never}
-                          </div>
-                        );
-                        })()
+                        <video
+                          key={viewerItem.id}
+                          src={viewerItem.url}
+                          poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
+                          muted autoPlay loop playsInline controls preload="auto"
+                          controlsList="nodownload nofullscreen"
+                          onError={(e) => console.error('[viewer] video error:', (e.target as HTMLVideoElement).src, (e.target as HTMLVideoElement).error)}
+                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+                        />
                       ) : (
                         <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
