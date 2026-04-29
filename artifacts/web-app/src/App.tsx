@@ -1521,15 +1521,12 @@ export default function App() {
         }
         // httpUrl: only accept https:// storage URLs for the url field (rejects empty strings)
         // anyUrl: also accept data: base64 strings for the dataUrl field
-        const httpUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && s.startsWith("http") ? s : undefined);
-        const anyUrl = (s: string | null | undefined): string | undefined => (typeof s === "string" && (s.startsWith("http") || s.startsWith("data:")) ? s : undefined);
         setMediaItems(items.map((i: MediaItem) => {
-          const resolvedUrl = httpUrl(i.url) ?? httpUrl(i.dataUrl) ?? undefined;
-          const resolvedDataUrl = anyUrl(i.url) ?? anyUrl(i.dataUrl) ?? undefined;
+          const resolvedUrl = (typeof i.url === "string" && i.url.startsWith("http")) ? i.url : undefined;
           return {
             ...i,
             url: resolvedUrl,
-            dataUrl: resolvedUrl ?? resolvedDataUrl ?? undefined,
+            dataUrl: resolvedUrl,
           };
         }));
         const firstVideo = items.find((i: any) => i.media_type === 'video');
