@@ -5789,6 +5789,16 @@ export default function App() {
                   onMouseUp={onViewerDragEnd}
                   onMouseLeave={onViewerDragEnd}
                 >
+                  {/* Video rendered outside the swipe strip, directly over the viewport */}
+                  {isVideo(liveItem.dataUrl, liveItem.media_type) && (
+                    <video
+                      key={viewerItem.id}
+                      src={viewerItem.url}
+                      poster={viewerItem.thumbnail_url || videoPosters[viewerItem.id]}
+                      muted autoPlay loop playsInline controls preload="auto"
+                      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 20 }}
+                    />
+                  )}
                   {/* 300%-wide flex strip — translateX(-33.333%) shows center panel */}
                   <div style={{
                     display: "flex",
@@ -5809,18 +5819,15 @@ export default function App() {
                           : <img src={prev.dataUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />;
                       })()}
                     </div>
-                    {/* Current panel — only live video for the active item */}
+                    {/* Current panel — thumbnail only for video (live video rendered above strip) */}
                     <div style={{ width: "33.333%", height: "100%", flexShrink: 0 }}>
                       {isVideo(liveItem.dataUrl, liveItem.media_type) ? (
-                        <video
-                          key={viewerItem.id}
-                          src={viewerItem.url}
-                          poster={viewerItem.thumbnail_url || (videoPosters[viewerItem.id] ?? undefined)}
-                          muted autoPlay loop playsInline controls preload="auto"
-                          controlsList="nodownload nofullscreen"
-                          onError={(e) => console.error('[viewer] video error:', (e.target as HTMLVideoElement).src, (e.target as HTMLVideoElement).error)}
-                          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-                        />
+                        (() => {
+                          const thumb = viewerItem.thumbnail_url || videoPosters[viewerItem.id];
+                          return thumb
+                            ? <img src={thumb} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                            : <div style={{ width: "100%", height: "100%", background: "hsl(220,14%,10%)" }} />;
+                        })()
                       ) : (
                         <img key={viewerItem.id} src={viewerItem.dataUrl} alt={viewerItem.name}
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
