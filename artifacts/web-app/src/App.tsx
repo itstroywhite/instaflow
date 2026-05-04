@@ -3674,7 +3674,7 @@ export default function App() {
       {/* NAV — two rows */}
       <header className="fixed top-0 left-0 right-0 z-50">
         {/* Row 1 — Purple logo bar */}
-        <div className="bg-[#7C3AED] flex items-center justify-center px-4 py-2">
+        <div className="bg-[#7C3AED] flex items-center justify-center px-4 py-2" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
           <span className="text-[15px] font-black tracking-[-0.5px] text-white select-none leading-none">
             Insta<span style={{ color: "rgba(255,255,255,0.55)" }}>Flow</span>
           </span>
@@ -3746,7 +3746,7 @@ export default function App() {
       )}
 
       <main
-        className="max-w-2xl mx-auto px-4 pb-6 pt-[88px]"
+        className="max-w-2xl mx-auto px-4 pb-6" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 88px)' }}
         onTouchStart={(e) => {
           pullStartY.current = e.touches[0].clientY;
         }}
@@ -5726,7 +5726,7 @@ export default function App() {
           ? new Date(viewerItem.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
           : "";
         return (
-          <div className="fixed inset-0 z-40 flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+          <div className="fixed inset-0 z-[60] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
             {/* Top bar — single strip, nothing overlaps */}
             <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
               style={{ paddingTop: 'max(env(safe-area-inset-top), 44px)' }}>
@@ -5764,7 +5764,7 @@ export default function App() {
             </div>
 
             {/* Main content — flex column, tap dark bg to close */}
-            <div className="flex-1 flex flex-col justify-center gap-3 pt-20 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
+            <div className="flex-1 flex flex-col justify-center gap-3 pb-6 overflow-y-auto" style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 44px) + 52px)' }} onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
 
               {/* ── Swipeable strip ── */}
               {/* Outer: relative wrapper for clip + badge overlays */}
@@ -5785,7 +5785,7 @@ export default function App() {
                   {isVideo(liveItem.dataUrl, liveItem.media_type) && (
                     <video
                       key={viewerItem.id}
-                      src={viewerItem.url}
+                      src={viewerItem.url ?? viewerItem.dataUrl}
                       poster={viewerItem.thumbnail_url || videoPosters[viewerItem.id]}
                       muted autoPlay loop playsInline controls preload="auto"
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 20 }}
