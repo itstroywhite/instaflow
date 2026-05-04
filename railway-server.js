@@ -1883,9 +1883,43 @@ async function ensureAvatarsBucket() {
 }
 
 // ── Instagram Auto-Posting ─────────────────────────────────────────────────────
-const IG_API_BASE = "https://graph.facebook.com/v19.0";
-const IG_TOKEN    = process.env.INSTAGRAM_ACCESS_TOKEN;
-const IG_USER_ID  = process.env.INSTAGRAM_USER_ID;
+const IG_API_BASE    = "https://graph.facebook.com/v19.0";
+const IG_APP_ID      = process.env.INSTAGRAM_APP_ID || "958270167021272";
+const IG_APP_SECRET  = process.env.INSTAGRAM_APP_SECRET;
+const IG_REDIRECT    = "https://instaflow-api.onrender.com/api/instagram/callback";
+
+// Let — updated in-memory when OAuth callback saves a fresh token
+let IG_TOKEN    = process.env.INSTAGRAM_ACCESS_TOKEN || null;
+let IG_USER_ID  = process.env.INSTAGRAM_USER_ID || null;
+
+// Load persisted credentials from app_settings (overrides env vars if present)
+async function loadIgCredentials() {
+  try {
+    const { rows } = await pool.query(
+      "SELECT key, value FROM app_settings WHERE key IN ('ig_access_token', 'ig_user_id')"
+    );
+    for (const r of rows) {
+      if (r.key === "ig_access_token" && r.value) { IG_TOKEN = r.value; console.log("[ig] access token loaded from DB"); }
+      if (r.key === "ig_user_id"      && r.value) { IG_USER_ID = r.value; console.log("[ig] user_id loaded from DB:", r.value); }
+    }
+  } catch (err) {
+    console.error("[ig] loadIgCredentials error:", err.message);
+  }
+}
+
+async function saveIgCredentials(token, userId) {
+  await pool.query(
+    "INSERT INTO app_settings (key, value) VALUES ('ig_access_token', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+    [token]
+  );
+  await pool.query(
+    "INSERT INTO app_settings (key, value) VALUES ('ig_user_id', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+    [userId]
+  );
+  IG_TOKEN   = token;
+  IG_USER_ID = userId;
+  igLog(`Credentials saved — user_id=${userId}`);
+}
 
 async function igPost(path, params) {
   const res = await fetch(`${IG_API_BASE}${path}`, {
@@ -2091,6 +2125,108 @@ async function runInstagramScheduler() {
   }
 }
 
+// ── OAuth: return the URL the user must open in their browser ─────────────────
+app.get("/api/instagram/auth-url", async (req, res) => {
+  const url = new URL("https://www.facebook.com/v19.0/dialog/oauth");
+  url.searchParams.set("client_id", IG_APP_ID);
+  url.searchParams.set("redirect_uri", IG_REDIRECT);
+  url.searchParams.set("scope", [
+    "instagram_basic",
+    "instagram_content_publish",
+    "pages_show_list",
+    "pages_read_engagement",
+    "business_management",
+  ].join(","));
+  url.searchParams.set("response_type", "code");
+  res.json({ auth_url: url.toString() });
+});
+
+// ── OAuth: Meta redirects here with ?code=... ─────────────────────────────────
+app.get("/api/instagram/callback", async (req, res) => {
+  const { code, error, error_description } = req.query;
+
+  if (error) {
+    return res.status(400).send(`<h2>OAuth Error</h2><p>${error}: ${error_description}</p>`);
+  }
+  if (!code) {
+    return res.status(400).send("<h2>Missing code parameter</h2>");
+  }
+  if (!IG_APP_SECRET) {
+    return res.status(500).send("<h2>INSTAGRAM_APP_SECRET not set on server</h2>");
+  }
+
+  try {
+    // 1 ── Short-lived token
+    const tokenRes = await fetch(`${IG_API_BASE}/oauth/access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: IG_APP_ID,
+        client_secret: IG_APP_SECRET,
+        redirect_uri: IG_REDIRECT,
+        code,
+      }).toString(),
+    });
+    const tokenData = await tokenRes.json();
+    if (tokenData.error) throw new Error(`Token exchange: ${tokenData.error.message} (code ${tokenData.error.code})`);
+    const shortToken = tokenData.access_token;
+
+    // 2 ── Long-lived token (60 days)
+    const longRes = await fetch(
+      `${IG_API_BASE}/oauth/access_token?grant_type=fb_exchange_token&client_id=${IG_APP_ID}&client_secret=${IG_APP_SECRET}&fb_exchange_token=${encodeURIComponent(shortToken)}`
+    );
+    const longData = await longRes.json();
+    if (longData.error) throw new Error(`Long-lived exchange: ${longData.error.message} (code ${longData.error.code})`);
+    const longToken = longData.access_token;
+    const expiresIn = longData.expires_in; // seconds (~5184000 = 60 days)
+
+    // 3 ── Discover connected Instagram Business Account ID
+    const pagesRes = await fetch(
+      `${IG_API_BASE}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(longToken)}`
+    );
+    const pagesData = await pagesRes.json();
+    if (pagesData.error) throw new Error(`Pages lookup: ${pagesData.error.message} (code ${pagesData.error.code})`);
+
+    let igUserId = null;
+    let igUsername = null;
+    for (const page of (pagesData.data || [])) {
+      if (page.instagram_business_account?.id) {
+        igUserId = page.instagram_business_account.id;
+        igUsername = page.instagram_business_account.username;
+        break;
+      }
+    }
+
+    if (!igUserId) {
+      return res.status(400).send(
+        `<h2>No Instagram Business Account found</h2>
+         <p>Make sure your Instagram account is a <strong>Professional (Creator or Business)</strong> account
+         and is linked to the Facebook Page you authorised.</p>
+         <pre>${JSON.stringify(pagesData, null, 2)}</pre>`
+      );
+    }
+
+    // 4 ── Persist to DB + update in-memory vars
+    await saveIgCredentials(longToken, igUserId);
+
+    const expiryDays = Math.round((expiresIn || 5184000) / 86400);
+    console.log(`[ig-oauth] Success — @${igUsername} (${igUserId}), token valid ~${expiryDays} days`);
+
+    res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>body{font-family:sans-serif;max-width:500px;margin:60px auto;text-align:center}
+      h1{color:#10b981}p{color:#444}code{background:#f3f4f6;padding:2px 6px;border-radius:4px}</style></head>
+      <body>
+        <h1>✓ Instagram connected</h1>
+        <p>Account: <strong>@${igUsername}</strong> (ID: <code>${igUserId}</code>)</p>
+        <p>Token is valid for approximately <strong>${expiryDays} days</strong>.</p>
+        <p>InstaFlow will now automatically post your scheduled content. You can close this tab.</p>
+      </body></html>`);
+  } catch (err) {
+    console.error("[ig-oauth] callback error:", err.message);
+    res.status(500).send(`<h2>OAuth failed</h2><pre>${err.message}</pre>`);
+  }
+});
+
 // Manual trigger for testing / debugging
 app.post("/api/instagram/trigger", requireAuth, async (req, res) => {
   try {
@@ -2165,13 +2301,7 @@ app.get("/api/instagram/debug", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`InstaFlow server running on port ${PORT}`);
-  console.log(`Supabase auth: ${supabaseAdmin ? "configured" : "NOT configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY"}`);
-  ensureAvatarsBucket();
-  // Push notification scheduler
-  setInterval(sendDailyPostReminders, 60 * 1000);
-  // Instagram auto-posting scheduler — fire immediately, then every minute
+function startIgScheduler() {
   if (IG_TOKEN && IG_USER_ID) {
     igSchedulerInitTime = new Date().toISOString();
     igLog(`Scheduler initialized — starting first run immediately`);
@@ -2179,9 +2309,23 @@ app.listen(PORT, () => {
     setInterval(runInstagramScheduler, 60 * 1000);
     console.log(`[ig] Auto-posting enabled for user_id=${IG_USER_ID}`);
   } else {
-    console.warn("[ig] INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_USER_ID not set — auto-posting disabled");
-    igLog(`NOT started — INSTAGRAM_ACCESS_TOKEN=${!!IG_TOKEN}, INSTAGRAM_USER_ID=${!!IG_USER_ID}`);
+    console.warn("[ig] No Instagram credentials — auto-posting disabled. Visit /api/instagram/auth-url to connect.");
+    igLog(`NOT started — token=${!!IG_TOKEN}, userId=${!!IG_USER_ID}`);
+    // Still register the interval — credentials may arrive via OAuth later
+    setInterval(runInstagramScheduler, 60 * 1000);
   }
+}
+
+app.listen(PORT, async () => {
+  console.log(`InstaFlow server running on port ${PORT}`);
+  console.log(`Supabase auth: ${supabaseAdmin ? "configured" : "NOT configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY"}`);
+  ensureAvatarsBucket();
+  // Push notification scheduler
+  setInterval(sendDailyPostReminders, 60 * 1000);
+  // Load IG credentials from DB (may override env vars with fresher OAuth token)
+  await loadIgCredentials();
+  // Instagram auto-posting scheduler — fire immediately, then every minute
+  startIgScheduler();
   // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
   const SELF_URL = 'https://instaflow-api.onrender.com/api/healthz';
   setInterval(async () => {
