@@ -2019,7 +2019,7 @@ async function runInstagramScheduler() {
              p.media_ids, p.user_id, pr.timezone
       FROM approved_posts p
       LEFT JOIN profiles pr ON pr.user_id = p.user_id
-      WHERE p.status = 'scheduled' AND p.scheduled_date IS NOT NULL
+      WHERE p.status IN ('scheduled', 'approved') AND p.scheduled_date IS NOT NULL
     `);
 
     const due = scheduledPosts.filter(p =>
@@ -2033,7 +2033,7 @@ async function runInstagramScheduler() {
     for (const post of due) {
       // Atomically claim the post to prevent double-posting
       const claim = await pool.query(
-        "UPDATE approved_posts SET status = 'posting' WHERE id = $1 AND status = 'scheduled' RETURNING id",
+        "UPDATE approved_posts SET status = 'posting' WHERE id = $1 AND status IN ('scheduled', 'approved') RETURNING id",
         [post.id]
       );
       if (claim.rowCount === 0) continue; // Already claimed by another instance

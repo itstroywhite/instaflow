@@ -3144,6 +3144,7 @@ export default function App() {
         scheduledDate: effectiveDate, scheduledTime: singleScheduleTime || appSettings.defaultScheduleTime,
         mediaIds: [singlePostItem.id], createdAt: new Date().toISOString(),
         timezone: userTimezone,
+        status: "scheduled",
         usedAICaption: postUsedAICaption, usedAITagging, usedVideo,
       };
       setApprovedPosts((prev) => [post, ...prev]);
@@ -3221,6 +3222,7 @@ export default function App() {
         scheduledTime: scheduleTime || appSettings.defaultScheduleTime,
         mediaIds: carouselIds, createdAt: new Date().toISOString(),
         timezone: userTimezone,
+        status: "scheduled",
         usedAICaption: postUsedAICaption, usedAITagging, usedVideo,
       };
       if (editingPost) {
