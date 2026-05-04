@@ -2008,6 +2008,15 @@ function isIgPostDue(scheduledDate, scheduledTime, timezone) {
   }
 }
 
+// ── Scheduler activity log (in-memory, last 50 entries) ───────────────────────
+const igSchedulerLog = [];
+function igLog(msg) {
+  const entry = { ts: new Date().toISOString(), msg };
+  igSchedulerLog.push(entry);
+  if (igSchedulerLog.length > 50) igSchedulerLog.shift();
+  console.log(`[ig-scheduler] ${msg}`);
+}
+
 let igSchedulerRunning = false;
 async function runInstagramScheduler() {
   if (!IG_TOKEN || !IG_USER_ID) return;
@@ -2026,9 +2035,7 @@ async function runInstagramScheduler() {
       isIgPostDue(p.scheduled_date, p.scheduled_time, p.timezone || "UTC")
     );
 
-    if (due.length > 0) {
-      console.log(`[ig-scheduler] ${due.length} post(s) due at ${new Date().toISOString()}`);
-    }
+    igLog(`Tick — ${scheduledPosts.length} candidate(s), ${due.length} due`);
 
     for (const post of due) {
       // Atomically claim the post to prevent double-posting
@@ -2036,9 +2043,9 @@ async function runInstagramScheduler() {
         "UPDATE approved_posts SET status = 'posting' WHERE id = $1 AND status IN ('scheduled', 'approved') RETURNING id",
         [post.id]
       );
-      if (claim.rowCount === 0) continue; // Already claimed by another instance
+      if (claim.rowCount === 0) { igLog(`Post ${post.id} already claimed — skipping`); continue; }
 
-      console.log(`[ig-scheduler] Publishing post ${post.id} for user ${post.user_id}`);
+      igLog(`Publishing post ${post.id} (user ${post.user_id})`);
       try {
         const mediaIds = post.media_ids ? JSON.parse(post.media_ids) : [];
         let mediaItems = [];
@@ -2058,9 +2065,9 @@ async function runInstagramScheduler() {
           [igPostId, post.id]
         );
         delete userPostsCache[post.user_id];
-        console.log(`[ig-scheduler] ✓ Post ${post.id} → IG ${igPostId}`);
+        igLog(`✓ Post ${post.id} → IG ${igPostId}`);
       } catch (err) {
-        console.error(`[ig-scheduler] ✗ Post ${post.id} failed:`, err.message);
+        igLog(`✗ Post ${post.id} failed: ${err.message}`);
         await pool.query(
           `UPDATE approved_posts SET status = 'failed', post_error = $1 WHERE id = $2`,
           [err.message.substring(0, 500), post.id]
@@ -2069,7 +2076,7 @@ async function runInstagramScheduler() {
       }
     }
   } catch (err) {
-    console.error("[ig-scheduler] Scheduler error:", err.message);
+    igLog(`Scheduler error: ${err.message}`);
   } finally {
     igSchedulerRunning = false;
   }
@@ -2095,6 +2102,55 @@ app.get("/api/instagram/status", requireAuth, async (req, res) => {
     res.json({ configured: true, account: data });
   } catch (err) {
     res.json({ configured: true, error: err.message });
+  }
+});
+
+// Public debug endpoint — no auth required
+app.get("/api/instagram/debug", async (req, res) => {
+  try {
+    const now = new Date();
+    const todayUtc = now.toISOString().slice(0, 10);
+
+    // Posts due today (scheduled_date = today server UTC, status in scheduled/approved)
+    const { rows: todayPosts } = await pool.query(`
+      SELECT p.id, p.caption, p.slide_count, p.scheduled_date, p.scheduled_time,
+             p.status, p.instagram_post_id, p.posted_at, p.post_error,
+             p.media_ids, p.user_id, pr.timezone
+      FROM approved_posts p
+      LEFT JOIN profiles pr ON pr.user_id = p.user_id
+      WHERE p.scheduled_date = $1
+        AND p.status IN ('scheduled', 'approved', 'posting', 'posted', 'failed')
+      ORDER BY p.scheduled_time ASC NULLS LAST
+    `, [todayUtc]);
+
+    // For each post also evaluate isPostDue
+    const postsWithDue = todayPosts.map(p => ({
+      id: p.id,
+      status: p.status,
+      scheduled_date: p.scheduled_date,
+      scheduled_time: p.scheduled_time,
+      timezone: p.timezone || "UTC",
+      slide_count: p.slide_count,
+      media_ids_count: p.media_ids ? JSON.parse(p.media_ids).length : 0,
+      instagram_post_id: p.instagram_post_id || null,
+      posted_at: p.posted_at || null,
+      post_error: p.post_error || null,
+      is_due_now: isIgPostDue(p.scheduled_date, p.scheduled_time, p.timezone || "UTC"),
+      caption_preview: (p.caption || "").substring(0, 60),
+    }));
+
+    res.json({
+      server_time_utc: now.toISOString(),
+      server_time_local: now.toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
+      instagram_token_set: !!IG_TOKEN,
+      instagram_user_id_set: !!IG_USER_ID,
+      instagram_user_id: IG_USER_ID || null,
+      scheduler_running: igSchedulerRunning,
+      scheduler_log_last_20: igSchedulerLog.slice(-20),
+      posts_today_db: postsWithDue,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
