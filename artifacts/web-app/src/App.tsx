@@ -2130,14 +2130,18 @@ export default function App() {
           showGlobalToast("File too large — max 50MB");
           continue;
         }
+        // Re-type QuickTime/MOV as video/mp4 so the dataUrl header is correct
+        const fileForUpload = (f.type === "video/quicktime" || f.name.toLowerCase().endsWith(".mov"))
+          ? new File([f], f.name, { type: "video/mp4" })
+          : f;
         const [thumbUrl, duration] = await Promise.all([
-          captureVideoThumbnail(f),
-          getVideoDurationFromFile(f),
+          captureVideoThumbnail(fileForUpload),
+          getVideoDurationFromFile(fileForUpload),
         ]);
         const dataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target?.result as string);
-          reader.readAsDataURL(f);
+          reader.readAsDataURL(fileForUpload);
         });
         const item: MediaItem = {
           id: generateId(), name: f.name, tag: "video", analyzing: false,
@@ -3672,7 +3676,7 @@ export default function App() {
       )}
 
       {/* NAV — two rows */}
-      <header className="fixed top-0 left-0 right-0 z-50">
+      <header className="fixed top-0 left-0 right-0 z-[70]">
         {/* Row 1 — Purple logo bar */}
         <div className="bg-[#7C3AED] flex items-center justify-center px-4 py-2" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 8px)' }}>
           <span className="text-[15px] font-black tracking-[-0.5px] text-white select-none leading-none">
@@ -5726,10 +5730,9 @@ export default function App() {
           ? new Date(viewerItem.createdAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })
           : "";
         return (
-          <div className="fixed inset-0 z-[60] flex flex-col bg-[hsl(220,14%,6%)]" style={{ userSelect: "none" }}>
+          <div className="fixed left-0 right-0 bottom-0 z-[60] flex flex-col bg-[hsl(220,14%,6%)]" style={{ top: 'calc(env(safe-area-inset-top) + 88px)', userSelect: "none" }}>
             {/* Top bar — single strip, nothing overlaps */}
-            <div className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-3 pb-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]"
-              style={{ paddingTop: 'max(env(safe-area-inset-top), 44px)' }}>
+            <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-3 py-2 bg-black/60 backdrop-blur-md border-b border-white/[0.06]">
               {/* LEFT: filename pill + date below */}
               <div className="flex flex-col gap-1 min-w-0 flex-1 mr-3">
                 {(liveItem.display_name || liveItem.name) && (
@@ -5764,7 +5767,7 @@ export default function App() {
             </div>
 
             {/* Main content — flex column, tap dark bg to close */}
-            <div className="flex-1 flex flex-col justify-center gap-3 pb-6 overflow-y-auto" style={{ paddingTop: 'calc(max(env(safe-area-inset-top), 44px) + 52px)' }} onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
+            <div className="flex-1 flex flex-col justify-center gap-3 pt-14 pb-6 overflow-y-auto" onClick={() => { setViewerItem(null); setViewerTagPickerOpen(false); }}>
 
               {/* ── Swipeable strip ── */}
               {/* Outer: relative wrapper for clip + badge overlays */}
@@ -5789,7 +5792,9 @@ export default function App() {
                       poster={viewerItem.thumbnail_url || videoPosters[viewerItem.id]}
                       muted autoPlay loop playsInline controls preload="auto"
                       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain", zIndex: 20 }}
-                    />
+                    >
+                      <source src={viewerItem.url ?? viewerItem.dataUrl} type="video/mp4" />
+                    </video>
                   )}
                   {/* 300%-wide flex strip — translateX(-33.333%) shows center panel */}
                   <div style={{
