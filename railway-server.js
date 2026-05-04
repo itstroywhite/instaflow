@@ -2010,6 +2010,8 @@ function isIgPostDue(scheduledDate, scheduledTime, timezone) {
 
 // ── Scheduler activity log (in-memory, last 50 entries) ───────────────────────
 const igSchedulerLog = [];
+let igSchedulerInitTime = null;
+let igSchedulerLastTickTime = null;
 function igLog(msg) {
   const entry = { ts: new Date().toISOString(), msg };
   igSchedulerLog.push(entry);
@@ -2019,9 +2021,16 @@ function igLog(msg) {
 
 let igSchedulerRunning = false;
 async function runInstagramScheduler() {
-  if (!IG_TOKEN || !IG_USER_ID) return;
-  if (igSchedulerRunning) return;
+  if (!IG_TOKEN || !IG_USER_ID) {
+    igLog(`Skipped — env vars missing (token=${!!IG_TOKEN}, userId=${!!IG_USER_ID})`);
+    return;
+  }
+  if (igSchedulerRunning) {
+    igLog("Skipped — previous run still in progress");
+    return;
+  }
   igSchedulerRunning = true;
+  igSchedulerLastTickTime = new Date().toISOString();
   try {
     const { rows: scheduledPosts } = await pool.query(`
       SELECT p.id, p.caption, p.slide_count, p.scheduled_date, p.scheduled_time,
@@ -2145,7 +2154,9 @@ app.get("/api/instagram/debug", async (req, res) => {
       instagram_token_set: !!IG_TOKEN,
       instagram_user_id_set: !!IG_USER_ID,
       instagram_user_id: IG_USER_ID || null,
-      scheduler_running: igSchedulerRunning,
+      scheduler_initialized_at: igSchedulerInitTime,
+      scheduler_last_tick: igSchedulerLastTickTime,
+      scheduler_currently_running: igSchedulerRunning,
       scheduler_log_last_20: igSchedulerLog.slice(-20),
       posts_today_db: postsWithDue,
     });
@@ -2160,12 +2171,16 @@ app.listen(PORT, () => {
   ensureAvatarsBucket();
   // Push notification scheduler
   setInterval(sendDailyPostReminders, 60 * 1000);
-  // Instagram auto-posting scheduler — runs every minute
-  setInterval(runInstagramScheduler, 60 * 1000);
+  // Instagram auto-posting scheduler — fire immediately, then every minute
   if (IG_TOKEN && IG_USER_ID) {
+    igSchedulerInitTime = new Date().toISOString();
+    igLog(`Scheduler initialized — starting first run immediately`);
+    runInstagramScheduler();
+    setInterval(runInstagramScheduler, 60 * 1000);
     console.log(`[ig] Auto-posting enabled for user_id=${IG_USER_ID}`);
   } else {
     console.warn("[ig] INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_USER_ID not set — auto-posting disabled");
+    igLog(`NOT started — INSTAGRAM_ACCESS_TOKEN=${!!IG_TOKEN}, INSTAGRAM_USER_ID=${!!IG_USER_ID}`);
   }
   // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
   const SELF_URL = 'https://instaflow-api.onrender.com/api/healthz';
