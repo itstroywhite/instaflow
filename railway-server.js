@@ -275,6 +275,10 @@ async function ensureTables() {
       settings JSONB NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS instagram_post_id TEXT;
+    ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ;
+    ALTER TABLE approved_posts ADD COLUMN IF NOT EXISTS post_error TEXT;
   `);
   await pool.query(`DELETE FROM approved_posts WHERE user_id = '1ed0fef8-adda-43b7-bfcc-74c2702bf01c'`);
   console.log('[cleanup] deleted all posts for test user');
@@ -1878,12 +1882,235 @@ async function ensureAvatarsBucket() {
   }
 }
 
+// ── Instagram Auto-Posting ─────────────────────────────────────────────────────
+const IG_API_BASE = "https://graph.facebook.com/v19.0";
+const IG_TOKEN    = process.env.INSTAGRAM_ACCESS_TOKEN;
+const IG_USER_ID  = process.env.INSTAGRAM_USER_ID;
+
+async function igPost(path, params) {
+  const res = await fetch(`${IG_API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ access_token: IG_TOKEN, ...params }),
+  });
+  const data = await res.json();
+  if (data.error) throw new Error(`IG API: ${data.error.message} (code ${data.error.code})`);
+  return data;
+}
+
+async function igGet(path, params = {}) {
+  const url = new URL(`${IG_API_BASE}${path}`);
+  url.searchParams.set("access_token", IG_TOKEN);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if (data.error) throw new Error(`IG API: ${data.error.message} (code ${data.error.code})`);
+  return data;
+}
+
+async function waitForIgVideo(creationId, maxWaitMs = 300_000) {
+  const deadline = Date.now() + maxWaitMs;
+  while (Date.now() < deadline) {
+    const data = await igGet(`/${creationId}`, { fields: "status_code,status" });
+    if (data.status_code === "FINISHED") return;
+    if (data.status_code === "ERROR") throw new Error(`IG video processing error: ${data.status}`);
+    await new Promise(r => setTimeout(r, 8000));
+  }
+  throw new Error("IG video processing timed out (>5 min)");
+}
+
+function isIgVideo(mediaType) {
+  return (mediaType || "").startsWith("video");
+}
+
+async function publishPostToInstagram(post, mediaItems) {
+  if (!IG_TOKEN || !IG_USER_ID) throw new Error("Instagram credentials not configured (INSTAGRAM_ACCESS_TOKEN / INSTAGRAM_USER_ID missing)");
+  const caption = post.caption || "";
+  const items = mediaItems.filter(m => m.url && m.url.startsWith("http"));
+  if (items.length === 0) throw new Error("No public media URLs found for this post");
+
+  if (items.length === 1) {
+    const item = items[0];
+    if (isIgVideo(item.media_type)) {
+      // ── Reel ──────────────────────────────────────────────────────────────
+      console.log(`[ig] Creating Reel for post ${post.id}: ${item.url.substring(0, 80)}`);
+      const container = await igPost(`/${IG_USER_ID}/media`, {
+        media_type: "REELS",
+        video_url: item.url,
+        caption,
+        share_to_feed: true,
+      });
+      await waitForIgVideo(container.id);
+      const result = await igPost(`/${IG_USER_ID}/media_publish`, { creation_id: container.id });
+      console.log(`[ig] Reel published, ig_id=${result.id}`);
+      return result.id;
+    } else {
+      // ── Single Image ───────────────────────────────────────────────────────
+      console.log(`[ig] Creating single image post for ${post.id}`);
+      const container = await igPost(`/${IG_USER_ID}/media`, {
+        image_url: item.url,
+        caption,
+      });
+      const result = await igPost(`/${IG_USER_ID}/media_publish`, { creation_id: container.id });
+      console.log(`[ig] Image post published, ig_id=${result.id}`);
+      return result.id;
+    }
+  } else {
+    // ── Carousel ─────────────────────────────────────────────────────────────
+    console.log(`[ig] Creating carousel (${items.length} items) for post ${post.id}`);
+    const childIds = [];
+    for (const item of items) {
+      if (isIgVideo(item.media_type)) {
+        const child = await igPost(`/${IG_USER_ID}/media`, {
+          media_type: "VIDEO",
+          video_url: item.url,
+          is_carousel_item: true,
+        });
+        await waitForIgVideo(child.id);
+        childIds.push(child.id);
+      } else {
+        const child = await igPost(`/${IG_USER_ID}/media`, {
+          image_url: item.url,
+          is_carousel_item: true,
+        });
+        childIds.push(child.id);
+      }
+    }
+    const container = await igPost(`/${IG_USER_ID}/media`, {
+      media_type: "CAROUSEL",
+      children: childIds.join(","),
+      caption,
+    });
+    const result = await igPost(`/${IG_USER_ID}/media_publish`, { creation_id: container.id });
+    console.log(`[ig] Carousel published, ig_id=${result.id}, children=${childIds.length}`);
+    return result.id;
+  }
+}
+
+// Returns true if the post is due in the user's local timezone
+function isIgPostDue(scheduledDate, scheduledTime, timezone) {
+  try {
+    const time = scheduledTime || "09:00";
+    const now = new Date();
+    const fmt = new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone || "UTC",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
+    });
+    const parts = {};
+    for (const p of fmt.formatToParts(now)) parts[p.type] = p.value;
+    const nowDate = `${parts.year}-${parts.month}-${parts.day}`;
+    const hour = parts.hour === "24" ? "00" : parts.hour;
+    const nowTime = `${hour}:${parts.minute}`;
+    return nowDate > scheduledDate || (nowDate === scheduledDate && nowTime >= time);
+  } catch {
+    return false;
+  }
+}
+
+let igSchedulerRunning = false;
+async function runInstagramScheduler() {
+  if (!IG_TOKEN || !IG_USER_ID) return;
+  if (igSchedulerRunning) return;
+  igSchedulerRunning = true;
+  try {
+    const { rows: scheduledPosts } = await pool.query(`
+      SELECT p.id, p.caption, p.slide_count, p.scheduled_date, p.scheduled_time,
+             p.media_ids, p.user_id, pr.timezone
+      FROM approved_posts p
+      LEFT JOIN profiles pr ON pr.user_id = p.user_id
+      WHERE p.status = 'scheduled' AND p.scheduled_date IS NOT NULL
+    `);
+
+    const due = scheduledPosts.filter(p =>
+      isIgPostDue(p.scheduled_date, p.scheduled_time, p.timezone || "UTC")
+    );
+
+    if (due.length > 0) {
+      console.log(`[ig-scheduler] ${due.length} post(s) due at ${new Date().toISOString()}`);
+    }
+
+    for (const post of due) {
+      // Atomically claim the post to prevent double-posting
+      const claim = await pool.query(
+        "UPDATE approved_posts SET status = 'posting' WHERE id = $1 AND status = 'scheduled' RETURNING id",
+        [post.id]
+      );
+      if (claim.rowCount === 0) continue; // Already claimed by another instance
+
+      console.log(`[ig-scheduler] Publishing post ${post.id} for user ${post.user_id}`);
+      try {
+        const mediaIds = post.media_ids ? JSON.parse(post.media_ids) : [];
+        let mediaItems = [];
+        if (mediaIds.length > 0) {
+          const { rows } = await pool.query(
+            `SELECT id, url, media_type, thumbnail_url FROM media_items WHERE id = ANY($1) AND user_id = $2`,
+            [mediaIds, post.user_id]
+          );
+          const byId = new Map(rows.map(m => [m.id, m]));
+          mediaItems = mediaIds.map(id => byId.get(id)).filter(Boolean);
+        }
+
+        const igPostId = await publishPostToInstagram(post, mediaItems);
+
+        await pool.query(
+          `UPDATE approved_posts SET status = 'posted', instagram_post_id = $1, posted_at = NOW(), post_error = NULL WHERE id = $2`,
+          [igPostId, post.id]
+        );
+        delete userPostsCache[post.user_id];
+        console.log(`[ig-scheduler] ✓ Post ${post.id} → IG ${igPostId}`);
+      } catch (err) {
+        console.error(`[ig-scheduler] ✗ Post ${post.id} failed:`, err.message);
+        await pool.query(
+          `UPDATE approved_posts SET status = 'failed', post_error = $1 WHERE id = $2`,
+          [err.message.substring(0, 500), post.id]
+        );
+        delete userPostsCache[post.user_id];
+      }
+    }
+  } catch (err) {
+    console.error("[ig-scheduler] Scheduler error:", err.message);
+  } finally {
+    igSchedulerRunning = false;
+  }
+}
+
+// Manual trigger for testing / debugging
+app.post("/api/instagram/trigger", requireAuth, async (req, res) => {
+  try {
+    await runInstagramScheduler();
+    res.json({ ok: true, message: "Scheduler triggered" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Status check — returns IG account info to verify credentials
+app.get("/api/instagram/status", requireAuth, async (req, res) => {
+  if (!IG_TOKEN || !IG_USER_ID) {
+    return res.json({ configured: false, reason: "INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_USER_ID not set" });
+  }
+  try {
+    const data = await igGet(`/${IG_USER_ID}`, { fields: "id,name,username" });
+    res.json({ configured: true, account: data });
+  } catch (err) {
+    res.json({ configured: true, error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`InstaFlow server running on port ${PORT}`);
   console.log(`Supabase auth: ${supabaseAdmin ? "configured" : "NOT configured — set SUPABASE_URL and SUPABASE_SERVICE_KEY"}`);
   ensureAvatarsBucket();
-  // Run push reminder check every 5 minutes (scheduler fires near the user's configured time)
+  // Push notification scheduler
   setInterval(sendDailyPostReminders, 60 * 1000);
+  // Instagram auto-posting scheduler — runs every minute
+  setInterval(runInstagramScheduler, 60 * 1000);
+  if (IG_TOKEN && IG_USER_ID) {
+    console.log(`[ig] Auto-posting enabled for user_id=${IG_USER_ID}`);
+  } else {
+    console.warn("[ig] INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_USER_ID not set — auto-posting disabled");
+  }
   // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
   const SELF_URL = 'https://instaflow-api.onrender.com/api/healthz';
   setInterval(async () => {
