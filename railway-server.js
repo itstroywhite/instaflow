@@ -2236,29 +2236,75 @@ app.get("/api/instagram/callback", async (req, res) => {
     const longToken = longData.access_token;
     const expiresIn = longData.expires_in; // seconds (~5184000 = 60 days)
 
-    // 3 ── Discover connected Instagram Business Account ID
+    // 3 ── Discover connected Instagram Business Account ID (try multiple methods)
+    let igUserId = null;
+    let igUsername = null;
+
+    // Method A: /me/accounts → linked Facebook Pages → instagram_business_account
     const pagesRes = await fetch(
       `${IG_API_BASE}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(longToken)}`
     );
     const pagesData = await pagesRes.json();
-    if (pagesData.error) throw new Error(`Pages lookup: ${pagesData.error.message} (code ${pagesData.error.code})`);
+    if (!pagesData.error) {
+      for (const page of (pagesData.data || [])) {
+        if (page.instagram_business_account?.id) {
+          igUserId = page.instagram_business_account.id;
+          igUsername = page.instagram_business_account.username;
+          break;
+        }
+      }
+    }
 
-    let igUserId = null;
-    let igUsername = null;
-    for (const page of (pagesData.data || [])) {
-      if (page.instagram_business_account?.id) {
-        igUserId = page.instagram_business_account.id;
-        igUsername = page.instagram_business_account.username;
-        break;
+    // Method B: token may itself be scoped to an IG Business account (Business App flow)
+    // Try /me?fields=id,username,instagram_business_account
+    if (!igUserId) {
+      const meRes = await fetch(
+        `${IG_API_BASE}/me?fields=id,name,username,instagram_business_account{id,username}&access_token=${encodeURIComponent(longToken)}`
+      );
+      const meData = await meRes.json();
+      if (!meData.error) {
+        if (meData.instagram_business_account?.id) {
+          igUserId = meData.instagram_business_account.id;
+          igUsername = meData.instagram_business_account.username;
+        } else if (meData.id) {
+          // Method C: token IS the Instagram user token directly
+          // Verify it's an IG Business account
+          const igCheckRes = await fetch(
+            `${IG_API_BASE}/${meData.id}?fields=id,username,account_type&access_token=${encodeURIComponent(longToken)}`
+          );
+          const igCheck = await igCheckRes.json();
+          if (!igCheck.error && igCheck.account_type && igCheck.account_type !== 'PERSONAL') {
+            igUserId = igCheck.id;
+            igUsername = igCheck.username;
+          }
+        }
       }
     }
 
     if (!igUserId) {
-      return res.status(400).send(
-        `<h2>No Instagram Business Account found</h2>
-         <p>Make sure your Instagram account is a <strong>Professional (Creator or Business)</strong> account
-         and is linked to the Facebook Page you authorised.</p>
-         <pre>${JSON.stringify(pagesData, null, 2)}</pre>`
+      // Show full debug info to help diagnose
+      const meDebugRes = await fetch(`${IG_API_BASE}/me?fields=id,name,username&access_token=${encodeURIComponent(longToken)}`);
+      const meDebug = await meDebugRes.json();
+      return res.status(400).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+        <style>body{font-family:sans-serif;max-width:640px;margin:40px auto;padding:0 20px}
+        pre{background:#f5f5f5;padding:12px;border-radius:6px;overflow:auto;font-size:12px}
+        .warn{background:#fff8e1;border-left:4px solid #f9a825;padding:12px 16px;border-radius:4px;margin:16px 0}
+        .btn{display:inline-block;padding:10px 20px;background:#1877f2;color:#fff;text-decoration:none;border-radius:6px;margin-top:16px}</style></head><body>
+        <h2>No Instagram Business Account found</h2>
+        <div class="warn">
+          <strong>Most likely cause:</strong> The Facebook account you logged in with does not manage
+          a <strong>Facebook Page</strong> that is linked to your Instagram Business account.<br><br>
+          In Instagram → Settings → Account type and tools → Link to Facebook, make sure your
+          <strong>Instagram Business account is connected to a Facebook Page</strong> that you admin.
+        </div>
+        <p><strong>/me response (token identity):</strong></p>
+        <pre>${JSON.stringify(meDebug, null, 2)}</pre>
+        <p><strong>/me/accounts response (Facebook Pages):</strong></p>
+        <pre>${JSON.stringify(pagesData, null, 2)}</pre>
+        <p>If your Instagram account is definitely a Business account linked to a Facebook Page,
+        try logging in with the Facebook account that <strong>administers that Page</strong>.</p>
+        <a class="btn" href="/api/instagram/auth-url">Try again →</a>
+        </body></html>`
       );
     }
 
