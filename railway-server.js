@@ -2328,6 +2328,22 @@ app.get("/api/instagram/callback", async (req, res) => {
         <p><strong>/me/accounts (Facebook Pages):</strong></p>
         <pre>${JSON.stringify(pagesData, null, 2)}</pre>
 
+        <hr style="margin:32px 0">
+        <h3>Manual override</h3>
+        <p>If you know your Instagram Business Account ID (find it via
+          <a href="https://developers.facebook.com/tools/explorer/" target="_blank">Graph API Explorer</a>
+          → search <code>me?fields=id</code> with your token, or check your Instagram settings),
+          you can enter it directly below:</p>
+        <form method="GET" action="/api/instagram/set-manual-id">
+          <input type="hidden" name="token" value="${encodeURIComponent(longToken)}">
+          <input type="text" name="ig_user_id" placeholder="Instagram Business Account ID (numbers only)"
+            style="padding:8px 12px;border:1px solid #ccc;border-radius:6px;width:280px;font-size:1em">
+          <button type="submit"
+            style="padding:8px 16px;background:#10b981;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:1em;margin-left:8px">
+            Save
+          </button>
+        </form>
+
         <a class="btn" href="/api/instagram/auth-url">Try again →</a>
         </body></html>`
       );
@@ -2375,6 +2391,38 @@ app.get("/api/instagram/status", requireAuth, async (req, res) => {
   } catch (err) {
     res.json({ configured: true, error: err.message });
   }
+});
+
+// Manual override: save a known IG Business Account ID + existing token
+app.get("/api/instagram/set-manual-id", async (req, res) => {
+  const { token: rawToken, ig_user_id } = req.query;
+  if (!rawToken || !ig_user_id) {
+    return res.status(400).send("<h2>Missing token or ig_user_id</h2>");
+  }
+  const longToken = decodeURIComponent(String(rawToken));
+  const igUserId  = String(ig_user_id).trim();
+
+  // Verify the ID is actually an IG Business/Creator account
+  const checkRes = await fetch(
+    `${IG_API_BASE}/${igUserId}?fields=id,username,account_type&access_token=${encodeURIComponent(longToken)}`
+  );
+  const check = await checkRes.json();
+  if (check.error) {
+    return res.status(400).send(`<h2>Invalid Instagram Account ID</h2><pre>${JSON.stringify(check, null, 2)}</pre>`);
+  }
+
+  await saveIgCredentials(longToken, igUserId);
+  console.log(`[ig-oauth] Manual override — @${check.username} (${igUserId}), type: ${check.account_type}`);
+
+  res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>body{font-family:sans-serif;max-width:500px;margin:60px auto;text-align:center}
+    h1{color:#10b981}code{background:#f3f4f6;padding:2px 6px;border-radius:4px}</style></head>
+    <body>
+    <h1>✓ Connected!</h1>
+    <p>Instagram account <code>@${check.username}</code> (ID: <code>${igUserId}</code>) saved.</p>
+    <p>Type: <strong>${check.account_type}</strong></p>
+    <p>You can close this window. InstaFlow will now auto-post to your Instagram account.</p>
+    </body></html>`);
 });
 
 // Public debug endpoint — no auth required
