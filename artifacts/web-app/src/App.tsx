@@ -143,8 +143,8 @@ function formatDay(dateStr: string) {
 function formatDayShort(dateStr: string) {
   return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 }
-function isVideo(dataUrl: string, mediaType?: string | null) {
-  return mediaType === "video" || dataUrl.startsWith("data:video/") || /\.(mp4|mov|avi|webm)(\?|$)/i.test(dataUrl);
+function isVideo(dataUrl: string | null | undefined, mediaType?: string | null) {
+  return mediaType === "video" || (dataUrl ?? "").startsWith("data:video/") || /\.(mp4|mov|avi|webm)(\?|$)/i.test(dataUrl ?? "");
 }
 
 const FILTER_PRESETS = [
