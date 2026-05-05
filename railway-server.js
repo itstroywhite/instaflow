@@ -2150,6 +2150,10 @@ app.get("/api/instagram/auth-url", async (req, res) => {
     ].join(","));
   }
 
+  // Force Facebook to show the full permission dialog again (including Page selection),
+  // even if the user has previously authorized the app.
+  url.searchParams.set("auth_type", "rerequest");
+
   const authUrl = url.toString();
 
   // If the request comes from a browser (Accept: text/html), redirect directly to Facebook.
