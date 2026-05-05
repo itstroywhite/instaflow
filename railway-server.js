@@ -2136,7 +2136,6 @@ app.get("/api/instagram/auth-url", async (req, res) => {
     "instagram_content_publish",
     "pages_show_list",
     "pages_read_engagement",
-    "business_management",
   ].join(","));
   url.searchParams.set("response_type", "code");
   const authUrl = url.toString();
