@@ -1884,7 +1884,8 @@ async function ensureAvatarsBucket() {
 
 // ── Instagram Auto-Posting ─────────────────────────────────────────────────────
 const IG_API_BASE    = "https://graph.facebook.com/v19.0";
-const IG_APP_ID      = process.env.INSTAGRAM_APP_ID || "958270167021272";
+// Facebook App ID (used for OAuth) — always 958270167021272, NOT the Instagram App ID
+const IG_APP_ID      = process.env.FACEBOOK_APP_ID || "958270167021272";
 const IG_APP_SECRET  = process.env.INSTAGRAM_APP_SECRET;
 const IG_REDIRECT    = "https://instaflow-api.onrender.com/api/instagram/callback";
 
