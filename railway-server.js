@@ -2139,7 +2139,15 @@ app.get("/api/instagram/auth-url", async (req, res) => {
     "business_management",
   ].join(","));
   url.searchParams.set("response_type", "code");
-  res.json({ auth_url: url.toString() });
+  const authUrl = url.toString();
+
+  // If the request comes from a browser (Accept: text/html), redirect directly to Facebook.
+  // API/JSON clients receive the URL as before.
+  const acceptsHtml = (req.headers.accept || "").includes("text/html");
+  if (acceptsHtml) {
+    return res.redirect(authUrl);
+  }
+  res.json({ auth_url: authUrl });
 });
 
 // ── OAuth: Meta redirects here with ?code=... ─────────────────────────────────
@@ -2150,7 +2158,21 @@ app.get("/api/instagram/callback", async (req, res) => {
     return res.status(400).send(`<h2>OAuth Error</h2><p>${error}: ${error_description}</p>`);
   }
   if (!code) {
-    return res.status(400).send("<h2>Missing code parameter</h2>");
+    const receivedParams = JSON.stringify(req.query, null, 2);
+    return res.status(400).send(`
+      <h2>OAuth Callback: Missing <code>code</code> Parameter</h2>
+      <p>Facebook did not send an authorization code. This usually means one of:</p>
+      <ul>
+        <li>The <strong>redirect URI</strong> in your Facebook App Dashboard doesn't exactly match
+          <code>${IG_REDIRECT}</code></li>
+        <li>The user denied the permission dialog</li>
+        <li>The app is in <strong>Development Mode</strong> and the Facebook account isn't added as a tester</li>
+        <li>The <strong>Facebook App ID</strong> is wrong (currently: <code>${IG_APP_ID}</code>)</li>
+      </ul>
+      <p><strong>Query parameters received:</strong></p>
+      <pre>${receivedParams || "(none)"}</pre>
+      <p><a href="/api/instagram/auth-url">Try again →</a></p>
+    `);
   }
   if (!IG_APP_SECRET) {
     return res.status(500).send("<h2>INSTAGRAM_APP_SECRET not set on server</h2>");
