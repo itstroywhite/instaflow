@@ -2159,19 +2159,41 @@ app.get("/api/instagram/callback", async (req, res) => {
   }
   if (!code) {
     const receivedParams = JSON.stringify(req.query, null, 2);
-    return res.status(400).send(`
+    const noParams = Object.keys(req.query).length === 0;
+    return res.status(400).send(`<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>Instagram OAuth</title>
+      <style>
+        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 60px auto; padding: 0 20px; color: #333; }
+        h2 { color: #d00; }
+        code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+        pre { background: #f5f5f5; padding: 12px; border-radius: 6px; }
+        .btn { display: inline-block; margin-top: 20px; padding: 12px 24px; background: #1877f2; color: #fff;
+               text-decoration: none; border-radius: 8px; font-size: 1em; font-weight: 600; }
+        .warn { background: #fff8e1; border-left: 4px solid #f9a825; padding: 12px 16px; border-radius: 4px; margin: 16px 0; }
+      </style></head><body>
       <h2>OAuth Callback: Missing <code>code</code> Parameter</h2>
-      <p>Facebook did not send an authorization code. This usually means one of:</p>
+
+      ${noParams ? `
+      <div class="warn">
+        <strong>No query parameters were received.</strong><br>
+        This means you navigated directly to this URL instead of going through the Facebook login flow.<br>
+        Please click the button below to start the OAuth flow correctly.
+      </div>` : `
+      <p>Facebook redirected back without an authorization code. Possible reasons:</p>
       <ul>
-        <li>The <strong>redirect URI</strong> in your Facebook App Dashboard doesn't exactly match
+        <li>The <strong>redirect URI</strong> in your Facebook App Dashboard doesn't exactly match:<br>
           <code>${IG_REDIRECT}</code></li>
         <li>The user denied the permission dialog</li>
-        <li>The app is in <strong>Development Mode</strong> and the Facebook account isn't added as a tester</li>
-        <li>The <strong>Facebook App ID</strong> is wrong (currently: <code>${IG_APP_ID}</code>)</li>
-      </ul>
+        <li>The app is in <strong>Development Mode</strong> — the Facebook account must be added as a Tester
+            in the App Dashboard under <em>Roles → Test Users</em></li>
+        <li>Wrong Facebook App ID (currently using: <code>${IG_APP_ID}</code>)</li>
+      </ul>`}
+
       <p><strong>Query parameters received:</strong></p>
       <pre>${receivedParams || "(none)"}</pre>
-      <p><a href="/api/instagram/auth-url">Try again →</a></p>
+
+      <a class="btn" href="/api/instagram/auth-url">▶ Start Facebook Login →</a>
+      </body></html>
     `);
   }
   if (!IG_APP_SECRET) {
