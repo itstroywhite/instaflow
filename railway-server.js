@@ -1888,6 +1888,10 @@ const IG_API_BASE    = "https://graph.facebook.com/v19.0";
 const IG_APP_ID      = process.env.FACEBOOK_APP_ID || "958270167021272";
 const IG_APP_SECRET  = process.env.INSTAGRAM_APP_SECRET;
 const IG_REDIRECT    = "https://instaflow-api.onrender.com/api/instagram/callback";
+// For Meta Business Apps, set IG_CONFIG_ID to the config_id from
+// "Facebook Login for Business" → "Konfigurationen" in the App Dashboard.
+// When set, the OAuth URL uses config_id instead of individual scopes.
+const IG_CONFIG_ID   = process.env.IG_CONFIG_ID || null;
 
 // Let — updated in-memory when OAuth callback saves a fresh token
 let IG_TOKEN    = process.env.INSTAGRAM_ACCESS_TOKEN || null;
@@ -2131,13 +2135,21 @@ app.get("/api/instagram/auth-url", async (req, res) => {
   const url = new URL("https://www.facebook.com/v19.0/dialog/oauth");
   url.searchParams.set("client_id", IG_APP_ID);
   url.searchParams.set("redirect_uri", IG_REDIRECT);
-  url.searchParams.set("scope", [
-    "instagram_basic",
-    "instagram_content_publish",
-    "pages_show_list",
-    "pages_read_engagement",
-  ].join(","));
   url.searchParams.set("response_type", "code");
+
+  if (IG_CONFIG_ID) {
+    // Meta Business App: use config_id (permissions defined by the configuration in App Dashboard)
+    url.searchParams.set("config_id", IG_CONFIG_ID);
+  } else {
+    // Regular Facebook Login app: specify scopes explicitly
+    url.searchParams.set("scope", [
+      "instagram_basic",
+      "instagram_content_publish",
+      "pages_show_list",
+      "pages_read_engagement",
+    ].join(","));
+  }
+
   const authUrl = url.toString();
 
   // If the request comes from a browser (Accept: text/html), redirect directly to Facebook.
@@ -2146,7 +2158,7 @@ app.get("/api/instagram/auth-url", async (req, res) => {
   if (acceptsHtml) {
     return res.redirect(authUrl);
   }
-  res.json({ auth_url: authUrl });
+  res.json({ auth_url: authUrl, config_id_used: IG_CONFIG_ID || null });
 });
 
 // ── OAuth: Meta redirects here with ?code=... ─────────────────────────────────
