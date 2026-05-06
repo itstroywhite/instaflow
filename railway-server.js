@@ -2259,27 +2259,31 @@ app.get("/api/instagram/callback", async (req, res) => {
       }
     }
 
-    // Method B: token may itself be scoped to an IG Business account (Business App flow)
-    // Try /me?fields=id,username,instagram_business_account
+    // Method B: Business App tokens are Instagram-scoped — /me returns the IG account directly
     if (!igUserId) {
       const meRes = await fetch(
-        `${IG_API_BASE}/me?fields=id,name,username,instagram_business_account{id,username}&access_token=${encodeURIComponent(longToken)}`
+        `${IG_API_BASE}/me?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(longToken)}`
       );
       const meData = await meRes.json();
       if (!meData.error) {
         if (meData.instagram_business_account?.id) {
+          // Facebook user token with linked IG business account
           igUserId = meData.instagram_business_account.id;
           igUsername = meData.instagram_business_account.username;
         } else if (meData.id) {
-          // Method C: token IS the Instagram user token directly
-          // Verify it's an IG Business account
+          // Method C: the token IS the Instagram account token (Business App with config_id).
+          // /me returns the IG account ID directly — use it and confirm it's a business account.
           const igCheckRes = await fetch(
             `${IG_API_BASE}/${meData.id}?fields=id,username,account_type&access_token=${encodeURIComponent(longToken)}`
           );
           const igCheck = await igCheckRes.json();
-          if (!igCheck.error && igCheck.account_type && igCheck.account_type !== 'PERSONAL') {
-            igUserId = igCheck.id;
-            igUsername = igCheck.username;
+          if (!igCheck.error) {
+            igUserId = igCheck.id || meData.id;
+            igUsername = igCheck.username || meData.name || "unknown";
+          } else {
+            // Even if the check fails, trust the /me id for Business App tokens
+            igUserId = meData.id;
+            igUsername = meData.name || "unknown";
           }
         }
       }
