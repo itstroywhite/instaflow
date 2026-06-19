@@ -2449,6 +2449,55 @@ app.get("/api/instagram/set-manual-id", async (req, res) => {
     </body></html>`);
 });
 
+// ONE-TIME cleanup: delete ALL media for ALL users (remove after use)
+app.get("/api/admin/clear-all-media", async (req, res) => {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+  const log = [];
+
+  // 1. Delete all storage files in the "media" bucket
+  if (supabaseUrl && supabaseKey) {
+    try {
+      // list root of media bucket (all user folders)
+      const listRes = await fetch(`${supabaseUrl}/storage/v1/object/list/media`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ prefix: "", limit: 1000, delimiter: "" }),
+      });
+      if (listRes.ok) {
+        const files = await listRes.json();
+        const names = (files || []).map(f => f.name).filter(Boolean);
+        if (names.length > 0) {
+          const delRes = await fetch(`${supabaseUrl}/storage/v1/object/media`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${supabaseKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ prefixes: names }),
+          });
+          log.push(`Storage: deleted ${names.length} files, status ${delRes.status}`);
+        } else {
+          log.push("Storage: no files found");
+        }
+      } else {
+        log.push(`Storage list failed: ${listRes.status}`);
+      }
+    } catch (e) {
+      log.push(`Storage error: ${e.message}`);
+    }
+  } else {
+    log.push("Storage skipped: SUPABASE_URL/SUPABASE_SERVICE_KEY not set");
+  }
+
+  // 2. Delete all rows from media_items table
+  try {
+    const { rowCount } = await pool.query("DELETE FROM media_items");
+    log.push(`DB: deleted ${rowCount} rows from media_items`);
+  } catch (e) {
+    log.push(`DB error: ${e.message}`);
+  }
+
+  res.json({ done: true, log });
+});
+
 // Public debug endpoint — no auth required
 app.get("/api/instagram/debug", async (req, res) => {
   const now = new Date();
