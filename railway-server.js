@@ -1913,17 +1913,25 @@ async function loadIgCredentials() {
 }
 
 async function saveIgCredentials(token, userId) {
-  await pool.query(
-    "INSERT INTO app_settings (key, value) VALUES ('ig_access_token', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
-    [token]
-  );
-  await pool.query(
-    "INSERT INTO app_settings (key, value) VALUES ('ig_user_id', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
-    [userId]
-  );
+  // Always update in-memory immediately so the scheduler works this session
   IG_TOKEN   = token;
   IG_USER_ID = userId;
-  igLog(`Credentials saved — user_id=${userId}`);
+  igLog(`Credentials set in-memory — user_id=${userId}`);
+
+  // Persist to DB — non-fatal if DB is unavailable (Supabase paused, etc.)
+  try {
+    await pool.query(
+      "INSERT INTO app_settings (key, value) VALUES ('ig_access_token', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+      [token]
+    );
+    await pool.query(
+      "INSERT INTO app_settings (key, value) VALUES ('ig_user_id', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
+      [userId]
+    );
+    igLog(`Credentials persisted to DB — user_id=${userId}`);
+  } catch (dbErr) {
+    console.error("[ig-oauth] DB persist failed (non-fatal):", dbErr.message);
+  }
 }
 
 async function igPost(path, params) {
