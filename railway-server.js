@@ -2251,6 +2251,7 @@ app.get("/api/instagram/callback", async (req, res) => {
       `https://graph.instagram.com/me?fields=id,username&access_token=${encodeURIComponent(longToken)}`
     );
     const igMeData = await igMeRes.json();
+    console.log(`[ig-oauth] graph.instagram.com/me response:`, JSON.stringify(igMeData));
     if (!igMeData.error && igMeData.id) {
       igUserId = igMeData.id;
       igUsername = igMeData.username || "unknown";
@@ -2262,6 +2263,7 @@ app.get("/api/instagram/callback", async (req, res) => {
         `${IG_API_BASE}/me/accounts?fields=id,name,instagram_business_account{id,username}&access_token=${encodeURIComponent(longToken)}`
       );
       pagesData = await pagesRes.json();
+      console.log(`[ig-oauth] /me/accounts response:`, JSON.stringify(pagesData));
       if (!pagesData.error) {
         for (const page of (pagesData.data || [])) {
           if (page.instagram_business_account?.id) {
@@ -2309,11 +2311,13 @@ app.get("/api/instagram/callback", async (req, res) => {
           → link to the Facebook Page you administer.
         </div>`}
 
+        <p><strong>graph.instagram.com/me (primary method):</strong></p>
+        <pre>${JSON.stringify(igMeData, null, 2)}</pre>
         <p><strong>Granted permissions:</strong></p>
         <pre>${grantedPerms.join(', ') || '(none)'}</pre>
-        <p><strong>/me (token identity):</strong></p>
+        <p><strong>/me (Facebook token identity):</strong></p>
         <pre>${JSON.stringify(meDebug, null, 2)}</pre>
-        <p><strong>/me/accounts (Facebook Pages):</strong></p>
+        <p><strong>/me/accounts (Facebook Pages fallback):</strong></p>
         <pre>${JSON.stringify(pagesData, null, 2)}</pre>
 
         <hr style="margin:32px 0">
