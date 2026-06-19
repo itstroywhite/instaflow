@@ -2451,11 +2451,27 @@ app.get("/api/instagram/set-manual-id", async (req, res) => {
 
 // Public debug endpoint — no auth required
 app.get("/api/instagram/debug", async (req, res) => {
-  try {
-    const now = new Date();
-    const todayUtc = now.toISOString().slice(0, 10);
+  const now = new Date();
+  const todayUtc = now.toISOString().slice(0, 10);
 
-    // Posts due today (scheduled_date = today server UTC, status in scheduled/approved)
+  // Core info always comes from in-memory — no DB required
+  const result = {
+    server_time_utc: now.toISOString(),
+    server_time_local: now.toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
+    instagram_token_set: !!IG_TOKEN,
+    instagram_token_preview: IG_TOKEN ? IG_TOKEN.substring(0, 20) + "..." : null,
+    instagram_token_full: IG_TOKEN || null,
+    instagram_user_id: IG_USER_ID || null,
+    scheduler_initialized_at: igSchedulerInitTime,
+    scheduler_last_tick: igSchedulerLastTickTime,
+    scheduler_currently_running: igSchedulerRunning,
+    scheduler_log_last_20: igSchedulerLog.slice(-20),
+    db_status: "unknown",
+    posts_today_db: [],
+  };
+
+  // DB query is optional — show what we can if DB is unavailable
+  try {
     const { rows: todayPosts } = await pool.query(`
       SELECT p.id, p.caption, p.slide_count, p.scheduled_date, p.scheduled_time,
              p.status, p.instagram_post_id, p.posted_at, p.post_error,
@@ -2467,8 +2483,8 @@ app.get("/api/instagram/debug", async (req, res) => {
       ORDER BY p.scheduled_time ASC NULLS LAST
     `, [todayUtc]);
 
-    // For each post also evaluate isPostDue
-    const postsWithDue = todayPosts.map(p => ({
+    result.db_status = "connected";
+    result.posts_today_db = todayPosts.map(p => ({
       id: p.id,
       status: p.status,
       scheduled_date: p.scheduled_date,
@@ -2482,22 +2498,11 @@ app.get("/api/instagram/debug", async (req, res) => {
       is_due_now: isIgPostDue(p.scheduled_date, p.scheduled_time, p.timezone || "UTC"),
       caption_preview: (p.caption || "").substring(0, 60),
     }));
-
-    res.json({
-      server_time_utc: now.toISOString(),
-      server_time_local: now.toLocaleString("de-DE", { timeZone: "Europe/Berlin" }),
-      instagram_token_set: !!IG_TOKEN,
-      instagram_user_id_set: !!IG_USER_ID,
-      instagram_user_id: IG_USER_ID || null,
-      scheduler_initialized_at: igSchedulerInitTime,
-      scheduler_last_tick: igSchedulerLastTickTime,
-      scheduler_currently_running: igSchedulerRunning,
-      scheduler_log_last_20: igSchedulerLog.slice(-20),
-      posts_today_db: postsWithDue,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+  } catch (dbErr) {
+    result.db_status = "unavailable: " + dbErr.message;
   }
+
+  res.json(result);
 });
 
 function startIgScheduler() {
