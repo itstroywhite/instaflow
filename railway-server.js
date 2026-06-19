@@ -2275,6 +2275,20 @@ app.get("/api/instagram/callback", async (req, res) => {
       }
     }
 
+    // Method C (last resort): For Business App tokens, graph.facebook.com/me returns the
+    // Instagram Business Account ID directly in the `id` field (not a Facebook User ID).
+    // This happens when the token is scoped to an Instagram account via config_id OAuth.
+    if (!igUserId) {
+      const fbMeRes = await fetch(`${IG_API_BASE}/me?fields=id,name&access_token=${encodeURIComponent(longToken)}`);
+      const fbMeData = await fbMeRes.json();
+      console.log(`[ig-oauth] graph.facebook.com/me response:`, JSON.stringify(fbMeData));
+      if (!fbMeData.error && fbMeData.id) {
+        igUserId = fbMeData.id;
+        igUsername = fbMeData.name || "unknown";
+        console.log(`[ig-oauth] Method C: using /me id ${igUserId} as IG Business Account ID`);
+      }
+    }
+
     if (!igUserId) {
       // Show full debug info to help diagnose
       const [meDebugRes, permRes] = await Promise.all([
@@ -2385,7 +2399,7 @@ app.get("/api/instagram/status", requireAuth, async (req, res) => {
   }
 });
 
-// Manual override: save a known IG Business Account ID + existing token
+// Manual override: save a known IG Business Account ID + existing token (no validation)
 app.get("/api/instagram/set-manual-id", async (req, res) => {
   const { token: rawToken, ig_user_id } = req.query;
   if (!rawToken || !ig_user_id) {
@@ -2394,26 +2408,17 @@ app.get("/api/instagram/set-manual-id", async (req, res) => {
   const longToken = decodeURIComponent(String(rawToken));
   const igUserId  = String(ig_user_id).trim();
 
-  // Verify the ID is actually an IG Business/Creator account
-  const checkRes = await fetch(
-    `${IG_API_BASE}/${igUserId}?fields=id,username,account_type&access_token=${encodeURIComponent(longToken)}`
-  );
-  const check = await checkRes.json();
-  if (check.error) {
-    return res.status(400).send(`<h2>Invalid Instagram Account ID</h2><pre>${JSON.stringify(check, null, 2)}</pre>`);
-  }
-
   await saveIgCredentials(longToken, igUserId);
-  console.log(`[ig-oauth] Manual override — @${check.username} (${igUserId}), type: ${check.account_type}`);
+  console.log(`[ig-oauth] Manual override — saved IG User ID ${igUserId}`);
 
   res.send(`<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>body{font-family:sans-serif;max-width:500px;margin:60px auto;text-align:center}
     h1{color:#10b981}code{background:#f3f4f6;padding:2px 6px;border-radius:4px}</style></head>
     <body>
     <h1>✓ Connected!</h1>
-    <p>Instagram account <code>@${check.username}</code> (ID: <code>${igUserId}</code>) saved.</p>
-    <p>Type: <strong>${check.account_type}</strong></p>
-    <p>You can close this window. InstaFlow will now auto-post to your Instagram account.</p>
+    <p>Instagram account ID <code>${igUserId}</code> saved with your access token.</p>
+    <p>You can close this window. InstaFlow will now attempt to auto-post to your Instagram account.</p>
+    <p style="color:#888;font-size:0.9em">Check <a href="/api/instagram/debug">debug page</a> to confirm the scheduler is running.</p>
     </body></html>`);
 });
 
