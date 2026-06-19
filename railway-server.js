@@ -1934,6 +1934,25 @@ async function saveIgCredentials(token, userId) {
   }
 }
 
+// Auto-refresh the long-lived token before it expires (Meta allows refresh anytime)
+async function refreshIgToken() {
+  if (!IG_TOKEN) return;
+  try {
+    const url = `https://graph.facebook.com/oauth/access_token?grant_type=fb_exchange_token&client_id=${IG_APP_ID}&client_secret=${IG_APP_SECRET}&fb_exchange_token=${encodeURIComponent(IG_TOKEN)}`;
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (data.error) {
+      console.error("[ig-refresh] Token refresh failed:", data.error.message);
+      return;
+    }
+    const newToken = data.access_token;
+    await saveIgCredentials(newToken, IG_USER_ID);
+    console.log(`[ig-refresh] Token refreshed — new expiry ~${Math.round((data.expires_in || 5184000) / 86400)} days`);
+  } catch (err) {
+    console.error("[ig-refresh] Unexpected error:", err.message);
+  }
+}
+
 async function igPost(path, params) {
   const res = await fetch(`${IG_API_BASE}${path}`, {
     method: "POST",
@@ -2504,6 +2523,10 @@ app.listen(PORT, async () => {
   setInterval(sendDailyPostReminders, 60 * 1000);
   // Load IG credentials from DB (may override env vars with fresher OAuth token)
   await loadIgCredentials();
+  // Refresh token on startup (extends expiry by another 60 days each time)
+  await refreshIgToken();
+  // Re-refresh every 30 days so it never expires
+  setInterval(refreshIgToken, 30 * 24 * 60 * 60 * 1000);
   // Instagram auto-posting scheduler — fire immediately, then every minute
   startIgScheduler();
   // Keep-alive ping every 14 minutes to prevent Render free tier from sleeping
